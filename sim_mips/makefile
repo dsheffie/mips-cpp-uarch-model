@@ -1,6 +1,6 @@
 OBJ = main.o loadelf.o parseMips.o helper.o profileMips.o
 CXX = g++ -march=native
-EXE = interp_mips
+EXE = sim_mips
 OPT = -O3
 CXXFLAGS = -std=c++11 -g $(OPT) -Wextra -Wno-unused-parameter
 DEP = $(OBJ:.o=.d)

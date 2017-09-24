@@ -133,8 +133,6 @@ static void _movzd(uint32_t inst, state_t *s);
 static void _movzs(uint32_t inst, state_t *s);
 
 void initState(state_t *s) {
-  memset(s, 0, sizeof(state_t));
-  /* setup the status register */
   s->cpr0[12] |= 1<<2;
   s->cpr0[12] |= 1<<22;
 }
@@ -163,10 +161,12 @@ void mkMonitorVectors(state_t *s) {
 }
 
 void execMips(state_t *s) {
-  uint8_t *mem = s->mem;
-  uint32_t inst = accessBigEndian(*(uint32_t*)(mem + s->pc));
+  sparse_mem &mem = s->mem;
+  uint32_t inst = accessBigEndian(mem.get32(s->pc));
+  
   //std::cout << std::hex << s->pc << std::dec << " : "
   //<< getAsmString(inst, s->pc) << "\n";
+  
   uint32_t opcode = inst>>26;
   bool isRType = (opcode==0);
   bool isJType = ((opcode>>1)==1);
@@ -1050,7 +1050,7 @@ static void _lbu(uint32_t inst, state_t *s)
   int32_t imm = (int32_t)himm;
   
   uint32_t ea = s->gpr[rs] + imm;
-  uint32_t zExt = (uint32_t)s->mem[ea];
+  uint32_t zExt = (uint32_t)s->mem.at(ea);
   *((uint32_t*)&(s->gpr[rt])) = zExt;
   s->pc += 4;
 }
@@ -1108,7 +1108,7 @@ static void _sb(uint32_t inst, state_t *s)
   int32_t imm = (int32_t)himm;
     
   uint32_t ea = s->gpr[rs] + imm;
-  s->mem[ea] = (uint8_t)s->gpr[rt];
+  s->mem.at(ea) = (uint8_t)s->gpr[rt];
   s->pc +=4;
 }
 
@@ -1127,9 +1127,6 @@ static void _mfc1(uint32_t inst, state_t *s)
   s->gpr[rt] = s->cpr1[rd];
   s->pc +=4;
 }
-
-
-
 
 static void _monitor(uint32_t inst, state_t *s){
   _monitorBody(inst, s);

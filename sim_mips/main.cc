@@ -68,19 +68,10 @@ int main(int argc, char *argv[]) {
   sysArgc = buildArgcArgv(filename,sysArgs,&sysArgv);
   initParseTables();
 
-  int rc = posix_memalign((void**)&s, pgSize, pgSize); 
+  sparse_mem *sm = new sparse_mem(1UL<<32);
+  s = new state_t(*sm);
   initState(s);
 
-  void* mempt = mmap(nullptr, 1UL<<32, PROT_READ | PROT_WRITE,
-		     MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
-  assert(mempt != reinterpret_cast<void*>(-1));
-  assert(madvise(mempt, 1UL<<32, MADV_DONTNEED)==0);
-  s->mem = reinterpret_cast<uint8_t*>(mempt);
-  if(s->mem == nullptr) {
-    std::cerr << "INTERP : couldn't allocate backing memory!\n";
-    exit(-1);
-  }
-  
   load_elf(filename, s);
   mkMonitorVectors(s);
 
@@ -91,7 +82,6 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "%sINTERP: %g sec, %zu ins executed, %g megains / sec%s\n", 
 	  KGRN, runtime, (size_t)s->icnt, s->icnt / (runtime*1e6), KNRM);
   
-  munmap(mempt, 1UL<<32);
   if(sysArgs)
     free(sysArgs);
   if(sysArgv) {
@@ -100,7 +90,9 @@ int main(int argc, char *argv[]) {
     }
     delete [] sysArgv;
   }
-  free(s);
+  
+  delete s;
+  delete sm;
   return 0;
 }
 

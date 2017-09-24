@@ -1,9 +1,3 @@
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <errno.h>
-
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
@@ -12,40 +6,34 @@
 #include <cstdint>
 #include <list>
 
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <errno.h>
+#include <elf.h>
 
 #include "helper.hh"
 #include "profileMips.hh"
 
-#ifdef __APPLE__
-#include "TargetConditionals.h"
-#ifdef TARGET_OS_MAC
-#include "osx_elf.h"
-#endif
-#else
-#include <elf.h>
-#endif
 
 static const uint8_t magicArr[4] = {0x7f, 'E', 'L', 'F'};
-bool checkElf(const Elf32_Ehdr *eh32) {
+static bool checkElf(const Elf32_Ehdr *eh32) {
   uint8_t *identArr = (uint8_t*)eh32->e_ident;
   return memcmp((void*)magicArr, identArr, 4)==0;
 }
-
-bool check32Bit(const Elf32_Ehdr *eh32) {
+static bool check32Bit(const Elf32_Ehdr *eh32) {
   return (eh32->e_ident[EI_CLASS] == ELFCLASS32);
 }
-
-bool checkBigEndian(const Elf32_Ehdr *eh32) {
+static bool checkBigEndian(const Elf32_Ehdr *eh32) {
   return (eh32->e_ident[EI_DATA] == ELFDATA2MSB);
 }
-
-bool checkLittleEndian(const Elf32_Ehdr *eh32) {
+static bool checkLittleEndian(const Elf32_Ehdr *eh32) {
   return (eh32->e_ident[EI_DATA] == ELFDATA2LSB);
 }
 
 
-void load_elf(const char* fn, state_t *ms)
-{
+void load_elf(const char* fn, state_t *ms) {
   struct stat s;
   Elf32_Ehdr *eh32 = nullptr;
   Elf32_Phdr* ph32 = nullptr;
@@ -54,7 +42,7 @@ void load_elf(const char* fn, state_t *ms)
   size_t pgSize = getpagesize();
   int fd,rc;
   char *buf = nullptr;
-  uint8_t *mem = ms->mem;
+  sparse_mem &mem = ms->mem;
 
   fd = open(fn, O_RDONLY);
   if(fd<0) {
@@ -110,30 +98,12 @@ void load_elf(const char* fn, state_t *ms)
     if(p_type == SHT_PROGBITS && p_memsz) {
       if( (p_vaddr + p_memsz) > lAddr)
 	lAddr = (p_vaddr + p_memsz);
-      
-      memset(mem+p_vaddr, 0, sizeof(uint8_t)*p_memsz);
-      memcpy(mem+p_vaddr, (uint8_t*)(buf + p_offset),
-	     sizeof(uint8_t)*p_filesz);
-    }
-  }
-  /* Iterate through code sections and
-   * mark as no-write. Tag with extra-special
-   * metadata (DBS_PROT_INSN) that these
-   * are instructions */
-  for(int32_t i = 0; i < e_shnum; i++, sh32++) {
-    int32_t f = accessBigEndian(sh32->sh_flags);
-    if(f & SHF_EXECINSTR) {
-      uint32_t addr = accessBigEndian(sh32->sh_addr);
-      int32_t size = accessBigEndian(sh32->sh_size);
-      bool pgAligned = ((addr & 4095) == 0);
-      if(pgAligned) {
-	size = (size / pgSize) * pgSize;
-	void *mpaddr = (void*)(mem+addr);
-	rc = mprotect(mpaddr, size, PROT_READ);
-	if(rc != 0) {
-	  printf("mprotect rc = %d, error(%d) = %s\n", rc, 
-		 errno, strerror(errno));
-	}
+
+      for(int32_t cc = 0; cc < p_memsz; cc++) {
+	mem.at(cc+p_vaddr) = 0;
+      }
+      for(int32_t cc = 0; cc < p_filesz; cc++) {
+	mem.at(cc+p_vaddr) = reinterpret_cast<uint8_t*>(buf + p_offset)[cc];
       }
     }
   }

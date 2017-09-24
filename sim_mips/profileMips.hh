@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstdio>
+#include <cstring>
+#include <iostream>
+#include <cassert>
 
 /* from gdb simulator */
 #define RSVD_INSTRUCTION           (0x00000005)
@@ -48,18 +51,102 @@ typedef struct {
   uint32_t st_spare4[2];
 } stat32_t;
 
-typedef struct {
+class sparse_mem {
+private:
+  static const uint64_t pgsize = 4096;
+  size_t npages = 0;
+  uint8_t **mem = nullptr;
+  bool is_zero(uint64_t p) const {
+    for(uint64_t i = 0; i < pgsize; i++) {
+      if(mem[p][i])
+	return false;
+    }
+    return true;
+  }
+public:
+  sparse_mem(uint64_t nbytes) {
+    npages = (nbytes+pgsize-1) / pgsize;
+    mem = new uint8_t*[npages];
+    memset(mem, 0, sizeof(uint8_t*)*npages);
+  }
+  sparse_mem(const sparse_mem &other) {
+    npages = other.npages;
+    for(size_t i = 0; i < npages; i++) {
+      if(other.mem[i]) {
+	mem[i] = new uint8_t[pgsize];
+	memcpy(mem[i], other.mem[i], pgsize);
+      }
+    }
+  }
+  ~sparse_mem() {
+    for(size_t i = 0; i < npages; i++) {
+      if(mem[i]) {
+	delete [] mem[i];
+      }
+    }
+    delete [] mem;
+  }
+  uint8_t & at(uint64_t addr) {
+    uint64_t paddr = addr / pgsize;
+    uint64_t baddr = addr % pgsize;
+    if(mem[paddr]==nullptr) {
+      mem[paddr] = new uint8_t[pgsize];
+      memset(mem[paddr],0,pgsize);
+    }
+    return mem[paddr][baddr];
+  }
+  uint8_t * operator[](uint64_t addr) {
+    uint64_t paddr = addr / pgsize;
+    uint64_t baddr = addr % pgsize;
+    if(mem[paddr]==nullptr) {
+      mem[paddr] = new uint8_t[pgsize];
+      memset(mem[paddr],0,pgsize);
+    }
+    return &mem[paddr][baddr];
+  }
+  uint32_t& get32(uint64_t byte_addr) {
+    uint64_t paddr = byte_addr / pgsize;
+    uint64_t baddr = byte_addr % pgsize;
+    return *reinterpret_cast<uint32_t*>(mem[paddr]+baddr);
+  }
+  uint32_t get32(uint64_t byte_addr) const {
+    uint64_t paddr = byte_addr / pgsize;
+    uint64_t baddr = byte_addr % pgsize;
+    return *reinterpret_cast<uint32_t*>(mem[paddr]+baddr);
+  }
+  uint8_t * operator+(uint32_t disp) {
+    return (*this)[disp];
+  }
+};
+
+template <typename T, size_t N>
+struct sim_array {
+  T arr[N];
+  sim_array() {
+    memset(arr, 0, sizeof(T)*N);
+  }
+};
+
+struct state_t {
+  sparse_mem &mem;
   uint32_t pc;
-  int32_t gpr[32];
   int32_t lo;
   int32_t hi;
+  uint64_t icnt;
+  uint8_t brk;
+  int32_t gpr[32];
   uint32_t cpr0[32];
   uint32_t cpr1[32];
   uint32_t fcr1[5];
-  uint64_t icnt;
-  uint8_t *mem;
-  uint8_t brk;
-} state_t;
+  state_t(sparse_mem &mem) : mem(mem), pc(pc),
+			     lo(lo), hi(hi),
+			     icnt(0), brk(0) {
+    memset(gpr, 0, sizeof(int32_t)*32);
+    memset(cpr0, 0, sizeof(uint32_t)*32);
+    memset(cpr1, 0, sizeof(uint32_t)*32);
+    memset(fcr1, 0, sizeof(uint32_t)*5);
+  }
+};
 
 struct rtype_t {
   uint32_t opcode : 6;
