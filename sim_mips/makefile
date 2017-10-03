@@ -1,5 +1,5 @@
 OBJ = main.o loadelf.o parseMips.o helper.o profileMips.o
-CXX = g++ -march=native
+CXX = CC -march=native
 EXE = sim_mips
 OPT = -O3
 CXXFLAGS = -std=c++11 -g $(OPT) -Wextra -Wno-unused-parameter
@@ -10,7 +10,7 @@ DEP = $(OBJ:.o=.d)
 all: $(EXE)
 
 $(EXE) : $(OBJ)
-	$(CXX) $(CXXFLAGS) $(OBJ) -lpthread -lunwind -o $(EXE)
+	$(CXX) $(CXXFLAGS) $(OBJ) -L/usr/local/lib -lpthread -lunwind -o $(EXE)
 
 %.o: %.cc
 	$(CXX) -MMD $(CXXFLAGS) -c $< 

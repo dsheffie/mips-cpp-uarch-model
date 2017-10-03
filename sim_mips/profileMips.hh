@@ -138,8 +138,8 @@ struct state_t {
   uint32_t cpr0[32];
   uint32_t cpr1[32];
   uint32_t fcr1[5];
-  state_t(sparse_mem &mem) : mem(mem), pc(pc),
-			     lo(lo), hi(hi),
+  state_t(sparse_mem &mem) : mem(mem), pc(0),
+			     lo(0), hi(0),
 			     icnt(0), brk(0) {
     memset(gpr, 0, sizeof(int32_t)*32);
     memset(cpr0, 0, sizeof(uint32_t)*32);
