@@ -19,7 +19,7 @@ LIBS =  $(EXTRA_LD) -lpthread -lffi -lcurses -lz -lunwind -lboost_system
 
 OBJ = main.o loadelf.o parseMips.o helper.o profileMips.o
 DEP = $(OBJ:.o=.d)
-OPT = -O0 -std=c++11
+OPT = -O2 -std=c++11
 EXE = sim_mips
 
 .PHONY : all clean

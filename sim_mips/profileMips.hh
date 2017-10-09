@@ -115,6 +115,7 @@ public:
   uint32_t& get32(uint64_t byte_addr) {
     uint64_t paddr = byte_addr / pgsize;
     uint64_t baddr = byte_addr % pgsize;
+#if 0
     if(mem[paddr]==nullptr) {
       std::cerr << "ACCESS TO INVALID PAGE 0x"
 	<< std::hex
@@ -123,11 +124,13 @@ public:
 	<< "\n";
 	   exit(-1);
     }
+#endif
     return *reinterpret_cast<uint32_t*>(mem[paddr]+baddr);
   }
   uint32_t get32(uint64_t byte_addr) const {
     uint64_t paddr = byte_addr / pgsize;
     uint64_t baddr = byte_addr % pgsize;
+#if 0
     if(mem[paddr]==nullptr) {
       std::cerr << "ACCESS TO INVALID PAGE 0x"
 	<< std::hex
@@ -136,6 +139,7 @@ public:
 	<< "\n";
 	   exit(-1);
     }
+#endif
     return *reinterpret_cast<uint32_t*>(mem[paddr]+baddr);
   }
   uint8_t * operator+(uint32_t disp) {
