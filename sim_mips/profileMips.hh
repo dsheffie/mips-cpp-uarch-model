@@ -145,6 +145,13 @@ public:
   uint8_t * operator+(uint32_t disp) {
     return (*this)[disp];
   }
+  uint64_t count() const {
+    uint64_t c = 0;
+    for(size_t i = 0; i < npages; i++) {
+      c += (mem[i] != nullptr);
+    }
+    return c;
+  }
 };
 
 template <typename T, size_t N>

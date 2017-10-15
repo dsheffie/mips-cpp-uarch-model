@@ -90,7 +90,8 @@ int main(int argc, char *argv[]) {
     }
     delete [] sysArgv;
   }
-  
+
+  std::cerr << sm->count() << " pages touched\n";
   delete s;
   delete sm;
   return 0;
