@@ -52,8 +52,9 @@ typedef struct {
 } stat32_t;
 
 class sparse_mem {
-private:
+public:
   static const uint64_t pgsize = 4096;
+private:
   size_t npages = 0;
   uint8_t **mem = nullptr;
   bool is_zero(uint64_t p) const {
@@ -104,18 +105,52 @@ public:
     }
     return &mem[paddr][baddr];
   }
+  void prefault(uint64_t addr) {
+    uint64_t paddr = addr / pgsize;
+    if(mem[paddr]==nullptr) {
+      mem[paddr] = new uint8_t[pgsize];
+      memset(mem[paddr],0,pgsize);
+    }
+  }
   uint32_t& get32(uint64_t byte_addr) {
     uint64_t paddr = byte_addr / pgsize;
     uint64_t baddr = byte_addr % pgsize;
+#if 0
+    if(mem[paddr]==nullptr) {
+      std::cerr << "ACCESS TO INVALID PAGE 0x"
+	<< std::hex
+	<< paddr*pgsize
+	<< std::dec
+	<< "\n";
+	   exit(-1);
+    }
+#endif
     return *reinterpret_cast<uint32_t*>(mem[paddr]+baddr);
   }
   uint32_t get32(uint64_t byte_addr) const {
     uint64_t paddr = byte_addr / pgsize;
     uint64_t baddr = byte_addr % pgsize;
+#if 0
+    if(mem[paddr]==nullptr) {
+      std::cerr << "ACCESS TO INVALID PAGE 0x"
+	<< std::hex
+	<< paddr*pgsize
+	<< std::dec
+	<< "\n";
+	   exit(-1);
+    }
+#endif
     return *reinterpret_cast<uint32_t*>(mem[paddr]+baddr);
   }
   uint8_t * operator+(uint32_t disp) {
     return (*this)[disp];
+  }
+  uint64_t count() const {
+    uint64_t c = 0;
+    for(size_t i = 0; i < npages; i++) {
+      c += (mem[i] != nullptr);
+    }
+    return c;
   }
 };
 
@@ -138,8 +173,8 @@ struct state_t {
   uint32_t cpr0[32];
   uint32_t cpr1[32];
   uint32_t fcr1[5];
-  state_t(sparse_mem &mem) : mem(mem), pc(pc),
-			     lo(lo), hi(hi),
+  state_t(sparse_mem &mem) : mem(mem), pc(0),
+			     lo(0), hi(0),
 			     icnt(0), brk(0) {
     memset(gpr, 0, sizeof(int32_t)*32);
     memset(cpr0, 0, sizeof(uint32_t)*32);

@@ -1247,8 +1247,29 @@ static void _lwr(uint32_t inst, state_t *s)
   s->pc += 4;
 }
 
-static void _monitorBody(uint32_t inst, state_t *s)
-{
+
+template <bool do_write>
+int per_page_rdwr(sparse_mem &mem, int fd, uint32_t offset, uint32_t nbytes) {
+  uint32_t last_byte = (offset+nbytes);
+  int acc = 0, rc = 0;
+  while(offset != last_byte) {
+    uint32_t next_page = (offset & (~(sparse_mem::pgsize-1))) + sparse_mem::pgsize;
+    next_page = std::min(next_page, last_byte);
+    uint32_t disp = (next_page - offset);
+    mem.prefault(offset);
+    if(do_write)
+      rc = write(fd, mem + offset, disp);
+    else 
+      rc = read(fd, mem + offset, disp);
+    if(rc == 0)
+      return 0;
+    acc += rc;
+    offset += disp;
+  }
+  return acc;
+}
+
+static void _monitorBody(uint32_t inst, state_t *s) {
  uint32_t reason = (inst >> RSVD_INSTRUCTION_ARG_SHIFT) & RSVD_INSTRUCTION_ARG_MASK;
   reason >>= 1;
   int32_t fd=-1,nr=-1,flags=-1;
@@ -1271,13 +1292,13 @@ static void _monitorBody(uint32_t inst, state_t *s)
     case 7: /* int read(int file,char *ptr,int len) */
       fd = s->gpr[R_a0];
       nr = s->gpr[R_a2];
-      s->gpr[R_v0] = read(fd, (char*)(s->mem + (uint32_t)s->gpr[R_a1]), nr);
+      s->gpr[R_v0] = per_page_rdwr<false>(s->mem, fd, s->gpr[R_a1], nr);
       break;
     case 8: 
       /* int write(int file, char *ptr, int len) */
       fd = s->gpr[R_a0];
       nr = s->gpr[R_a2];
-      s->gpr[R_v0] = (int32_t)write(fd, (void*)(s->mem + (uint32_t)s->gpr[R_a1]), nr);
+      s->gpr[R_v0] = per_page_rdwr<true>(s->mem, fd, s->gpr[R_a1], nr);
       if(fd==1)
 	fflush(stdout);
       else if(fd==2)
@@ -1347,12 +1368,11 @@ static void _monitorBody(uint32_t inst, state_t *s)
       break;
     case 35:
       /* int getargs(char **argv) */
-      for(int i = 0; i < std::min(MARGS, sysArgc); i++)
-	{
-	  uint32_t arrayAddr = ((uint32_t)s->gpr[R_a0])+4*i;
-	  uint32_t ptr = accessBigEndian(*((uint32_t*)(s->mem + arrayAddr)));
-	  strcpy((char*)(s->mem + ptr), sysArgv[i]);
-	}
+      for(int i = 0; i < std::min(MARGS, sysArgc); i++) {
+	uint32_t arrayAddr = ((uint32_t)s->gpr[R_a0])+4*i;
+	uint32_t ptr = accessBigEndian(*((uint32_t*)(s->mem + arrayAddr)));
+	strcpy((char*)(s->mem + ptr), sysArgv[i]);
+      }
       s->gpr[R_v0] = sysArgc;
       break;
     case 37:
