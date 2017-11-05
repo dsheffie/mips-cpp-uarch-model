@@ -1253,8 +1253,8 @@ int per_page_rdwr(sparse_mem &mem, int fd, uint32_t offset, uint32_t nbytes) {
   uint32_t last_byte = (offset+nbytes);
   int acc = 0, rc = 0;
   while(offset != last_byte) {
-    uint32_t next_page = (offset & (~(sparse_mem::pgsize-1))) + sparse_mem::pgsize;
-    next_page = std::min(next_page, last_byte);
+    uint64_t next_page = (offset & (~(sparse_mem::pgsize-1))) + sparse_mem::pgsize;
+    next_page = std::min(next_page, static_cast<uint64_t>(last_byte));
     uint32_t disp = (next_page - offset);
     mem.prefault(offset);
     if(do_write)
@@ -1267,6 +1267,24 @@ int per_page_rdwr(sparse_mem &mem, int fd, uint32_t offset, uint32_t nbytes) {
     offset += disp;
   }
   return acc;
+}
+
+char* get_open_string(state_t *s, uint32_t offset) {
+  size_t len = 0;
+  char *ptr = (char*)(s->mem + offset);
+  char *buf = nullptr;
+  while(*ptr != '\0') {
+    ptr++;
+    len++;
+  }
+  buf = new char[len+1];
+  memset(buf, sizeof(char), len+1);
+  ptr = (char*)(s->mem + offset);
+  for(size_t i = 0; i < len; i++) {
+    buf[i] = *ptr;
+    ptr++;
+  }
+  return buf;
 }
 
 static void _monitorBody(uint32_t inst, state_t *s) {
@@ -1284,9 +1302,13 @@ static void _monitorBody(uint32_t inst, state_t *s) {
   switch(reason)
     {
     case 6: /* int open(char *path, int flags) */
-      path = (char*)(s->mem + (uint32_t)s->gpr[R_a0]);
+      /* this needs to be fixed - strings on multiple pages */
+      //path = (char*)(s->mem + (uint32_t)s->gpr[R_a0]);
+      path = get_open_string(s, (uint32_t)s->gpr[R_a0]);
       flags = remapIOFlags(s->gpr[R_a1]);
       fd = open(path, flags, S_IRUSR|S_IWUSR);
+      delete [] path;
+      path = nullptr;
       s->gpr[R_v0] = fd;
       break;
     case 7: /* int read(int file,char *ptr,int len) */
