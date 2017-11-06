@@ -1278,7 +1278,7 @@ char* get_open_string(state_t *s, uint32_t offset) {
     len++;
   }
   buf = new char[len+1];
-  memset(buf, sizeof(char), len+1);
+  memset(buf, 0, len+1);
   ptr = (char*)(s->mem + offset);
   for(size_t i = 0; i < len; i++) {
     buf[i] = *ptr;
@@ -1304,11 +1304,15 @@ static void _monitorBody(uint32_t inst, state_t *s) {
     case 6: /* int open(char *path, int flags) */
       /* this needs to be fixed - strings on multiple pages */
       //path = (char*)(s->mem + (uint32_t)s->gpr[R_a0]);
+      //std::cout << "pointer = " << (char*)(s->mem + (uint32_t)s->gpr[R_a0]) << "\n";
       path = get_open_string(s, (uint32_t)s->gpr[R_a0]);
       flags = remapIOFlags(s->gpr[R_a1]);
       fd = open(path, flags, S_IRUSR|S_IWUSR);
+      if(fd == -1) {
+	perror("open");
+	exit(-1);
+      }
       delete [] path;
-      path = nullptr;
       s->gpr[R_v0] = fd;
       break;
     case 7: /* int read(int file,char *ptr,int len) */
