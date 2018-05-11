@@ -18,6 +18,7 @@ private:
   }
   T pop_() {
     T v = data[read_idx & (len-1)];
+    data[read_idx & (len-1)] = nullptr;
     read_idx = (read_idx+1) & (len2-1);
     return v;
   }
@@ -52,7 +53,7 @@ public:
   void clear() {
     read_idx = write_idx = 0;
   }
-  uint64_t  push(T v) {
+  uint64_t push(T v) {
     assert(!full());
     return push_(v);
   }
@@ -63,6 +64,12 @@ public:
   T peek() const {
     assert(!empty());
     return peek_();
+  }
+  size_t size() const {
+    return len;
+  }
+  T &at(size_t idx) {
+    return data[idx];
   }
 };
 

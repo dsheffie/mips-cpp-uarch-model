@@ -42,6 +42,15 @@ static int num_cpr0_prf = 64;
 static int num_cpr1_prf = 64;
 static int num_fcr1_prf = 16;
 
+static int num_fpu_ports = 1;
+static int num_alu_ports = 2;
+
+static int num_alu_sched_entries = 16;
+static int num_fpu_sched_entries = 16;
+static int num_jmp_sched_entries = 4;
+static int num_mem_sched_entries = 16;
+static int num_system_sched_entries = 2;
+
 void sim_state::initialize() {  
   num_gpr_prf_ = num_gpr_prf;
   num_cpr0_prf_ = num_cpr0_prf;
@@ -66,6 +75,22 @@ void sim_state::initialize() {
   fetch_queue.resize(4);
   decode_queue.resize(8);
   rob.resize(16);
+
+  alu_rs.resize(num_alu_ports);
+  for(int i = 0; i < num_alu_ports; i++) {
+    alu_rs.at(i).resize(num_alu_sched_entries);
+  }
+  fpu_rs.resize(num_fpu_ports);
+
+  num_alu_rs = num_alu_ports;
+  num_fpu_rs = num_fpu_ports;
+  
+  for(int i = 0; i < num_fpu_ports; i++) {
+    fpu_rs.at(i).resize(num_fpu_sched_entries);
+  }
+  jmp_rs.resize(num_jmp_sched_entries);
+  mem_rs.resize(num_mem_sched_entries);
+  system_rs.resize(num_system_sched_entries);
   
   initialize_rat_mappings();
 }
@@ -74,6 +99,9 @@ void sim_state::initialize() {
 static sim_state machine_state;
 static uint64_t curr_cycle = 0;
 
+uint64_t get_curr_cycle() {
+  return curr_cycle;
+}
 
 extern "C" {
   void cycle_count(void *arg) {
@@ -96,7 +124,7 @@ extern "C" {
 				  machine_state.fetch_pc+4, curr_cycle);
 	fetch_queue.push(f);
 	machine_state.fetch_pc += 4;
-	dprintf(2, "fetch pc %x\n", machine_state.fetch_pc);
+	//dprintf(2, "fetch pc %x\n", machine_state.fetch_pc);
       }
       gthread_yield();
     }
@@ -134,11 +162,48 @@ extern "C" {
       int alloc_amt = 0;
       while(not(decode_queue.empty()) and not(rob.full()) and (alloc_amt < alloc_bw)) {
 	auto u = decode_queue.peek();
+	if(u->op == nullptr) {
+	  break;
+	}
 	if(u->decode_cycle == curr_cycle) {
 	  break;
 	}
+	bool rs_available = false;
+	switch(u->op->get_op_class())
+	  {
+	  case mips_op_type::unknown:
+	    break;
+	  case mips_op_type::alu:
+	    for(int i = 0; i < machine_state.num_alu_rs; i++) {
+	      int p = (i + machine_state.last_alu_rs) % machine_state.num_alu_rs;
+	      if(not(machine_state.alu_rs.at(p).full())) {
+		machine_state.last_alu_rs = p;
+		rs_available = true;
+		machine_state.alu_rs.at(p).push(u);
+		break;
+	      }
+	    }
+	    break;
+	  case mips_op_type::fp:
+	    break;
+	  case mips_op_type::jmp:
+	    if(not(machine_state.jmp_rs.full())) {
+	      rs_available = true;
+	      machine_state.jmp_rs.push(u);
+	    }
+	    break;
+	  case mips_op_type::mem:
+	    break;
+	  case mips_op_type::system:
+	    break;
+	  }
+	
+	if(not(rs_available))
+	  break;
+	
 	/* just yield... */
 	if(u->op == nullptr) {
+	  dprintf(2, "stuck...\n");
 	  break;
 	}
 	
@@ -153,6 +218,37 @@ extern "C" {
     gthread_terminate();
   }
 
+  void execute(void *arg) {
+    auto & alu_rs = machine_state.alu_rs;
+    auto & fpu_rs = machine_state.fpu_rs;
+
+    while(not(machine_state.terminate_sim)) {
+      
+      for(int i = 0; i < machine_state.num_alu_rs; i++) {
+	if(not(alu_rs.at(i).empty()) ) {
+	  if(alu_rs.at(i).peek()->op->ready(machine_state)) {
+	    sim_op u = alu_rs.at(i).pop();
+	    u->op->execute(machine_state);
+	  }
+	}
+      }
+      
+      gthread_yield();
+    }
+    gthread_terminate();
+  }
+  void complete(void *arg) {
+    auto &rob = machine_state.rob;
+    while(not(machine_state.terminate_sim)) {
+      for(size_t i = 0; i < rob.size(); i++) {
+	if((rob.at(i) != nullptr) and not(rob.at(i)->is_complete)) {
+	  rob.at(i)->op->complete(machine_state);
+	}
+      }
+      gthread_yield();
+    }
+    gthread_terminate();
+  }
   void retire(void *arg) {
     auto &rob = machine_state.rob;
     while(not(machine_state.terminate_sim)) {
@@ -164,15 +260,17 @@ extern "C" {
 	//dprintf(2, "head of rob could execute\n");
 	//}
 	
-	if(not(u->complete)) {
+	if(not(u->is_complete)) {
+	  //
 	  break;
 	}
 	if(u->complete_cycle == curr_cycle) {
 	  break;
 	}
-
-	
+	u->op->retire(machine_state);
+	dprintf(2, "head of rob retiring for %x\n", u->pc);
 	rob.pop();
+	delete u;
 	retire_amt++;
       }
       gthread_yield();
@@ -242,6 +340,8 @@ int main(int argc, char *argv[]) {
   gthread::make_gthread(&fetch, nullptr);
   gthread::make_gthread(&decode, nullptr);
   gthread::make_gthread(&allocate, nullptr);
+  gthread::make_gthread(&execute, nullptr);
+  gthread::make_gthread(&complete, nullptr);
   gthread::make_gthread(&retire, nullptr);
   
   start_gthreads();

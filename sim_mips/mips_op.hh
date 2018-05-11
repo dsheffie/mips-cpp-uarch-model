@@ -2,9 +2,12 @@
 #define __mipsop_hh__
 
 #include <memory>
+#include <vector>
 #include "sim_queue.hh"
 #include "sim_bitvec.hh"
 #include "mips_encoding.hh"
+
+uint64_t get_curr_cycle();
 
 enum class mips_op_type { unknown, alu, fp, jmp, mem, system };
 
@@ -18,9 +21,8 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   uint64_t decode_cycle = 0;
   uint64_t alloc_cycle = 0;
   uint64_t complete_cycle = 0;
-  
   /* finished execution */
-  bool complete = false;
+  bool is_complete = false;
   int32_t rob_idx = -1;
   /* result will get written to prf idx */
   int64_t prf_idx = -1;
@@ -74,7 +76,19 @@ struct sim_state {
   sim_queue<sim_op> fetch_queue;
   sim_queue<sim_op> decode_queue;
   sim_queue<sim_op> rob;
-    
+
+  int last_alu_rs = 0;
+  int last_fpu_rs = 0;
+  int num_alu_rs = -1;
+  int num_fpu_rs = -1;
+  std::vector<sim_queue<sim_op>> alu_rs;
+  std::vector<sim_queue<sim_op>> fpu_rs;
+  sim_queue<sim_op> jmp_rs;
+  sim_queue<sim_op> mem_rs;
+  sim_queue<sim_op> system_rs;
+  
+
+  
   void initialize_rat_mappings() {
     for(int i = 0; i < 32; i++) {
       gpr_rat[i] = i;
@@ -105,6 +119,9 @@ public:
   mips_op(sim_op m) : m(m) {}
   virtual ~mips_op() {}
   virtual void allocate(sim_state &machine_state);
+  virtual void execute(sim_state &machine_state);
+  virtual void complete(sim_state &machine_state);
+  virtual bool retire(sim_state &machine_state);
   virtual bool ready(sim_state &machine_state) const;
   virtual int get_dest() const {
     return -1;

@@ -19,7 +19,7 @@ void start_gthreads()  {
   curr_thread = gthread::head;
   curr_thread->status = gthread::thread_status::run;
   uint8_t *nstack = curr_thread->stack_ptr;
-  dprintf(2,"stack pointer %p\n", curr_thread->stack_ptr);
+  //dprintf(2,"stack pointer %p\n", curr_thread->stack_ptr);
   gthread::callback_t fptr = curr_thread->fptr;
   void *arg = curr_thread->arg;
   start_gthread_asm(nstack,reinterpret_cast<void*>(fptr),arg);
@@ -35,7 +35,7 @@ void gthread_yield() {
   curr_thread = next;
   curr_thread->status = gthread::thread_status::run;
   if(need_init) {
-    dprintf(2,"stack pointer %p\n", next->stack_ptr);
+    //dprintf(2,"stack pointer %p\n", next->stack_ptr);
     switch_and_start_gthread_asm(curr->state,
 				 next->stack_ptr,
 				 reinterpret_cast<void*>(next->fptr),
