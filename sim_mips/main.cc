@@ -42,7 +42,6 @@ static int num_cpr0_prf = 64;
 static int num_cpr1_prf = 64;
 static int num_fcr1_prf = 16;
 
-
 void sim_state::initialize() {  
   num_gpr_prf_ = num_gpr_prf;
   num_cpr0_prf_ = num_cpr0_prf;
@@ -59,6 +58,11 @@ void sim_state::initialize() {
   cpr1_freevec.clear_and_resize(num_cpr1_prf);
   fcr1_freevec.clear_and_resize(num_fcr1_prf);
 
+  gpr_valid.clear_and_resize(num_gpr_prf);
+  cpr0_valid.clear_and_resize(num_cpr0_prf);
+  cpr1_valid.clear_and_resize(num_cpr1_prf);
+  fcr1_valid.clear_and_resize(num_fcr1_prf);
+  
   fetch_queue.resize(4);
   decode_queue.resize(8);
   rob.resize(16);
@@ -112,9 +116,8 @@ extern "C" {
 	fetch_queue.pop();
 	u->decode_cycle = curr_cycle;
 	u->op = decode_insn(u);
-	if(u->op == nullptr) {
-	  dprintf(2, "unable to decode inst @ %x\n", u->pc);
-	  exit(-1);
+	if(u->op) {
+	  dprintf(2, "op at pc %x was decoded\n", u->pc);
 	}
 	decode_queue.push(u);
       }
@@ -134,8 +137,13 @@ extern "C" {
 	if(u->decode_cycle == curr_cycle) {
 	  break;
 	}
-
+	/* just yield... */
+	if(u->op == nullptr) {
+	  break;
+	}
+	
 	decode_queue.pop();
+	u->op->allocate(machine_state);
 	u->alloc_cycle = curr_cycle;
 	u->rob_idx = rob.push(u);
 	alloc_amt++;
@@ -150,9 +158,12 @@ extern "C" {
     while(not(machine_state.terminate_sim)) {
       int retire_amt = 0;
       while(not(rob.empty()) and (retire_amt < retire_bw)) {
-	machine_state.terminate_sim = true;
 	
 	auto u = rob.peek();
+	//if(u->op->ready(machine_state)) {
+	//dprintf(2, "head of rob could execute\n");
+	//}
+	
 	if(not(u->complete)) {
 	  break;
 	}

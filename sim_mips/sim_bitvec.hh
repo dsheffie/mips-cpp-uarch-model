@@ -36,6 +36,12 @@ public:
     uint64_t b_idx = idx % bpw;
     arr[w_idx] |= (1UL << b_idx);
   }
+  void clear_bit(size_t idx) {
+    assert(idx < n_bits);
+    uint64_t w_idx = idx / bpw;
+    uint64_t b_idx = idx % bpw;
+    arr[w_idx] &= ~(1UL << b_idx);
+  }
   int64_t find_first_unset() const {
     for(uint64_t w = 0; w < n_words; w++) {
       if(arr[w] == all_ones)

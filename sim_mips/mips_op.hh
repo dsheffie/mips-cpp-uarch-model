@@ -6,7 +6,7 @@
 #include "sim_bitvec.hh"
 #include "mips_encoding.hh"
 
-enum class mips_op_type { unknown, alu, fp, jmp, mem };
+enum class mips_op_type { unknown, alu, fp, jmp, mem, system };
 
 class mips_op;
 
@@ -23,10 +23,11 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   bool complete = false;
   int32_t rob_idx = -1;
   /* result will get written to prf idx */
-  int32_t prf_idx = -1;
+  int64_t prf_idx = -1;
   /* previous prf writer (will return to freelist when this inst retires */
-  int32_t prev_prf_idx = -1;
-
+  int64_t prev_prf_idx = -1;
+  int64_t src0_prf = -1, src1_prf = -1, src2_prf = -1;
+  
   mips_op* op = nullptr;
   
   mips_meta_op(uint32_t pc, uint32_t inst,  uint32_t fetch_npc, uint32_t fetch_cycle) :
@@ -45,10 +46,10 @@ struct sim_state {
   uint32_t fetch_pc = 0;
   uint32_t retire_pc = 0;
   
-  uint32_t gpr_rat[32];
-  uint32_t cpr0_rat[32];
-  uint32_t cpr1_rat[32];
-  uint32_t fcr1_rat[5];
+  int32_t gpr_rat[32];
+  int32_t cpr0_rat[32];
+  int32_t cpr1_rat[32];
+  int32_t fcr1_rat[5];
 
   int num_gpr_prf_ = -1;
   int num_cpr0_prf_ = -1;
@@ -65,6 +66,11 @@ struct sim_state {
   sim_bitvec cpr1_freevec;
   sim_bitvec fcr1_freevec;
 
+  sim_bitvec gpr_valid;
+  sim_bitvec cpr0_valid;
+  sim_bitvec cpr1_valid;
+  sim_bitvec fcr1_valid;
+
   sim_queue<sim_op> fetch_queue;
   sim_queue<sim_op> decode_queue;
   sim_queue<sim_op> rob;
@@ -73,14 +79,18 @@ struct sim_state {
     for(int i = 0; i < 32; i++) {
       gpr_rat[i] = i;
       gpr_freevec.set_bit(i);
+      gpr_valid.set_bit(i);
       cpr0_rat[i] = i;
       cpr0_freevec.set_bit(i);
+      cpr0_valid.set_bit(i);
       cpr1_rat[i] = i;
       cpr1_freevec.set_bit(i);
+      cpr1_valid.set_bit(i);
     }
     for(int i = 0; i < 5; i++) {
       fcr1_rat[i] = i;
       fcr1_freevec.set_bit(i);
+      fcr1_valid.set_bit(i);
     }
   }
   
@@ -94,7 +104,8 @@ public:
   mips_op_type op_class = mips_op_type::unknown;
   mips_op(sim_op m) : m(m) {}
   virtual ~mips_op() {}
-  virtual void allocate(sim_state &machine_state) = 0;
+  virtual void allocate(sim_state &machine_state);
+  virtual bool ready(sim_state &machine_state) const;
   virtual int get_dest() const {
     return -1;
   }
