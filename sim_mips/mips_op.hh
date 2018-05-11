@@ -38,6 +38,8 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   }
 };
 
+typedef mips_meta_op* sim_op;
+
 struct sim_state {
   bool terminate_sim = false;
   uint32_t fetch_pc = 0;
@@ -63,9 +65,9 @@ struct sim_state {
   sim_bitvec cpr1_freevec;
   sim_bitvec fcr1_freevec;
 
-  sim_queue<std::shared_ptr<mips_meta_op>> fetch_queue;
-  sim_queue<std::shared_ptr<mips_meta_op>> decode_queue;
-  sim_queue<std::shared_ptr<mips_meta_op>> rob;
+  sim_queue<sim_op> fetch_queue;
+  sim_queue<sim_op> decode_queue;
+  sim_queue<sim_op> rob;
     
   void initialize_rat_mappings() {
     for(int i = 0; i < 32; i++) {
@@ -88,9 +90,9 @@ struct sim_state {
 
 class mips_op {
 public:
-  std::shared_ptr<mips_meta_op> m = nullptr;
+  sim_op m = nullptr;
   mips_op_type op_class = mips_op_type::unknown;
-  mips_op(std::shared_ptr<mips_meta_op> m) : m(m) {}
+  mips_op(sim_op m) : m(m) {}
   virtual ~mips_op() {}
   virtual void allocate(sim_state &machine_state) = 0;
   virtual int get_dest() const {
@@ -112,7 +114,7 @@ public:
   }
 };
 
-mips_op* decode_insn(std::shared_ptr<mips_meta_op> &m_op);
+mips_op* decode_insn(sim_op m_op);
 
 
 #endif

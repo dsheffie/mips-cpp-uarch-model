@@ -88,8 +88,8 @@ extern "C" {
       for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw); fetch_amt++) {
 	sparse_mem &mem = s->mem;
 	uint32_t inst = accessBigEndian(mem.get32(machine_state.fetch_pc));
-	auto f = std::make_shared<mips_meta_op>(machine_state.fetch_pc, inst,
-						machine_state.fetch_pc+4, curr_cycle);
+	auto f = new mips_meta_op(machine_state.fetch_pc, inst,
+				  machine_state.fetch_pc+4, curr_cycle);
 	fetch_queue.push(f);
 	machine_state.fetch_pc += 4;
 	dprintf(2, "fetch pc %x\n", machine_state.fetch_pc);
