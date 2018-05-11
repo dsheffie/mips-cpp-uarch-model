@@ -51,6 +51,14 @@ typedef struct {
   uint32_t st_spare4[2];
 } stat32_t;
 
+
+enum class mips_op_type {
+  unknown, alu, fp, jmp, mem
+};
+
+
+mips_op_type decode_insn_type(uint32_t insn);
+
 class sparse_mem {
 public:
   static const uint64_t pgsize = 4096;

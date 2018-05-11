@@ -1,15 +1,11 @@
 UNAME_S = $(shell uname -s)
 
 ifeq ($(UNAME_S),Linux)
-     LLVM_CXXFLAGS = $(shell llvm-config-3.8 --cppflags)
-     LLVM_LDFLAGS = $(shell llvm-config-3.8 --ldflags --libs all)
      CXX = g++ -march=native
      EXTRA_LD = -ldl -lffi -lbfd
 endif
 
 ifeq ($(UNAME_S),FreeBSD)
-     LLVM_CXXFLAGS = $(shell /home/dsheffie/code/llvm38/bin/llvm-config --cppflags)
-     LLVM_LDFLAGS = $(shell /home/dsheffie/code/llvm38/bin/llvm-config --ldflags --libs all)
      CXX = CC -march=native
      EXTRA_LD = -L/usr/local/lib
 endif
@@ -17,9 +13,9 @@ endif
 CXXFLAGS = -std=c++11 -g $(OPT) $(LLVM_CXXFLAGS)
 LIBS =  $(EXTRA_LD) -lpthread -lffi -lcurses -lz -lunwind -lboost_system
 
-OBJ = main.o loadelf.o parseMips.o helper.o profileMips.o
+OBJ = main.o loadelf.o parseMips.o helper.o profileMips.o gthread.o gthread_asm.o
 DEP = $(OBJ:.o=.d)
-OPT = -O2 -std=c++11
+OPT = -O0 -g -fomit-frame-pointer -std=c++11
 EXE = sim_mips
 
 .PHONY : all clean
@@ -31,6 +27,9 @@ $(EXE) : $(OBJ)
 
 %.o: %.cc
 	$(CXX) -MMD $(CXXFLAGS) -c $< 
+
+%.o : %.s
+	as $< -o $@
 
 -include $(DEP)
 
