@@ -23,12 +23,16 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   uint64_t complete_cycle = 0;
   /* finished execution */
   bool is_complete = false;
+  bool exception = false;
+  bool predict_taken = false;
+  
   int32_t rob_idx = -1;
   /* result will get written to prf idx */
   int64_t prf_idx = -1;
   /* previous prf writer (will return to freelist when this inst retires */
   int64_t prev_prf_idx = -1;
   int64_t src0_prf = -1, src1_prf = -1, src2_prf = -1;
+
   
   mips_op* op = nullptr;
   

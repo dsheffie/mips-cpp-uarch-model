@@ -221,15 +221,23 @@ extern "C" {
   void execute(void *arg) {
     auto & alu_rs = machine_state.alu_rs;
     auto & fpu_rs = machine_state.fpu_rs;
-
+    auto & jmp_rs = machine_state.jmp_rs;
+    
     while(not(machine_state.terminate_sim)) {
-      
+      //alu loop
       for(int i = 0; i < machine_state.num_alu_rs; i++) {
 	if(not(alu_rs.at(i).empty()) ) {
 	  if(alu_rs.at(i).peek()->op->ready(machine_state)) {
 	    sim_op u = alu_rs.at(i).pop();
 	    u->op->execute(machine_state);
 	  }
+	}
+      }
+
+      if(not(jmp_rs.empty())) {
+	if(jmp_rs.peek()->op->ready(machine_state)) {
+	  sim_op u = jmp_rs.pop();
+	  u->op->execute(machine_state);
 	}
       }
       
@@ -267,6 +275,11 @@ extern "C" {
 	if(u->complete_cycle == curr_cycle) {
 	  break;
 	}
+	if(u->exception) {
+	  dprintf(2, "exception!\n");
+	  exit(-1);
+	}
+	
 	u->op->retire(machine_state);
 	dprintf(2, "head of rob retiring for %x\n", u->pc);
 	rob.pop();
