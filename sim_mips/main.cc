@@ -20,8 +20,7 @@
 #include "profileMips.hh"
 #include "globals.hh"
 #include "gthread.hh"
-#include "sim_queue.hh"
-#include "sim_bitvec.hh"
+
 #include "mips_op.hh"
 
 char **sysArgv = nullptr;
@@ -43,74 +42,34 @@ static int num_cpr0_prf = 64;
 static int num_cpr1_prf = 64;
 static int num_fcr1_prf = 16;
 
-struct sim_state {
-  bool terminate_sim = false;
-  uint32_t fetch_pc = 0;
-  uint32_t retire_pc = 0;
-  
-  uint32_t gpr_rat[32];
-  uint32_t cpr0_rat[32];
-  uint32_t cpr1_rat[32];
-  uint32_t fcr1_rat[5];
 
-  int num_gpr_prf_ = -1;
-  int num_cpr0_prf_ = -1;
-  int num_cpr1_prf_ = -1;
-  int num_fcr1_prf_ = -1;
+void sim_state::initialize() {  
+  num_gpr_prf_ = num_gpr_prf;
+  num_cpr0_prf_ = num_cpr0_prf;
+  num_cpr1_prf_ = num_cpr1_prf;
+  num_fcr1_prf_ = num_fcr1_prf;
   
-  int32_t *gpr_prf = nullptr;
-  uint32_t *cpr0_prf = nullptr;
-  uint32_t *cpr1_prf = nullptr;
-  uint32_t *fcr1_prf = nullptr;
+  gpr_prf = new int32_t[num_gpr_prf_];
+  cpr0_prf = new uint32_t[num_cpr0_prf_];
+  cpr1_prf = new uint32_t[num_cpr1_prf_];
+  fcr1_prf = new uint32_t[num_fcr1_prf_];
   
-  sim_bitvec gpr_freevec;
-  sim_bitvec cpr0_freevec;
-  sim_bitvec cpr1_freevec;
-  sim_bitvec fcr1_freevec;
-  
-  void initialize_rat_mappings() {
-    for(int i = 0; i < 32; i++) {
-      gpr_rat[i] = i;
-      gpr_freevec.set_bit(i);
-      cpr0_rat[i] = i;
-      cpr0_freevec.set_bit(i);
-      cpr1_rat[i] = i;
-      cpr1_freevec.set_bit(i);
-    }
-    for(int i = 0; i < 5; i++) {
-      fcr1_rat[i] = i;
-      fcr1_freevec.set_bit(i);
-    }
-  }
-  
-  void initialize() {
-    num_gpr_prf_ = num_gpr_prf;
-    num_cpr0_prf_ = num_cpr0_prf;
-    num_cpr1_prf_ = num_cpr1_prf;
-    num_fcr1_prf_ = num_fcr1_prf;
-    
-    gpr_prf = new int32_t[num_gpr_prf_];
-    cpr0_prf = new uint32_t[num_cpr0_prf_];
-    cpr1_prf = new uint32_t[num_cpr1_prf_];
-    fcr1_prf = new uint32_t[num_fcr1_prf_];
-    
-    gpr_freevec.clear_and_resize(num_gpr_prf);
-    cpr0_freevec.clear_and_resize(num_cpr0_prf);
-    cpr1_freevec.clear_and_resize(num_cpr1_prf);
-    fcr1_freevec.clear_and_resize(num_fcr1_prf);
-    
-    initialize_rat_mappings();
-  }
+  gpr_freevec.clear_and_resize(num_gpr_prf);
+  cpr0_freevec.clear_and_resize(num_cpr0_prf);
+  cpr1_freevec.clear_and_resize(num_cpr1_prf);
+  fcr1_freevec.clear_and_resize(num_fcr1_prf);
 
+  fetch_queue.resize(4);
+  decode_queue.resize(8);
+  rob.resize(16);
   
-};
+  initialize_rat_mappings();
+}
+
 
 static sim_state machine_state;
 static uint64_t curr_cycle = 0;
 
-static sim_queue<std::shared_ptr<mips_meta_op>> fetch_queue;
-static sim_queue<std::shared_ptr<mips_meta_op>> decode_queue;
-static sim_queue<std::shared_ptr<mips_meta_op>> rob;
 
 extern "C" {
   void cycle_count(void *arg) {
@@ -123,6 +82,7 @@ extern "C" {
   
   void fetch(void *arg) {
     machine_state.fetch_pc = s->pc;
+    auto &fetch_queue = machine_state.fetch_queue;
     while(not(machine_state.terminate_sim)) {
       int fetch_amt = 0;
       for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw); fetch_amt++) {
@@ -137,6 +97,9 @@ extern "C" {
     gthread_terminate();
   }
   void decode(void *arg) {
+    auto &fetch_queue = machine_state.fetch_queue;
+    auto &decode_queue = machine_state.decode_queue;
+    
     while(not(machine_state.terminate_sim)) {
       int decode_amt = 0;
       while(not(fetch_queue.empty()) and not(decode_queue.full()) and (decode_amt < decode_bw)) {
@@ -146,7 +109,6 @@ extern "C" {
 	}
 	fetch_queue.pop();
 	u->decode_cycle = curr_cycle;
-	u->op_class = decode_insn_type(u->inst);
 	
 	decode_queue.push(u);
       }
@@ -156,6 +118,9 @@ extern "C" {
   }
 
   void allocate(void *arg) {
+    auto &decode_queue = machine_state.decode_queue;
+    auto &rob = machine_state.rob;
+
     while(not(machine_state.terminate_sim)) {
       int alloc_amt = 0;
       while(not(decode_queue.empty()) and not(rob.full()) and (alloc_amt < alloc_bw)) {
@@ -164,11 +129,6 @@ extern "C" {
 	  break;
 	}
 
-	if(u->op_class == mips_op_type::unknown) {
-	  dprintf(2, "got an unknown op type in allocate\n");
-	  exit(-1);
-	}
-		
 	decode_queue.pop();
 	u->alloc_cycle = curr_cycle;
 	u->rob_idx = rob.push(u);
@@ -180,6 +140,7 @@ extern "C" {
   }
 
   void retire(void *arg) {
+    auto &rob = machine_state.rob;
     while(not(machine_state.terminate_sim)) {
       int retire_amt = 0;
       while(not(rob.empty()) and (retire_amt < retire_bw)) {
@@ -256,9 +217,6 @@ int main(int argc, char *argv[]) {
   load_elf(filename, s);
   mkMonitorVectors(s);
 
-  fetch_queue.resize(4);
-  decode_queue.resize(8);
-  rob.resize(16);
 
   machine_state.initialize();
   
