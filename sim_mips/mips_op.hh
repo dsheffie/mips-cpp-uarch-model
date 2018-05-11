@@ -8,7 +8,7 @@
 
 enum class mips_op_type { unknown, alu, fp, jmp, mem };
 
-struct mips_op;
+class mips_op;
 
 struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   uint32_t pc = 0;
@@ -27,12 +27,12 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   /* previous prf writer (will return to freelist when this inst retires */
   int32_t prev_prf_idx = -1;
 
-  std::shared_ptr<mips_op> op = nullptr;
+  mips_op* op = nullptr;
   
   mips_meta_op(uint32_t pc, uint32_t inst,  uint32_t fetch_npc, uint32_t fetch_cycle) :
     pc(pc), inst(inst), fetch_npc(fetch_npc), fetch_cycle(fetch_cycle) {}
 
-  ~mips_meta_op() {}
+  ~mips_meta_op();
   std::shared_ptr<mips_meta_op> getptr() {
     return shared_from_this();
   }
@@ -86,28 +86,35 @@ struct sim_state {
 };
 
 
-class mips_op : std::enable_shared_from_this<mips_op>{
-protected:
+class mips_op {
+public:
   std::shared_ptr<mips_meta_op> m = nullptr;
   mips_op_type op_class = mips_op_type::unknown;
-public:
   mips_op(std::shared_ptr<mips_meta_op> m) : m(m) {}
   virtual ~mips_op() {
     m = nullptr;
   }
-  virtual void allocate() = 0;
+  virtual void allocate(sim_state &machine_state) = 0;
+  virtual int get_dest() const {
+    return -1;
+  }
+  virtual int get_src0() const {
+    return -1;
+  }
+  virtual int get_src1() const {
+    return -1;
+  }
+  virtual int get_src2() const {
+    return -1;
+  }
+  
+  
   mips_op_type get_op_class() const {
     return op_class;
   }
 };
 
-class alu_op : protected mips_op {
-  
-
-};
-
-
-
+mips_op* decode_insn(std::shared_ptr<mips_meta_op> &m_op);
 
 
 #endif

@@ -13,7 +13,7 @@ endif
 CXXFLAGS = -std=c++11 -g $(OPT) $(LLVM_CXXFLAGS)
 LIBS =  $(EXTRA_LD) -lpthread -lffi -lcurses -lz -lunwind -lboost_system
 
-OBJ = main.o loadelf.o parseMips.o helper.o profileMips.o gthread.o gthread_asm.o
+OBJ = main.o loadelf.o parseMips.o helper.o profileMips.o gthread.o gthread_asm.o mips_op.o
 DEP = $(OBJ:.o=.d)
 OPT = -O0 -g -fomit-frame-pointer -std=c++11
 EXE = sim_mips

@@ -109,7 +109,11 @@ extern "C" {
 	}
 	fetch_queue.pop();
 	u->decode_cycle = curr_cycle;
-	
+	u->op = decode_insn(u);
+	if(u->op == nullptr) {
+	  dprintf(2, "unable to decode inst @ %x\n", u->pc);
+	  exit(-1);
+	}
 	decode_queue.push(u);
       }
       gthread_yield();

@@ -10,11 +10,23 @@ struct rtype_t {
   uint32_t special : 6;
 };
 
+union rtype {
+  rtype_t rr;
+  uint32_t raw;
+  rtype(uint32_t x) : raw(x) {}
+};
+
 struct itype_t {
   uint32_t imm : 16;
   uint32_t rt : 5;
   uint32_t rs : 5;
   uint32_t opcode : 6;
+};
+
+union itype {
+  itype_t ii;
+  uint32_t raw;
+  itype(uint32_t x) : raw(x) {}
 };
 
 struct coproc1x_t {
