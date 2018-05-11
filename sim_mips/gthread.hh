@@ -13,7 +13,7 @@ void gthread_terminate();
 class gthread : public std::enable_shared_from_this<gthread> {
 private:
   typedef void (*callback_t)(void*);
-  static const size_t stack_sz = 1<<20;
+  static const size_t stack_sz = 1<<24;
   enum class thread_status {uninitialized,ready,run};
   static std::shared_ptr<gthread> head;
   static int64_t uuidcnt;

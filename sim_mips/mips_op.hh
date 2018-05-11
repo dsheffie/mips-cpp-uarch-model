@@ -91,9 +91,7 @@ public:
   std::shared_ptr<mips_meta_op> m = nullptr;
   mips_op_type op_class = mips_op_type::unknown;
   mips_op(std::shared_ptr<mips_meta_op> m) : m(m) {}
-  virtual ~mips_op() {
-    m = nullptr;
-  }
+  virtual ~mips_op() {}
   virtual void allocate(sim_state &machine_state) = 0;
   virtual int get_dest() const {
     return -1;
