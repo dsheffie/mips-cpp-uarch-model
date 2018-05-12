@@ -130,7 +130,7 @@ public:
   mips_op_type op_class = mips_op_type::unknown;
   mips_op(sim_op m) : m(m), retired(false) {}
   virtual ~mips_op() {}
-  virtual void allocate(sim_state &machine_state);
+  virtual bool allocate(sim_state &machine_state);
   virtual void execute(sim_state &machine_state);
   virtual void complete(sim_state &machine_state);
   virtual bool retire(sim_state &machine_state);

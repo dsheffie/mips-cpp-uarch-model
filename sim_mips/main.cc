@@ -242,8 +242,10 @@ extern "C" {
 	  break;
 	}
 	busted_alloc_cnt = 0;
+	if(not(u->op->allocate(machine_state))) {
+	  break;
+	}
 	decode_queue.pop();
-	u->op->allocate(machine_state);
 	u->alloc_cycle = curr_cycle;
 	u->rob_idx = rob.push(u);
 	//dprintf(2, "op at pc %x was allocated\n", u->pc);

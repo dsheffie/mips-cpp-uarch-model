@@ -1289,7 +1289,7 @@ char* get_open_string(state_t *s, uint32_t offset) {
 }
 
 static void _monitorBody(uint32_t inst, state_t *s) {
- uint32_t reason = (inst >> RSVD_INSTRUCTION_ARG_SHIFT) & RSVD_INSTRUCTION_ARG_MASK;
+  uint32_t reason = (inst >> RSVD_INSTRUCTION_ARG_SHIFT) & RSVD_INSTRUCTION_ARG_MASK;
   reason >>= 1;
   int32_t fd=-1,nr=-1,flags=-1;
   char *path;

@@ -12,15 +12,18 @@ public:
   virtual int get_src0() const {
     return (m->inst >> 16) & 31;
   }
-  virtual void allocate(sim_state &machine_state) {
+  virtual bool allocate(sim_state &machine_state) {
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->prev_prf_idx = machine_state.cpr0_rat[get_dest()];
     int64_t prf_id = machine_state.cpr0_freevec.find_first_unset();
+    if(prf_id == -1)
+      return false;
     assert(prf_id >= 0);
     machine_state.cpr0_freevec.set_bit(prf_id);
     machine_state.cpr0_rat[get_dest()] = prf_id;
     m->prf_idx = prf_id;
     machine_state.cpr0_valid.clear_bit(prf_id);
+    return true;
   }
   virtual bool ready(sim_state &machine_state) const {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
@@ -68,16 +71,18 @@ public:
   virtual int get_src0() const {
     return (m->inst >> 16) & 31;
   }
-  virtual void allocate(sim_state &machine_state) {
+  virtual bool allocate(sim_state &machine_state) {
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
     int64_t prf_id = machine_state.cpr1_freevec.find_first_unset();
+    if(prf_id == -1)
+      return false;
     assert(prf_id >= 0);
     machine_state.cpr1_freevec.set_bit(prf_id);
     machine_state.cpr1_rat[get_dest()] = prf_id;
     m->prf_idx = prf_id;
     machine_state.cpr1_valid.clear_bit(prf_id);
-
+    return true;
   }
   virtual bool ready(sim_state &machine_state) const {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
@@ -126,16 +131,18 @@ public:
   virtual int get_src0() const {
     return (m->inst >> 11) & 31;
   }
-  virtual void allocate(sim_state &machine_state) {
+  virtual bool allocate(sim_state &machine_state) {
     m->src0_prf = machine_state.cpr1_rat[get_src0()];
     m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
     int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
+    if(prf_id == -1)
+      return false;
     assert(prf_id >= 0);
     machine_state.gpr_freevec.set_bit(prf_id);
     machine_state.gpr_rat[get_dest()] = prf_id;
     m->prf_idx = prf_id;
     machine_state.gpr_valid.clear_bit(prf_id);
-
+    return true;
   }
   virtual bool ready(sim_state &machine_state) const {
     if(m->src0_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src0_prf))) {
@@ -190,7 +197,7 @@ public:
   virtual int get_src1() const {
     return r.rr.rt;
   }
-  virtual void allocate(sim_state &machine_state) {
+  virtual bool allocate(sim_state &machine_state) {
     if(get_src0() != -1) {
       m->src0_prf = machine_state.gpr_rat[get_src0()];
     }
@@ -200,12 +207,15 @@ public:
     if(get_dest() > 0) {
       m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
       int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
+      if(prf_id == -1)
+	return false;
       assert(prf_id >= 0);
       machine_state.gpr_freevec.set_bit(prf_id);
       machine_state.gpr_rat[get_dest()] = prf_id;
       m->prf_idx = prf_id;
       machine_state.gpr_valid.clear_bit(prf_id);
     }
+    return true;
   }
   virtual bool ready(sim_state &machine_state) const {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
@@ -291,19 +301,22 @@ public:
   virtual int get_src0() const {
     return i_.ii.rs;
   }
-  virtual void allocate(sim_state &machine_state) {
+  virtual bool allocate(sim_state &machine_state) {
     if(get_src0() != -1) {
       m->src0_prf = machine_state.gpr_rat[get_src0()];
     }
     if(get_dest() > 0) {
       m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
       int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
-      assert(prf_id >= 0);
+      if(prf_id == -1) {
+	return false;
+      }
       machine_state.gpr_freevec.set_bit(prf_id);
       machine_state.gpr_rat[get_dest()] = prf_id;
       m->prf_idx = prf_id;
       machine_state.gpr_valid.clear_bit(prf_id);
     }
+    return true;
   }
   virtual bool ready(sim_state &machine_state) const {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
@@ -408,21 +421,23 @@ public:
       }
     return -1;
   }
-  virtual void allocate(sim_state &machine_state) {
-    dprintf(2, "jump allocated\n");
+  virtual bool allocate(sim_state &machine_state) {
     if(get_src0() != -1) {
       m->src0_prf = machine_state.gpr_rat[get_src0()];
     }
     if(get_dest() != -1) {
       m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
       int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
+      if(prf_id == -1)
+	return false;
       assert(prf_id >= 0);
       machine_state.gpr_freevec.set_bit(prf_id);
       machine_state.gpr_rat[get_dest()] = prf_id;
       m->prf_idx = prf_id;
       machine_state.gpr_valid.clear_bit(prf_id);
     }
-  }  
+    return true;
+  }
   virtual bool ready(sim_state &machine_state) const {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
@@ -504,7 +519,7 @@ public:
   virtual int get_src1() const {
     return i_.ii.rs;
   }
-  virtual void allocate(sim_state &machine_state) {
+  virtual bool allocate(sim_state &machine_state) {
     dprintf(2, "branch allocated\n");
     if(get_src0() != -1) {
       m->src0_prf = machine_state.gpr_rat[get_src0()];
@@ -512,6 +527,7 @@ public:
     if(get_src1() != -1) {
       m->src1_prf = machine_state.gpr_rat[get_src1()];
     }
+    return true;
   }
   virtual bool ready(sim_state &machine_state) const {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
@@ -533,6 +549,14 @@ public:
       case branch_type::bne:
 	take_br = machine_state.gpr_prf[m->src0_prf] != machine_state.gpr_prf[m->src1_prf];
 	break;
+      case branch_type::beql:
+	take_br = machine_state.gpr_prf[m->src0_prf] == machine_state.gpr_prf[m->src1_prf];
+	m->has_delay_slot = not(take_br);
+	break;
+      case branch_type::bnel:
+	dprintf(2, "got bnel, time to die\n");
+	exit(-1);
+	break;
 #if 0
       case 0x06:
 	//_blez(inst, s); 
@@ -547,8 +571,13 @@ public:
       }
 
     if(take_br != m->predict_taken) {
-
-      m->branch_exception = true;
+      if(take_br and not(m->predict_taken)) {
+	m->branch_exception = true;
+      }
+      else {
+	dprintf(2, "need to handle other mispredict condition\n");
+	exit(-1);
+      }
     }
     
     m->complete_cycle = get_curr_cycle() + 1;
@@ -587,15 +616,17 @@ public:
   virtual int get_dest() const {
     return  i_.ii.rt;
   }
-  virtual void allocate(sim_state &machine_state) {
+  virtual bool allocate(sim_state &machine_state) {
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
     int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
-    assert(prf_id >= 0);
+    if(prf_id == -1)
+      return false;
     machine_state.gpr_freevec.set_bit(prf_id);
     machine_state.gpr_rat[get_dest()] = prf_id;
     m->prf_idx = prf_id;
     machine_state.gpr_valid.clear_bit(prf_id);
+    return true;
   }
   virtual bool ready(sim_state &machine_state) const {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
@@ -654,13 +685,14 @@ public:
   virtual int get_src1() const {
     return i_.ii.rs;
   }
-  virtual void allocate(sim_state &machine_state) {
+  virtual bool allocate(sim_state &machine_state) {
     if(get_src0() != -1) {
       m->src0_prf = machine_state.gpr_rat[get_src0()];
     }
     if(get_src1() != -1) {
       m->src1_prf = machine_state.gpr_rat[get_src1()];
     }
+    return true;
   }
   virtual bool ready(sim_state &machine_state) const {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
@@ -709,18 +741,21 @@ public:
   monitor_op(sim_op op) : mips_op(op) {
     this->op_class = mips_op_type::system;
   }
-  virtual void allocate(sim_state &machine_state) {
+  virtual bool allocate(sim_state &machine_state) {
     m->src0_prf = machine_state.gpr_rat[4];
     m->src1_prf = machine_state.gpr_rat[5];
     m->src2_prf = machine_state.gpr_rat[6];
     m->src3_prf = machine_state.gpr_rat[31];
     m->prev_prf_idx = machine_state.gpr_rat[2];
     int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
+    if(prf_id == -1)
+      return false;
     assert(prf_id >= 0);
     machine_state.gpr_freevec.set_bit(prf_id);
     machine_state.gpr_rat[2] = prf_id;
     m->prf_idx = prf_id;
     machine_state.gpr_valid.clear_bit(prf_id);
+    return true;
   }
   virtual bool ready(sim_state &machine_state) const {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
@@ -1081,9 +1116,10 @@ mips_meta_op::~mips_meta_op() {
   }
 }
 
-void mips_op::allocate(sim_state &machine_state) {
+bool mips_op::allocate(sim_state &machine_state) {
   dprintf(2, "allocate must be implemented\n");
   exit(-1);
+  return false;
 }
 
 void mips_op::execute(sim_state &machine_state) {
