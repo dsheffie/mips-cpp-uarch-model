@@ -125,7 +125,7 @@ extern "C" {
       
       for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
 	sparse_mem &mem = s->mem;
-	dprintf(2, "fetch pc %x\n", machine_state.fetch_pc);
+	//dprintf(2, "fetch pc %x\n", machine_state.fetch_pc);
 	uint32_t inst = accessBigEndian(mem.get32(machine_state.fetch_pc));
 	auto f = new mips_meta_op(machine_state.fetch_pc, inst,
 				  machine_state.fetch_pc+4, curr_cycle);
@@ -153,9 +153,9 @@ extern "C" {
 	fetch_queue.pop();
 	u->decode_cycle = curr_cycle;
 	u->op = decode_insn(u);
-	if(u->op) {
-	  dprintf(2, "op at pc %x was decoded\n", u->pc);
-	}
+	//if(u->op) {
+	//dprintf(2, "op at pc %x was decoded\n", u->pc);
+	//}
 	decode_queue.push(u);
       }
       if(machine_state.nuke) {
@@ -194,7 +194,7 @@ extern "C" {
 	    dprintf(2, "want unknown for %x \n", u->pc);
 	    break;
 	  case mips_op_type::alu:
-	    dprintf(2, "want alu for %x \n", u->pc);
+	    //dprintf(2, "want alu for %x \n", u->pc);
 	    for(int i = 0; i < machine_state.num_alu_rs; i++) {
 	      int p = (i + machine_state.last_alu_rs) % machine_state.num_alu_rs;
 	      if(not(machine_state.alu_rs.at(p).full())) {
@@ -209,14 +209,14 @@ extern "C" {
 	    dprintf(2, "want fp for %x \n", u->pc);
 	    break;
 	  case mips_op_type::jmp:
-	    dprintf(2, "want jmp for %x \n", u->pc);
+	    //dprintf(2, "want jmp for %x \n", u->pc);
 	    if(not(machine_state.jmp_rs.full())) {
 	      rs_available = true;
 	      machine_state.jmp_rs.push(u);
 	    }
 	    break;
 	  case mips_op_type::mem:
-	    dprintf(2, "want mem rs for %x \n", u->pc);
+	    //dprintf(2, "want mem rs for %x \n", u->pc);
 	    if(not(machine_state.mem_rs.full())) {
 	      rs_available = true;
 	      machine_state.mem_rs.push(u);
@@ -229,13 +229,14 @@ extern "C" {
 	  }
 	
 	if(not(rs_available)) {
-	  dprintf(2, "no rs for alloc @ %x this cycle \n", u->pc);
+	  //dprintf(2, "no rs for alloc @ %x this cycle \n", u->pc);
 	  break;
 	}
 	
 	/* just yield... */
 	if(u->op == nullptr) {
 	  dprintf(2, "stuck...\n");
+	  exit(-1);
 	  break;
 	}
 	busted_alloc_cnt = 0;
@@ -243,7 +244,7 @@ extern "C" {
 	u->op->allocate(machine_state);
 	u->alloc_cycle = curr_cycle;
 	u->rob_idx = rob.push(u);
-	dprintf(2, "op at pc %x was allocated\n", u->pc);
+	//dprintf(2, "op at pc %x was allocated\n", u->pc);
 	alloc_amt++;
       }
       //dprintf(2,"%d instr allocated\n", alloc_amt);
@@ -263,6 +264,7 @@ extern "C" {
 	  alu_rs.at(i).clear();
 	}
 	jmp_rs.clear();
+	mem_rs.clear();
       }
       else {
 	//alu loop
