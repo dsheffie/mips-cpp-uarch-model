@@ -52,12 +52,11 @@ public:
       else {
 	uint64_t x = ~arr[w];
 	uint64_t idx = bpw*w + (__builtin_ffsl(x)-1);
-	if(idx >= n_bits)
-	  return -1;
-	else
+	if(idx < n_bits)
 	  return idx;
       }
     }
+    return -1;    
   }
 };
 

@@ -58,9 +58,13 @@ void sim_state::initialize() {
   num_fcr1_prf_ = num_fcr1_prf;
   
   gpr_prf = new int32_t[num_gpr_prf_];
+  memset(gpr_prf, 0, sizeof(int32_t)*num_gpr_prf_);
   cpr0_prf = new uint32_t[num_cpr0_prf_];
+  memset(cpr0_prf, 0, sizeof(uint32_t)*num_cpr0_prf_);  
   cpr1_prf = new uint32_t[num_cpr1_prf_];
+  memset(cpr1_prf, 0, sizeof(uint32_t)*num_cpr1_prf_);
   fcr1_prf = new uint32_t[num_fcr1_prf_];
+  memset(fcr1_prf, 0, sizeof(uint32_t)*num_fcr1_prf_);
   
   gpr_freevec.clear_and_resize(num_gpr_prf);
   cpr0_freevec.clear_and_resize(num_cpr0_prf);
@@ -353,7 +357,8 @@ extern "C" {
 	//dprintf(2, "not empty rob,  need to undo  things..\n");
 	//exit(-1);
 	//}
-
+	dprintf(2,"read ptr %d, write ptr %d\n", rob.get_read_idx(),
+		rob.get_write_idx());
 	int64_t i = rob.get_write_idx(), c = 0;
 	while(true) {
 	  auto uu = rob.at(i);
@@ -375,6 +380,7 @@ extern "C" {
 	  c++;
 	  if(c % retire_bw == 0) {
 	    dprintf(2, "@ %llu : yield for undo\n", get_curr_cycle());
+	    exception_cycles++;
 	    gthread_yield();
 	  }
 	}

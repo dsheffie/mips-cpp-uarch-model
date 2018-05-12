@@ -18,13 +18,15 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   uint32_t inst = 0;
   uint32_t fetch_npc = 0;  
   uint64_t fetch_cycle = 0;
+  bool predict_taken = false;
+  
   uint64_t decode_cycle = 0;
   uint64_t alloc_cycle = 0;
   uint64_t complete_cycle = 0;
   /* finished execution */
   bool is_complete = false;
   bool branch_exception = false;
-  bool predict_taken = false;
+
 
   bool has_delay_slot = false;
   uint32_t correct_pc = 0;
@@ -40,7 +42,9 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   mips_op* op = nullptr;
   
   mips_meta_op(uint32_t pc, uint32_t inst,  uint32_t fetch_npc, uint32_t fetch_cycle) :
-    pc(pc), inst(inst), fetch_npc(fetch_npc), fetch_cycle(fetch_cycle) {}
+    pc(pc), inst(inst), fetch_npc(fetch_npc), fetch_cycle(fetch_cycle), predict_taken(false)  {
+
+  }
 
   ~mips_meta_op();
   std::shared_ptr<mips_meta_op> getptr() {

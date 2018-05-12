@@ -12,18 +12,14 @@ public:
     return (m->inst >> 16) & 31;
   }
   virtual void allocate(sim_state &machine_state) {
-    if(get_src0() != -1) {
-      m->src0_prf = machine_state.gpr_rat[get_src0()];
-    }
-    if(get_dest() > 0) {
-      m->prev_prf_idx = machine_state.cpr0_rat[get_dest()];
-      int64_t prf_id = machine_state.cpr0_freevec.find_first_unset();
-      assert(prf_id >= 0);
-      machine_state.cpr0_freevec.set_bit(prf_id);
-      machine_state.cpr0_rat[get_dest()] = prf_id;
-      m->prf_idx = prf_id;
-      machine_state.cpr0_valid.clear_bit(prf_id);
-    }
+    m->src0_prf = machine_state.gpr_rat[get_src0()];
+    m->prev_prf_idx = machine_state.cpr0_rat[get_dest()];
+    int64_t prf_id = machine_state.cpr0_freevec.find_first_unset();
+    assert(prf_id >= 0);
+    machine_state.cpr0_freevec.set_bit(prf_id);
+    machine_state.cpr0_rat[get_dest()] = prf_id;
+    m->prf_idx = prf_id;
+    machine_state.cpr0_valid.clear_bit(prf_id);
   }
   virtual bool ready(sim_state &machine_state) const {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
@@ -64,18 +60,17 @@ public:
     return (m->inst >> 16) & 31;
   }
   virtual void allocate(sim_state &machine_state) {
-    if(get_src0() != -1) {
-      m->src0_prf = machine_state.gpr_rat[get_src0()];
-    }
-    if(get_dest() > 0) {
-      m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
-      int64_t prf_id = machine_state.cpr1_freevec.find_first_unset();
-      assert(prf_id >= 0);
-      machine_state.cpr1_freevec.set_bit(prf_id);
-      machine_state.cpr1_rat[get_dest()] = prf_id;
-      m->prf_idx = prf_id;
-      machine_state.cpr1_valid.clear_bit(prf_id);
-    }
+    m->src0_prf = machine_state.gpr_rat[get_src0()];
+    m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
+    int64_t prf_id = machine_state.cpr1_freevec.find_first_unset();
+    assert(prf_id >= 0);
+    machine_state.cpr1_freevec.set_bit(prf_id);
+    machine_state.cpr1_rat[get_dest()] = prf_id;
+    m->prf_idx = prf_id;
+    dprintf(2,"%x : mtc1 alloc'd new dest -> %d\n",
+	    m->pc, prf_id);
+    machine_state.cpr1_valid.clear_bit(prf_id);
+
   }
   virtual bool ready(sim_state &machine_state) const {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
@@ -94,12 +89,77 @@ public:
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
+      dprintf(2, "%x : m->prf_idx = %d\n", m->pc, m->prf_idx);
       machine_state.cpr1_valid.set_bit(m->prf_idx);
     }
   }
   virtual bool retire(sim_state &machine_state) {
     machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
     return true;
+  }
+  virtual void undo(sim_state &machine_state) {
+    if(m->prev_prf_idx != -1) {
+      machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
+    }
+    if(m->prf_idx != -1) {
+      machine_state.cpr1_freevec.clear_bit(m->prf_idx);
+    }
+  }
+};
+
+class mfc1 : public mips_op {
+public:
+  mfc1(sim_op op) : mips_op(op) {
+    this->op_class = mips_op_type::alu;
+  }
+  virtual int get_dest() const {
+    return(m->inst>>16) & 31;
+  }
+  virtual int get_src0() const {
+    return (m->inst >> 11) & 31;
+  }
+  virtual void allocate(sim_state &machine_state) {
+    m->src0_prf = machine_state.cpr1_rat[get_src0()];
+    m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
+    int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
+    assert(prf_id >= 0);
+    machine_state.gpr_freevec.set_bit(prf_id);
+    machine_state.gpr_rat[get_dest()] = prf_id;
+    m->prf_idx = prf_id;
+    machine_state.gpr_valid.clear_bit(prf_id);
+
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    if(m->src0_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src0_prf))) {
+      return false;
+    }
+    return true;
+  }
+  virtual void execute(sim_state &machine_state) {
+    if(not(ready(machine_state))) {
+      dprintf(2, "mistakes were made @ %d\n", __LINE__);
+      exit(-1);
+    }
+    machine_state.gpr_prf[m->prf_idx] = machine_state.cpr1_prf[m->src0_prf];
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      machine_state.gpr_valid.set_bit(m->prf_idx);
+    }
+  }
+  virtual bool retire(sim_state &machine_state) {
+    machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {
+    if(m->prev_prf_idx != -1) {
+      machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+    }
+    if(m->prf_idx != -1) {
+      machine_state.gpr_freevec.clear_bit(m->prf_idx);
+    }
   }
 };
 
@@ -182,8 +242,12 @@ public:
   }
   virtual void undo(sim_state &machine_state) {
     if(get_dest() > 0) {
-      machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
-      machine_state.gpr_freevec.clear_bit(m->prf_idx);
+      if(m->prev_prf_idx != -1) {
+	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+      }
+      if(m->prf_idx != -1) {
+	machine_state.gpr_freevec.clear_bit(m->prf_idx);
+      }
     }
   }
 };
@@ -255,8 +319,12 @@ public:
   }
   virtual void undo(sim_state &machine_state) {
     if(get_dest() > 0) {
-      machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
-      machine_state.gpr_freevec.clear_bit(m->prf_idx);
+      if(m->prev_prf_idx != -1) {
+	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+      }
+      if(m->prf_idx != -1) {
+	machine_state.gpr_freevec.clear_bit(m->prf_idx);
+      }
     }
   }
 };
@@ -337,8 +405,12 @@ public:
   }
   virtual void undo(sim_state &machine_state) {
     if(get_dest() != -1) {
-      machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
-      machine_state.gpr_freevec.clear_bit(m->prf_idx);
+      if(m->prev_prf_idx != -1) {
+	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+      }
+      if(m->prf_idx != -1) {
+	machine_state.gpr_freevec.clear_bit(m->prf_idx);
+      }
     }
   }
 };
@@ -346,7 +418,7 @@ public:
 class branch_op : public mips_op {
 protected:
   itype i_;
-  bool take_br;
+  bool take_br = false;
   uint32_t branch_target = 0;
 public:
   branch_op(sim_op op) : mips_op(op), i_(op->inst), take_br(false) {
@@ -386,6 +458,9 @@ public:
   }
   virtual void execute(sim_state &machine_state) {
     uint32_t opcode = (m->inst)>>26;
+    dprintf(2, "src0 %d, src1 %d\n", m->src0_prf, m->src1_prf);
+    dprintf(2, "src0 value %d\n",machine_state.gpr_prf[m->src0_prf]);
+    dprintf(2, "src1 value %d\n",machine_state.gpr_prf[m->src1_prf]);
     
     switch(opcode)
       {
@@ -410,9 +485,12 @@ public:
 	exit(-1);
       }
 
+    dprintf(2, "take_br = %d\n", take_br);
     if(take_br != m->predict_taken) {
+
       m->branch_exception = true;
     }
+    
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
@@ -632,7 +710,7 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
   }
   else if((lowbits == 0) && ((functField==0x0) || (functField==0x4))) {
     if(functField == 0x0)
-      return nullptr;
+      return new mfc1(m_op);
     else if(functField == 0x4)
       return new mtc1(m_op);
   }
