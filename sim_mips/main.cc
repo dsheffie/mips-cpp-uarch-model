@@ -174,14 +174,17 @@ extern "C" {
 	  break;
 	}
 	if(u->decode_cycle == curr_cycle) {
+	  dprintf(2, "broken decode @ %x this cycle \n", u->pc);
 	  break;
 	}
 	bool rs_available = false;
 	switch(u->op->get_op_class())
 	  {
 	  case mips_op_type::unknown:
+	    dprintf(2, "want unknown for %x \n", u->pc);
 	    break;
 	  case mips_op_type::alu:
+	    dprintf(2, "want alu for %x \n", u->pc);
 	    for(int i = 0; i < machine_state.num_alu_rs; i++) {
 	      int p = (i + machine_state.last_alu_rs) % machine_state.num_alu_rs;
 	      if(not(machine_state.alu_rs.at(p).full())) {
@@ -193,21 +196,28 @@ extern "C" {
 	    }
 	    break;
 	  case mips_op_type::fp:
+	    dprintf(2, "want fp for %x \n", u->pc);
 	    break;
 	  case mips_op_type::jmp:
+	    dprintf(2, "want jmp for %x \n", u->pc);
 	    if(not(machine_state.jmp_rs.full())) {
 	      rs_available = true;
 	      machine_state.jmp_rs.push(u);
 	    }
 	    break;
 	  case mips_op_type::mem:
+	    dprintf(2, "want mem rs for %x \n", u->pc);
 	    break;
 	  case mips_op_type::system:
+	    dprintf(2, "want system rs for %x \n", u->pc);
+	    exit(-1);
 	    break;
 	  }
 	
-	if(not(rs_available))
+	if(not(rs_available)) {
+	  dprintf(2, "no rs for alloc @ %x this cycle \n", u->pc);
 	  break;
+	}
 	
 	/* just yield... */
 	if(u->op == nullptr) {
