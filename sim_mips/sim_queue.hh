@@ -68,6 +68,9 @@ public:
   size_t size() const {
     return len;
   }
+  uint64_t get_read_idx() const {
+    return read_idx;
+  }
   T &at(size_t idx) {
     return data[idx];
   }

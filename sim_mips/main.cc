@@ -72,7 +72,7 @@ void sim_state::initialize() {
   cpr1_valid.clear_and_resize(num_cpr1_prf);
   fcr1_valid.clear_and_resize(num_fcr1_prf);
   
-  fetch_queue.resize(4);
+  fetch_queue.resize(16);
   decode_queue.resize(8);
   rob.resize(16);
 
@@ -117,14 +117,18 @@ extern "C" {
     auto &fetch_queue = machine_state.fetch_queue;
     while(not(machine_state.terminate_sim)) {
       int fetch_amt = 0;
-      for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw); fetch_amt++) {
+      
+      for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
 	sparse_mem &mem = s->mem;
 	uint32_t inst = accessBigEndian(mem.get32(machine_state.fetch_pc));
 	auto f = new mips_meta_op(machine_state.fetch_pc, inst,
 				  machine_state.fetch_pc+4, curr_cycle);
 	fetch_queue.push(f);
 	machine_state.fetch_pc += 4;
-	//dprintf(2, "fetch pc %x\n", machine_state.fetch_pc);
+	dprintf(2, "fetch pc %x\n", machine_state.fetch_pc);
+      }
+      if(machine_state.nuke) {
+	fetch_queue.clear();
       }
       gthread_yield();
     }
@@ -136,9 +140,9 @@ extern "C" {
     
     while(not(machine_state.terminate_sim)) {
       int decode_amt = 0;
-      while(not(fetch_queue.empty()) and not(decode_queue.full()) and (decode_amt < decode_bw)) {
+      while(not(fetch_queue.empty()) and not(decode_queue.full()) and (decode_amt < decode_bw) and not(machine_state.nuke)) {
 	auto u = fetch_queue.peek();
-	if(u->fetch_cycle == curr_cycle) {
+	if(not((u->fetch_cycle+5) < curr_cycle)) {
 	  break;
 	}
 	fetch_queue.pop();
@@ -148,6 +152,9 @@ extern "C" {
 	  dprintf(2, "op at pc %x was decoded\n", u->pc);
 	}
 	decode_queue.push(u);
+      }
+      if(machine_state.nuke) {
+	decode_queue.clear();
       }
       gthread_yield();
     }
@@ -160,9 +167,10 @@ extern "C" {
 
     while(not(machine_state.terminate_sim)) {
       int alloc_amt = 0;
-      while(not(decode_queue.empty()) and not(rob.full()) and (alloc_amt < alloc_bw)) {
+      while(not(decode_queue.empty()) and not(rob.full()) and (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
 	if(u->op == nullptr) {
+	  dprintf(2, "broken decode @ %x breaks allocation\n", u->pc);
 	  break;
 	}
 	if(u->decode_cycle == curr_cycle) {
@@ -211,8 +219,10 @@ extern "C" {
 	u->op->allocate(machine_state);
 	u->alloc_cycle = curr_cycle;
 	u->rob_idx = rob.push(u);
+	dprintf(2, "op at pc %x was allocated\n", u->pc);
 	alloc_amt++;
       }
+      dprintf(2,"%d instr allocated\n", alloc_amt);
       gthread_yield();
     }
     gthread_terminate();
@@ -224,23 +234,29 @@ extern "C" {
     auto & jmp_rs = machine_state.jmp_rs;
     
     while(not(machine_state.terminate_sim)) {
-      //alu loop
-      for(int i = 0; i < machine_state.num_alu_rs; i++) {
-	if(not(alu_rs.at(i).empty()) ) {
-	  if(alu_rs.at(i).peek()->op->ready(machine_state)) {
-	    sim_op u = alu_rs.at(i).pop();
+      if(machine_state.nuke) {
+	for(int i = 0; i < machine_state.num_alu_rs; i++) {
+	  alu_rs.at(i).clear();
+	}
+	jmp_rs.clear();
+      }
+      else {
+	//alu loop
+	for(int i = 0; i < machine_state.num_alu_rs; i++) {
+	  if(not(alu_rs.at(i).empty()) ) {
+	    if(alu_rs.at(i).peek()->op->ready(machine_state)) {
+	      sim_op u = alu_rs.at(i).pop();
+	      u->op->execute(machine_state);
+	    }
+	  }
+	}
+	if(not(jmp_rs.empty())) {
+	  if(jmp_rs.peek()->op->ready(machine_state)) {
+	    sim_op u = jmp_rs.pop();
 	    u->op->execute(machine_state);
 	  }
 	}
       }
-
-      if(not(jmp_rs.empty())) {
-	if(jmp_rs.peek()->op->ready(machine_state)) {
-	  sim_op u = jmp_rs.pop();
-	  u->op->execute(machine_state);
-	}
-      }
-      
       gthread_yield();
     }
     gthread_terminate();
@@ -248,7 +264,7 @@ extern "C" {
   void complete(void *arg) {
     auto &rob = machine_state.rob;
     while(not(machine_state.terminate_sim)) {
-      for(size_t i = 0; i < rob.size(); i++) {
+      for(size_t i = 0; not(machine_state.nuke) and (i < rob.size()); i++) {
 	if((rob.at(i) != nullptr) and not(rob.at(i)->is_complete)) {
 	  rob.at(i)->op->complete(machine_state);
 	}
@@ -261,9 +277,10 @@ extern "C" {
     auto &rob = machine_state.rob;
     while(not(machine_state.terminate_sim)) {
       int retire_amt = 0;
+      sim_op u = nullptr;
       while(not(rob.empty()) and (retire_amt < retire_bw)) {
 	
-	auto u = rob.peek();
+	u = rob.peek();
 	//if(u->op->ready(machine_state)) {
 	//dprintf(2, "head of rob could execute\n");
 	//}
@@ -275,18 +292,70 @@ extern "C" {
 	if(u->complete_cycle == curr_cycle) {
 	  break;
 	}
-	if(u->exception) {
-	  dprintf(2, "exception!\n");
+
+	u->op->retire(machine_state);
+	if(u->branch_exception) {
+	  machine_state.nuke = true;
+	  break;
+	}
+	retire_amt++;
+	rob.pop();
+	
+	dprintf(2, "head of rob retiring for %x\n", u->pc);
+
+	delete u;
+
+      }
+
+      if(u!=nullptr and u->branch_exception) {
+	rob.pop();
+	int exception_cycles = 0;
+	
+	if(u->has_delay_slot) {
+	  while(not(rob.empty())) {
+	    auto uu = rob.peek();
+	      if(not(uu->is_complete and (uu->complete_cycle == curr_cycle))) {
+		exception_cycles++;
+		gthread_yield();
+	      }
+	      if(uu->branch_exception) {
+		dprintf(2, "branch exception in delay slot\n");
+		exit(-1);
+	      }
+	      uu->op->retire(machine_state);
+	      rob.pop();
+	      delete uu;
+	      break;
+	  }
+	}
+	machine_state.fetch_pc = u->correct_pc;
+	delete u;
+	dprintf(2,"drained branch delay slot\n");
+
+	if(rob.empty()) {
+	  dprintf(2, "empty rob, don't need do undo things..\n");
+	}
+	else {
+	  dprintf(2, "not empty rob,  need to undo  things..\n");
 	  exit(-1);
 	}
 	
-	u->op->retire(machine_state);
-	dprintf(2, "head of rob retiring for %x\n", u->pc);
-	rob.pop();
-	delete u;
-	retire_amt++;
+	for(uint64_t i = 0; i < rob.size(); i++) {
+	  uint64_t p = (i + rob.get_read_idx()) % rob.size();
+	  auto uu = rob.at(p);
+	  if(uu) {
+	    dprintf(2, "uu pc %x\n", uu->pc);
+	  }
+	}
+
+	if(exception_cycles == 0) {
+	  gthread_yield();
+	}
+	machine_state.nuke = false;
       }
-      gthread_yield();
+      else {
+	gthread_yield();
+      }
     }
     gthread_terminate();
   }

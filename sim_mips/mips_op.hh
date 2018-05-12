@@ -23,8 +23,11 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   uint64_t complete_cycle = 0;
   /* finished execution */
   bool is_complete = false;
-  bool exception = false;
+  bool branch_exception = false;
   bool predict_taken = false;
+
+  bool has_delay_slot = false;
+  uint32_t correct_pc = 0;
   
   int32_t rob_idx = -1;
   /* result will get written to prf idx */
@@ -49,6 +52,7 @@ typedef mips_meta_op* sim_op;
 
 struct sim_state {
   bool terminate_sim = false;
+  bool nuke = false;
   uint32_t fetch_pc = 0;
   uint32_t retire_pc = 0;
   
