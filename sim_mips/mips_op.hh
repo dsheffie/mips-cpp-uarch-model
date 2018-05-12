@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <vector>
+#include "sparse_mem.hh"
 #include "sim_queue.hh"
 #include "sim_bitvec.hh"
 #include "mips_encoding.hh"
@@ -98,8 +99,8 @@ struct sim_state {
   sim_queue<sim_op> jmp_rs;
   sim_queue<sim_op> mem_rs;
   sim_queue<sim_op> system_rs;
-  
 
+  sparse_mem *mem = nullptr;
   
   void initialize_rat_mappings() {
     for(int i = 0; i < 32; i++) {
@@ -120,7 +121,7 @@ struct sim_state {
     }
   }
   
-  void initialize();
+  void initialize(sparse_mem *mem);
 };
 
 

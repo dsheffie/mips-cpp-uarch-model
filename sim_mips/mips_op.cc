@@ -1,4 +1,5 @@
 #include "mips_op.hh"
+#include "helper.hh"
 
 class mtc0 : public mips_op {
 public:
@@ -599,10 +600,11 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     dprintf(2, "store at head of rob, ea %x, data %d\n", effective_address, store_data);
+    sparse_mem & mem = *(machine_state.mem);
     switch(st)
       {
       case store_type::sw:
-	//*((int32_t*)(machine_state.mem + effective_address)) = accessBigEndian(store_data);
+	*((int32_t*)(mem + effective_address)) = accessBigEndian(store_data);
 	break;
       default:
 	exit(-1);

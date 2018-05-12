@@ -1,7 +1,9 @@
 #ifndef __sparse_mem_hh__
 #define __sparse_mem_hh__
 
-
+#include <cstdlib>
+#include <cstring>
+#include <cstdint>
 
 class sparse_mem {
 public:

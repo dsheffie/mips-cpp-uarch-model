@@ -51,7 +51,8 @@ static int num_jmp_sched_entries = 4;
 static int num_mem_sched_entries = 16;
 static int num_system_sched_entries = 2;
 
-void sim_state::initialize() {  
+void sim_state::initialize(sparse_mem *mem) {
+  this->mem = mem;
   num_gpr_prf_ = num_gpr_prf;
   num_cpr0_prf_ = num_cpr0_prf;
   num_cpr1_prf_ = num_cpr1_prf;
@@ -474,7 +475,7 @@ int main(int argc, char *argv[]) {
   mkMonitorVectors(s);
 
 
-  machine_state.initialize();
+  machine_state.initialize(sm);
   
 
   gthread::make_gthread(&cycle_count, nullptr);
