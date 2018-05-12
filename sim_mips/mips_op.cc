@@ -174,6 +174,7 @@ public:
       machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     }
     if(m->prf_idx != -1) {
+      machine_state.gpr_rat[m->prf_idx] = -1;
       machine_state.gpr_freevec.clear_bit(m->prf_idx);
     }
   }
@@ -281,6 +282,7 @@ public:
       }
       if(m->prf_idx != -1) {
 	machine_state.gpr_freevec.clear_bit(m->prf_idx);
+	machine_state.gpr_rat[m->prf_idx] = -1;
       }
     }
   }
@@ -365,6 +367,7 @@ public:
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
       }
       if(m->prf_idx != -1) {
+	machine_state.gpr_rat[m->prf_idx] = -1;
 	machine_state.gpr_freevec.clear_bit(m->prf_idx);
       }
     }
@@ -484,6 +487,7 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     if(m->prev_prf_idx != -1) {
+      machine_state.gpr_rat[m->prev_prf_idx] = -1;
       machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     }
     retired = true;
@@ -495,6 +499,7 @@ public:
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
       }
       if(m->prf_idx != -1) {
+	machine_state.gpr_rat[m->prf_idx] = -1;
 	machine_state.gpr_freevec.clear_bit(m->prf_idx);
       }
     }
@@ -667,7 +672,9 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
+    machine_state.gpr_rat[m->prf_idx] = -1;
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.gpr_freevec.clear_bit(m->prf_idx);
   }
 };
 
@@ -822,6 +829,8 @@ public:
   }
   virtual void undo(sim_state &machine_state) {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.gpr_rat[m->prf_idx] = -1;
+    machine_state.gpr_freevec.clear_bit(m->prf_idx);
   }
 };
 

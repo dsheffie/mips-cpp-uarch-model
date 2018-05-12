@@ -435,6 +435,11 @@ extern "C" {
 
 	dprintf(2, "@ %llu : exception cleared in %d cycles, new pc %x!\n",
 		get_curr_cycle(), exception_cycles, machine_state.fetch_pc);
+
+	dprintf(2, "%lu gprs in use..\n", machine_state.gpr_freevec.popcount());
+	if(machine_state.gpr_freevec.popcount() != 32) {
+	  exit(-1);
+	}
 	//for(uint64_t i = 0; i < rob.size(); i++) {
 	//int64_t p = (i + rob.get_read_idx()) % rob.size();
 	//}

@@ -44,13 +44,14 @@ public:
   }
   uint64_t popcount() const {
     uint64_t c = 0;
-    for(uint64_t w = 0; w < n_words; w++) {
-      if(w != (n_words-1)) {
+    dprintf(2, "words = %d\n", n_words);
+    if((bpw*n_words) != n_bits) {
+      dprintf(2, "implement clean-up\n", n_words);
+      exit(-1);
+    }
+    else {
+      for(uint64_t w = 0; w < n_words; w++) {
 	c += __builtin_popcountll(arr[w]);
-      }
-      else {
-	uint64_t mask = (1UL << (n_bits % bpw)) - 1;
-	c += __builtin_popcountll(arr[w]&mask);
       }
     }
     return c;
