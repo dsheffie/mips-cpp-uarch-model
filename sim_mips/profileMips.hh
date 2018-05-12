@@ -10,13 +10,6 @@
 #include "mips_encoding.hh"
 #include "sparse_mem.hh"
 
-/* from gdb simulator */
-#define RSVD_INSTRUCTION           (0x00000005)
-#define RSVD_INSTRUCTION_MASK      (0xFC00003F)
-#define RSVD_INSTRUCTION_ARG_SHIFT 6
-#define RSVD_INSTRUCTION_ARG_MASK  0xFFFFF  
-#define IDT_MONITOR_BASE           0xBFC00000
-#define IDT_MONITOR_SIZE           2048
 #define MARGS 20
 
 #define K1SIZE  (0x80000000)

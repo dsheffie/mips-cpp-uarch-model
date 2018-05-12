@@ -646,7 +646,10 @@ public:
     return true;
   }
   virtual void execute(sim_state &machine_state) {
-    dprintf(2, "execute monitor op\n");
+    uint32_t reason = (m->inst >> RSVD_INSTRUCTION_ARG_SHIFT) & RSVD_INSTRUCTION_ARG_MASK;
+    dprintf(2, "execute monitor op with reason %u\n", reason);
+
+    
     exit(-1);
     m->complete_cycle = get_curr_cycle() + 1;
   }
