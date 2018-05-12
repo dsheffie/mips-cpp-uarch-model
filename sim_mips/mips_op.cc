@@ -75,8 +75,6 @@ public:
     machine_state.cpr1_freevec.set_bit(prf_id);
     machine_state.cpr1_rat[get_dest()] = prf_id;
     m->prf_idx = prf_id;
-    dprintf(2,"%x : mtc1 alloc'd new dest -> %ld\n",
-	    m->pc, prf_id);
     machine_state.cpr1_valid.clear_bit(prf_id);
 
   }
@@ -617,6 +615,52 @@ public:
 
 
 
+
+class monitor_op : public mips_op {
+public:
+  monitor_op(sim_op op) : mips_op(op) {
+    this->op_class = mips_op_type::system;
+  }
+  virtual void allocate(sim_state &machine_state) {
+    m->src0_prf = machine_state.gpr_rat[4];
+    m->src1_prf = machine_state.gpr_rat[5];
+    m->src2_prf = machine_state.gpr_rat[6];
+    m->prev_prf_idx = machine_state.gpr_rat[2];
+    int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
+    assert(prf_id >= 0);
+    machine_state.gpr_freevec.set_bit(prf_id);
+    machine_state.gpr_rat[2] = prf_id;
+    m->prf_idx = prf_id;
+    machine_state.gpr_valid.clear_bit(prf_id);
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
+      return false;
+    }
+    if(not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+      return false;
+    }
+    if(not(machine_state.gpr_valid.get_bit(m->src2_prf))) {
+      return false;
+    }
+    return true;
+  }
+  virtual void execute(sim_state &machine_state) {
+    dprintf(2, "execute monitor op\n");
+    exit(-1);
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+    }
+  }
+  virtual bool retire(sim_state &machine_state) {
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {}
+};
+
 class rtype_const_shift_alu_op : public rtype_alu_op {
 public:
   rtype_const_shift_alu_op(sim_op op) : rtype_alu_op(op) {}
@@ -696,11 +740,8 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
       return new rtype_const_shift_alu_op(m_op);
     case 0x04: /* sllv */
       return new rtype_alu_op(m_op);
-#if 0
     case 0x05:
-      _monitor(inst,s);
-      break;
-#endif
+      return new monitor_op(m_op);
     case 0x06:
       return new rtype_alu_op(m_op);
     case 0x07:
@@ -807,7 +848,7 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
       break;
 #endif
     default:
-      dprintf(2,"unknown RType instruction\n"); 
+      dprintf(2,"unknown RType instruction @ %x\n", m_op->pc); 
       return nullptr;
     }
 }

@@ -223,8 +223,10 @@ extern "C" {
 	    }
 	    break;
 	  case mips_op_type::system:
-	    dprintf(2, "want system rs for %x \n", u->pc);
-	    exit(-1);
+	    if(not(machine_state.system_rs.full())) {
+	      rs_available = true;
+	      machine_state.system_rs.push(u);
+	    }
 	    break;
 	  }
 	
@@ -258,13 +260,18 @@ extern "C" {
     auto & fpu_rs = machine_state.fpu_rs;
     auto & jmp_rs = machine_state.jmp_rs;
     auto & mem_rs = machine_state.mem_rs;
+    auto & system_rs = machine_state.system_rs;
     while(not(machine_state.terminate_sim)) {
       if(machine_state.nuke) {
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
 	  alu_rs.at(i).clear();
 	}
+	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
+	  fpu_rs.at(i).clear();
+	}
 	jmp_rs.clear();
 	mem_rs.clear();
+	system_rs.clear();
       }
       else {
 	//alu loop
@@ -287,6 +294,12 @@ extern "C" {
 	    sim_op u = mem_rs.pop();
 	    u->op->execute(machine_state);
 	  }
+	}
+	if(not(system_rs.empty())) {
+	  if(system_rs.peek()->op->ready(machine_state)) {
+	    sim_op u = system_rs.pop();
+	    u->op->execute(machine_state);
+	  }	
 	}
       }
       gthread_yield();
