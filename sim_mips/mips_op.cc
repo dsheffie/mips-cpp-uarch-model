@@ -346,20 +346,39 @@ public:
 
 
 class jump_op : public mips_op {
+public:
+  enum class jump_type {jalr, jr, j, jal}; 
 protected:
   itype i_;
+  jump_type jt;
   uint32_t branch_target = 0;
 public:
-  jump_op(sim_op op) : mips_op(op), i_(op->inst) {
+  jump_op(sim_op op, jump_type jt) :
+    mips_op(op), i_(op->inst), jt(jt) {
     this->op_class = mips_op_type::jmp;
     op->has_delay_slot = true;
   }
   virtual int get_dest() const {
-    uint32_t funct = m->inst & 63;
-    return funct==0x09 ? 31 : -1;
+    switch(jt)
+      {
+      case jump_type::jalr:
+      case jump_type::jal:
+	return 31;
+      default:
+	break;
+      }
+    return -1;
   }
   virtual int get_src0() const {
-    return i_.ii.rs;
+    switch(jt)
+      {
+      case jump_type::jr:
+      case jump_type::jalr:
+	return i_.ii.rs;
+      default:
+	break;
+      }
+    return -1;
   }
   virtual void allocate(sim_state &machine_state) {
     dprintf(2, "jump allocated\n");
@@ -498,7 +517,7 @@ public:
       m->is_complete = true;
     }
   }
-  
+  virtual void undo(sim_state &machine_state) {}
 };
 
 class rtype_const_shift_alu_op : public rtype_alu_op {
@@ -573,9 +592,9 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
     case 0x07:
       return new rtype_alu_op(m_op);
     case 0x08: /* jr */
-      return new jump_op(m_op);
+      return new jump_op(m_op, jump_op::jump_type::jr);
     case 0x09: /* jalr */
-      return new jump_op(m_op);
+      return new jump_op(m_op, jump_op::jump_type::jalr);
 #if 0
     case 0x0C: /* syscall */
       printf("syscall()\n");

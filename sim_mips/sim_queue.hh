@@ -31,12 +31,14 @@ public:
     bool pow2 = ((len-1)&len)==0;
     assert(pow2);
     data = new T[len];
+    memset(data, 0, sizeof(T)*len);
   }
   void resize(uint64_t len) {
     delete [] data;
     this->len = len;
     len2 = 2*len;
     data = new T[len];
+    memset(data, 0, sizeof(T)*len);
     read_idx = write_idx = 0;
   }
   ~sim_queue() {
@@ -51,6 +53,7 @@ public:
     return (m_rd_idx==m_wr_idx) && (read_idx != write_idx);
   }
   void clear() {
+    memset(data, 0, sizeof(T)*len);
     read_idx = write_idx = 0;
   }
   uint64_t push(T v) {
@@ -69,10 +72,10 @@ public:
     return len;
   }
   uint64_t get_read_idx() const {
-    return read_idx;
+    return read_idx & (len-1);
   }
   uint64_t get_write_idx() const {
-    return write_idx;
+    return write_idx & (len-1);
   }
   T &at(size_t idx) {
     return data[idx];

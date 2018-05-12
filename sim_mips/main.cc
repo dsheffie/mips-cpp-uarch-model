@@ -359,6 +359,13 @@ extern "C" {
 	//}
 	dprintf(2,"read ptr %d, write ptr %d\n", rob.get_read_idx(),
 		rob.get_write_idx());
+
+	for(size_t i = 0; i < rob.size(); i++) {
+	  if(rob.at(i)) {
+	    dprintf(2, "%d %x\n", i, rob.at(i)->pc);
+	  }
+	}
+	
 	int64_t i = rob.get_write_idx(), c = 0;
 	while(true) {
 	  auto uu = rob.at(i);
