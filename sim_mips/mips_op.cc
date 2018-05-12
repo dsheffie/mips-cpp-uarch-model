@@ -74,7 +74,7 @@ public:
     machine_state.cpr1_freevec.set_bit(prf_id);
     machine_state.cpr1_rat[get_dest()] = prf_id;
     m->prf_idx = prf_id;
-    dprintf(2,"%x : mtc1 alloc'd new dest -> %d\n",
+    dprintf(2,"%x : mtc1 alloc'd new dest -> %ld\n",
 	    m->pc, prf_id);
     machine_state.cpr1_valid.clear_bit(prf_id);
 
@@ -96,7 +96,7 @@ public:
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
-      dprintf(2, "%x : m->prf_idx = %d\n", m->pc, m->prf_idx);
+      dprintf(2, "%x : m->prf_idx = %ld\n", m->pc, m->prf_idx);
       machine_state.cpr1_valid.set_bit(m->prf_idx);
     }
   }
@@ -226,8 +226,14 @@ public:
       case 0x00: /*sll*/
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] << sa;
 	break;
+      case 0x2B: { /* sltu */
+	uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
+	uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
+	machine_state.gpr_prf[m->prf_idx] = (urs < urt);
+	break;
+      }
       default:
-	dprintf(2, "wtf is funct %x\n", funct);
+	dprintf(2, "wtf is funct %x (pc = %x)\n", funct, m->pc);
 	exit(-1);
       }
     m->complete_cycle = get_curr_cycle() + 1;
@@ -491,20 +497,17 @@ public:
   }
   virtual bool ready(sim_state &machine_state) const {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
-      dprintf(2, "branch src0 not ready\n");
+      dprintf(2, "branch %x : src0 not ready\n", m->pc);
       return false;
     }
     if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
-      dprintf(2, "branch src1 not ready\n");
+      dprintf(2, "branch %x : src1 not ready\n", m->pc);
       return false;
     }
     return true;
   }
   virtual void execute(sim_state &machine_state) {
     uint32_t opcode = (m->inst)>>26;
-    dprintf(2, "src0 %d, src1 %d\n", m->src0_prf, m->src1_prf);
-    dprintf(2, "src0 value %d\n",machine_state.gpr_prf[m->src0_prf]);
-    dprintf(2, "src1 value %d\n",machine_state.gpr_prf[m->src1_prf]);
     
     switch(opcode)
       {
@@ -545,6 +548,73 @@ public:
   virtual void undo(sim_state &machine_state) {}
 };
 
+class store_op : public mips_op {
+public:
+  enum class store_type {sb, sh, sw}; 
+protected:
+  itype i_;
+  store_type st;
+  int32_t imm = -1;
+  uint32_t effective_address = ~0;
+  int32_t store_data = ~0;
+public:
+  store_op(sim_op op, store_type st) :
+    mips_op(op), i_(op->inst), st(st) {
+    this->op_class = mips_op_type::mem;
+    int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
+    imm = static_cast<int32_t>(himm);
+  }
+  virtual int get_src0() const {
+    return i_.ii.rt;
+  }
+  virtual int get_src1() const {
+    return i_.ii.rs;
+  }
+  virtual void allocate(sim_state &machine_state) {
+    if(get_src0() != -1) {
+      m->src0_prf = machine_state.gpr_rat[get_src0()];
+    }
+    if(get_src1() != -1) {
+      m->src1_prf = machine_state.gpr_rat[get_src1()];
+    }
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
+      return false;
+    }
+    if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+      return false;
+    }
+    return true;
+  }
+  virtual void execute(sim_state &machine_state) {
+    effective_address = machine_state.gpr_prf[m->src1_prf] + imm;
+    store_data = machine_state.gpr_prf[m->src0_prf];
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+    }
+  }
+  virtual bool retire(sim_state &machine_state) {
+    dprintf(2, "store at head of rob, ea %x, data %d\n", effective_address, store_data);
+    switch(st)
+      {
+      case store_type::sw:
+	//*((int32_t*)(machine_state.mem + effective_address)) = accessBigEndian(store_data);
+	break;
+      default:
+	exit(-1);
+      }
+
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {}
+};
+
+
+
 class rtype_const_shift_alu_op : public rtype_alu_op {
 public:
   rtype_const_shift_alu_op(sim_op op) : rtype_alu_op(op) {}
@@ -566,6 +636,7 @@ static mips_op* decode_jtype_insn(sim_op m_op) {
     }
   return nullptr;
 }
+
 
 static mips_op* decode_itype_insn(sim_op m_op) {
   uint32_t opcode = (m_op->inst)>>26;
@@ -595,7 +666,9 @@ static mips_op* decode_itype_insn(sim_op m_op) {
       return new itype_alu_op(m_op);
     case 0x0F: /* lui */
       return new itype_lui_op(m_op);
-    default:
+    case 0x2B: /* sw */
+      return new store_op(m_op, store_op::store_type::sw);
+    default:      
       break;
     }
   return nullptr;

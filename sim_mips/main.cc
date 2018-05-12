@@ -216,6 +216,10 @@ extern "C" {
 	    break;
 	  case mips_op_type::mem:
 	    dprintf(2, "want mem rs for %x \n", u->pc);
+	    if(not(machine_state.mem_rs.full())) {
+	      rs_available = true;
+	      machine_state.mem_rs.push(u);
+	    }
 	    break;
 	  case mips_op_type::system:
 	    dprintf(2, "want system rs for %x \n", u->pc);
@@ -251,7 +255,7 @@ extern "C" {
     auto & alu_rs = machine_state.alu_rs;
     auto & fpu_rs = machine_state.fpu_rs;
     auto & jmp_rs = machine_state.jmp_rs;
-    
+    auto & mem_rs = machine_state.mem_rs;
     while(not(machine_state.terminate_sim)) {
       if(machine_state.nuke) {
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
@@ -272,6 +276,12 @@ extern "C" {
 	if(not(jmp_rs.empty())) {
 	  if(jmp_rs.peek()->op->ready(machine_state)) {
 	    sim_op u = jmp_rs.pop();
+	    u->op->execute(machine_state);
+	  }
+	}
+	if(not(mem_rs.empty())) {
+	  if(mem_rs.peek()->op->ready(machine_state)) {
+	    sim_op u = mem_rs.pop();
 	    u->op->execute(machine_state);
 	  }
 	}
