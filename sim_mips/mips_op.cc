@@ -321,9 +321,13 @@ public:
       case 0x09: /* addiu */
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] + simm32;
 	break;
+      case 0x0A: /* slti */
+	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] < simm32;
+	break;
       case 0x0d: /* ori */
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] | uimm32;
 	break;
+	
       default:
 	dprintf(2, "implement me %x\n", m->pc);
 	exit(-1);
@@ -475,12 +479,17 @@ public:
 };
 
 class branch_op : public mips_op {
+public:
+  enum class branch_type {beq, bne, blez, bgtz,
+			  beql, bnel, blezl, bgtzl};
 protected:
   itype i_;
+  branch_type bt;
   bool take_br = false;
   uint32_t branch_target = 0;
 public:
-  branch_op(sim_op op) : mips_op(op), i_(op->inst), take_br(false) {
+  branch_op(sim_op op, branch_type bt) :
+    mips_op(op), bt(bt), i_(op->inst), take_br(false) {
     this->op_class = mips_op_type::jmp;
     int16_t himm = (int16_t)(m->inst & ((1<<16) - 1));
     int32_t imm = ((int32_t)himm) << 2;
@@ -516,16 +525,12 @@ public:
     return true;
   }
   virtual void execute(sim_state &machine_state) {
-    uint32_t opcode = (m->inst)>>26;
-    
-    switch(opcode)
+    switch(bt)
       {
-      case 0x04:
-	//_beq(inst, s);
+      case branch_type::beq:
 	take_br = machine_state.gpr_prf[m->src0_prf] == machine_state.gpr_prf[m->src1_prf];
 	break;
-      case 0x05:
-	//_bne(inst, s);
+      case branch_type::bne:
 	take_br = machine_state.gpr_prf[m->src0_prf] != machine_state.gpr_prf[m->src1_prf];
 	break;
 #if 0
@@ -541,7 +546,6 @@ public:
 	exit(-1);
       }
 
-    dprintf(2, "take_br = %d\n", take_br);
     if(take_br != m->predict_taken) {
 
       m->branch_exception = true;
@@ -609,14 +613,12 @@ public:
     }
   }
   virtual bool retire(sim_state &machine_state) {
-    dprintf(2, "load at head of rob, ea %x\n", effective_address);
-    exit(-1);
     sparse_mem & mem = *(machine_state.mem);
     switch(lt)
       {
-	//case store_type::sw:
-	//*((int32_t*)(mem + effective_address)) = accessBigEndian(store_data);
-	//break;
+      case load_type::lw:
+	machine_state.gpr_prf[m->prf_idx] = accessBigEndian(*((int32_t*)(mem + effective_address))); 
+	break;
       default:
 	exit(-1);
       }
@@ -808,13 +810,13 @@ static mips_op* decode_itype_insn(sim_op m_op) {
   switch(opcode)
     {
     case 0x04: /* beq */
-      return new branch_op(m_op);
+      return new branch_op(m_op,branch_op::branch_type::beq);
     case 0x05: /* bne */
-      return new branch_op(m_op);
+      return new branch_op(m_op,branch_op::branch_type::bne);
     case 0x6: /* blez */
-      return new branch_op(m_op);
+      return new branch_op(m_op,branch_op::branch_type::blez);
     case 0x7: /* bgtz */
-      return new branch_op(m_op);
+      return new branch_op(m_op,branch_op::branch_type::bgtz);
     case 0x08: /* addi */
       return new itype_alu_op(m_op);
     case 0x09: /* addiu */
@@ -831,6 +833,14 @@ static mips_op* decode_itype_insn(sim_op m_op) {
       return new itype_alu_op(m_op);
     case 0x0F: /* lui */
       return new itype_lui_op(m_op);
+    case 0x14:
+      return new branch_op(m_op,branch_op::branch_type::beql);
+    case 0x16:
+      return new branch_op(m_op,branch_op::branch_type::blezl);
+    case 0x15:
+      return new branch_op(m_op,branch_op::branch_type::bnel);
+    case 0x17:
+      return new branch_op(m_op,branch_op::branch_type::bgtzl);
     case 0x23: /* lw */
       return new load_op(m_op, load_op::load_type::lw);
     case 0x2B: /* sw */
