@@ -335,15 +335,21 @@ extern "C" {
 	//}
 	
 	if(not(u->is_complete)) {
-	  //
+	  u = nullptr;
 	  break;
 	}
 	if(u->complete_cycle == curr_cycle) {
+	  u = nullptr;
 	  break;
 	}
 
 	u->op->retire(machine_state);
+	
 	if(u->branch_exception) {
+	  if(u->op->retired == false) {
+	    dprintf(2,"-> %lu : how is this possible?\n", get_curr_cycle());
+	    exit(-1);
+	  }
 	  break;
 	}
 	retire_amt++;
@@ -352,10 +358,11 @@ extern "C" {
 	dprintf(2, "head of rob retiring for %x\n", u->pc);
 
 	delete u;
-
       }
 
       if(u!=nullptr and u->branch_exception) {
+	dprintf(2, "%lu => EXCEPTION @ %x, u = %p, complete %d\n",
+		get_curr_cycle(), u->pc, u, u->is_complete);
 	machine_state.nuke = true;
 	rob.pop();
 	int exception_cycles = 0;
@@ -379,7 +386,6 @@ extern "C" {
 	}
 	machine_state.fetch_pc = u->correct_pc;
 	delete u;
-	dprintf(2,"drained branch delay slot\n");
 
 	dprintf(2,"read ptr %d, write ptr %d\n", rob.get_read_idx(),
 		rob.get_write_idx());

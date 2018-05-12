@@ -28,7 +28,6 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   bool is_complete = false;
   bool branch_exception = false;
 
-
   bool has_delay_slot = false;
   uint32_t correct_pc = 0;
   
@@ -37,8 +36,7 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   int64_t prf_idx = -1;
   /* previous prf writer (will return to freelist when this inst retires */
   int64_t prev_prf_idx = -1;
-  int64_t src0_prf = -1, src1_prf = -1, src2_prf = -1;
-
+  int64_t src0_prf = -1, src1_prf = -1, src2_prf = -1, src3_prf = -1;
   
   mips_op* op = nullptr;
   
@@ -128,8 +126,9 @@ struct sim_state {
 class mips_op {
 public:
   sim_op m = nullptr;
+  bool retired = false;
   mips_op_type op_class = mips_op_type::unknown;
-  mips_op(sim_op m) : m(m) {}
+  mips_op(sim_op m) : m(m), retired(false) {}
   virtual ~mips_op() {}
   virtual void allocate(sim_state &machine_state);
   virtual void execute(sim_state &machine_state);

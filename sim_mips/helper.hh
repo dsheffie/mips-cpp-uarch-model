@@ -22,6 +22,7 @@ static const uint32_t RSVD_INSTRUCTION_ARG_SHIFT = 6;
 static const uint32_t RSVD_INSTRUCTION_ARG_MASK = 0xFFFFF;
 static const uint32_t IDT_MONITOR_BASE = 0xBFC00000;
 static const uint32_t IDT_MONITOR_SIZE = 2048;
+static const uint32_t K1SIZE = 0x80000000;
 
 void dbt_backtrace();
 

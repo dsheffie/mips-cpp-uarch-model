@@ -44,6 +44,7 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     machine_state.cpr0_freevec.clear_bit(m->prev_prf_idx);
+    retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -101,6 +102,7 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
+    retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -157,6 +159,7 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+    retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -218,23 +221,31 @@ public:
       dprintf(2, "mistakes were made @ %d\n", __LINE__);
       exit(-1);
     }
-    uint32_t funct = m->inst & 63;
-    uint32_t sa = (m->inst >> 6) & 31;
-    switch(funct)
-      {
-      case 0x00: /*sll*/
-	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] << sa;
-	break;
-      case 0x2B: { /* sltu */
-	uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
-	uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
-	machine_state.gpr_prf[m->prf_idx] = (urs < urt);
-	break;
-      }
-      default:
-	dprintf(2, "wtf is funct %x (pc = %x)\n", funct, m->pc);
-	exit(-1);
-      }
+    if(m->prf_idx != -1) {
+      uint32_t funct = m->inst & 63;
+      uint32_t sa = (m->inst >> 6) & 31;
+      switch(funct)
+	{
+	case 0x00: /*sll*/
+	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] << sa;
+	  break;
+	case 0x21: { /* addu */
+	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
+	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
+	  machine_state.gpr_prf[m->prf_idx] = (urs + urt);
+	  break;
+	}
+	case 0x2B: { /* sltu */
+	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
+	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
+	  machine_state.gpr_prf[m->prf_idx] = (urs < urt);
+	  break;
+	}
+	default:
+	  dprintf(2, "wtf is funct %x (pc = %x)\n", funct, m->pc);
+	  exit(-1);
+	}
+    }
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
@@ -250,6 +261,7 @@ public:
     if(m->prev_prf_idx != -1) {
       machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     }
+    retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -327,6 +339,7 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+    retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -435,11 +448,7 @@ public:
 	break;
       }
     m->branch_exception = not(m->predict_taken);
-
-    //if(m->branch_exception) {
-    //dprintf(2, "branch target %x\n", m->correct_pc);
-    // exit(-1);
-    //}
+    dprintf(2, "=> %lu : executing branch\n", get_curr_cycle());
     
     if(get_dest() != -1) {
       machine_state.gpr_prf[m->prf_idx] = m->pc + 8;
@@ -450,6 +459,7 @@ public:
     if(m->prev_prf_idx != -1) {
       machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     }
+    retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -544,7 +554,80 @@ public:
       m->is_complete = true;
     }
   }
+  virtual bool retire(sim_state &machine_state) {
+    retired = true;
+    return true;
+  }
   virtual void undo(sim_state &machine_state) {}
+};
+
+
+class load_op : public mips_op {
+public:
+  enum class load_type {lb,lbu,lh,lw}; 
+protected:
+  itype i_;
+  load_type lt;
+  int32_t imm = -1;
+  uint32_t effective_address = ~0;
+public:
+  load_op(sim_op op, load_type lt) :
+    mips_op(op), i_(op->inst), lt(lt) {
+    this->op_class = mips_op_type::mem;
+    int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
+    imm = static_cast<int32_t>(himm);
+  }
+  virtual int get_src0() const {
+    return i_.ii.rs;
+  }
+  virtual int get_dest() const {
+    return  i_.ii.rt;
+  }
+  virtual void allocate(sim_state &machine_state) {
+    m->src0_prf = machine_state.gpr_rat[get_src0()];
+    m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
+    int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
+    assert(prf_id >= 0);
+    machine_state.gpr_freevec.set_bit(prf_id);
+    machine_state.gpr_rat[get_dest()] = prf_id;
+    m->prf_idx = prf_id;
+    machine_state.gpr_valid.clear_bit(prf_id);
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
+      return false;
+    }
+    return true;
+  }
+  virtual void execute(sim_state &machine_state) {
+    effective_address = machine_state.gpr_prf[m->src0_prf] + imm;
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+    }
+  }
+  virtual bool retire(sim_state &machine_state) {
+    dprintf(2, "load at head of rob, ea %x\n", effective_address);
+    exit(-1);
+    sparse_mem & mem = *(machine_state.mem);
+    switch(lt)
+      {
+	//case store_type::sw:
+	//*((int32_t*)(mem + effective_address)) = accessBigEndian(store_data);
+	//break;
+      default:
+	exit(-1);
+      }
+
+    machine_state.gpr_valid.set_bit(m->prf_idx);
+    retired = true;
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {
+    machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+  }
 };
 
 class store_op : public mips_op {
@@ -607,7 +690,7 @@ public:
       default:
 	exit(-1);
       }
-
+    retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {}
@@ -617,6 +700,9 @@ public:
 
 
 class monitor_op : public mips_op {
+protected:
+  int32_t src_regs[4] = {0};
+  
 public:
   monitor_op(sim_op op) : mips_op(op) {
     this->op_class = mips_op_type::system;
@@ -625,6 +711,7 @@ public:
     m->src0_prf = machine_state.gpr_rat[4];
     m->src1_prf = machine_state.gpr_rat[5];
     m->src2_prf = machine_state.gpr_rat[6];
+    m->src3_prf = machine_state.gpr_rat[31];
     m->prev_prf_idx = machine_state.gpr_rat[2];
     int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
     assert(prf_id >= 0);
@@ -643,25 +730,54 @@ public:
     if(not(machine_state.gpr_valid.get_bit(m->src2_prf))) {
       return false;
     }
+    if(not(machine_state.gpr_valid.get_bit(m->src3_prf))) {
+      return false;
+    }
     return true;
   }
   virtual void execute(sim_state &machine_state) {
-    uint32_t reason = (m->inst >> RSVD_INSTRUCTION_ARG_SHIFT) & RSVD_INSTRUCTION_ARG_MASK;
-    dprintf(2, "execute monitor op with reason %u\n", reason);
-
-    
-    exit(-1);
+    src_regs[0] = machine_state.gpr_prf[m->src0_prf];
+    src_regs[1] = machine_state.gpr_prf[m->src1_prf];
+    src_regs[2] = machine_state.gpr_prf[m->src2_prf];
+    src_regs[3] = machine_state.gpr_prf[m->src3_prf];
+    m->correct_pc = src_regs[3];
     m->complete_cycle = get_curr_cycle() + 1;
+    dprintf(2, "monitor exception @ cycle %lu, complete = %d\n",
+	    get_curr_cycle(), m->is_complete);
+    m->branch_exception = true;
   }
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      dprintf(2, "**** monitor marked complete @ cycle %lu\n", get_curr_cycle());
       m->is_complete = true;
     }
   }
   virtual bool retire(sim_state &machine_state) {
+    uint32_t reason = ((m->inst >> RSVD_INSTRUCTION_ARG_SHIFT) & RSVD_INSTRUCTION_ARG_MASK) >> 1;
+    sparse_mem & mem = *(machine_state.mem);
+    switch(reason)
+      {
+      case 55:
+	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 0)) = accessBigEndian(K1SIZE);
+	/* No Icache */
+	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 4)) = 0;
+	/* No Dcache */
+	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 8)) = 0;
+	break;
+      default:
+	dprintf(2, "execute monitor op with reason %u\n", reason);
+	exit(-1);
+      }
+    /* not valid until after this instruction retires */
+    machine_state.gpr_valid.set_bit(m->prf_idx);
+    dprintf(2, "==> execute monitor op with reason %u, return address %x\n",
+	    reason, src_regs[3]);
+    retired = true;
     return true;
   }
-  virtual void undo(sim_state &machine_state) {}
+  virtual void undo(sim_state &machine_state) {
+    machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+  }
 };
 
 class rtype_const_shift_alu_op : public rtype_alu_op {
@@ -715,9 +831,11 @@ static mips_op* decode_itype_insn(sim_op m_op) {
       return new itype_alu_op(m_op);
     case 0x0F: /* lui */
       return new itype_lui_op(m_op);
+    case 0x23: /* lw */
+      return new load_op(m_op, load_op::load_type::lw);
     case 0x2B: /* sw */
       return new store_op(m_op, store_op::store_type::sw);
-    default:      
+    default:
       break;
     }
   return nullptr;

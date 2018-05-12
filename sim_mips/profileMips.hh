@@ -12,7 +12,6 @@
 
 #define MARGS 20
 
-#define K1SIZE  (0x80000000)
 
 typedef struct {
   uint32_t tv_sec;
