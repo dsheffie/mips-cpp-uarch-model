@@ -124,8 +124,8 @@ extern "C" {
 	auto f = new mips_meta_op(machine_state.fetch_pc, inst,
 				  machine_state.fetch_pc+4, curr_cycle);
 	fetch_queue.push(f);
-	machine_state.fetch_pc += 4;
 	dprintf(2, "fetch pc %x\n", machine_state.fetch_pc);
+	machine_state.fetch_pc += 4;
       }
       if(machine_state.nuke) {
 	fetch_queue.clear();
@@ -170,11 +170,11 @@ extern "C" {
       while(not(decode_queue.empty()) and not(rob.full()) and (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
 	if(u->op == nullptr) {
-	  dprintf(2, "broken decode @ %x breaks allocation\n", u->pc);
+	  dprintf(2, "@ %llu broken decode : %x breaks allocation\n", get_curr_cycle(), u->pc);
 	  break;
 	}
 	if(u->decode_cycle == curr_cycle) {
-	  dprintf(2, "broken decode @ %x this cycle \n", u->pc);
+	  dprintf(2, "@ %llu broken decode : %x was decoded this cycle \n", get_curr_cycle(), u->pc);
 	  break;
 	}
 	bool rs_available = false;
@@ -232,7 +232,7 @@ extern "C" {
 	dprintf(2, "op at pc %x was allocated\n", u->pc);
 	alloc_amt++;
       }
-      dprintf(2,"%d instr allocated\n", alloc_amt);
+      //dprintf(2,"%d instr allocated\n", alloc_amt);
       gthread_yield();
     }
     gthread_terminate();
@@ -276,6 +276,10 @@ extern "C" {
     while(not(machine_state.terminate_sim)) {
       for(size_t i = 0; not(machine_state.nuke) and (i < rob.size()); i++) {
 	if((rob.at(i) != nullptr) and not(rob.at(i)->is_complete)) {
+	  if(rob.at(i)->op == nullptr) {
+	    dprintf(2, "@ %llu : op @ %x is broken\n", get_curr_cycle(), rob.at(i)->pc);
+	    exit(-1);
+	  }
 	  rob.at(i)->op->complete(machine_state);
 	}
       }
@@ -305,7 +309,6 @@ extern "C" {
 
 	u->op->retire(machine_state);
 	if(u->branch_exception) {
-	  machine_state.nuke = true;
 	  break;
 	}
 	retire_amt++;
@@ -318,6 +321,7 @@ extern "C" {
       }
 
       if(u!=nullptr and u->branch_exception) {
+	machine_state.nuke = true;
 	rob.pop();
 	int exception_cycles = 0;
 	
@@ -342,21 +346,45 @@ extern "C" {
 	delete u;
 	dprintf(2,"drained branch delay slot\n");
 
-	if(rob.empty()) {
-	  dprintf(2, "empty rob, don't need do undo things..\n");
-	}
-	else {
-	  dprintf(2, "not empty rob,  need to undo  things..\n");
-	  exit(-1);
-	}
-	
-	for(uint64_t i = 0; i < rob.size(); i++) {
-	  uint64_t p = (i + rob.get_read_idx()) % rob.size();
-	  auto uu = rob.at(p);
+	//if(rob.empty()) {
+	//	  dprintf(2, "empty rob, don't need do undo things..\n");
+	//}
+	//else {
+	//dprintf(2, "not empty rob,  need to undo  things..\n");
+	//exit(-1);
+	//}
+
+	int64_t i = rob.get_write_idx(), c = 0;
+	while(true) {
+	  auto uu = rob.at(i);
 	  if(uu) {
-	    dprintf(2, "uu pc %x\n", uu->pc);
+	    dprintf(2, "rob slot %d from %x has prf id %d, prev prf id %d\n",
+		    i, uu->pc, uu->prf_idx, uu->prev_prf_idx);
+	    uu->op->undo(machine_state);
+	    delete uu;
+	    rob.at(i) = nullptr;
+	  }
+	  
+	  if(i == rob.get_read_idx()) {
+	    break;
+	  }
+	  i--;
+	  if(i < 0) {
+	    i = rob.size()-1;
+	  }
+	  c++;
+	  if(c % retire_bw == 0) {
+	    dprintf(2, "@ %llu : yield for undo\n", get_curr_cycle());
+	    gthread_yield();
 	  }
 	}
+	rob.clear();
+
+	dprintf(2, "@ %llu : exception cleared in %d cycles, new pc %x!\n",
+		get_curr_cycle(), exception_cycles, machine_state.fetch_pc);
+	//for(uint64_t i = 0; i < rob.size(); i++) {
+	//int64_t p = (i + rob.get_read_idx()) % rob.size();
+	//}
 
 	if(exception_cycles == 0) {
 	  gthread_yield();

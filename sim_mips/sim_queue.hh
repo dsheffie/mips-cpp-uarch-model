@@ -71,6 +71,9 @@ public:
   uint64_t get_read_idx() const {
     return read_idx;
   }
+  uint64_t get_write_idx() const {
+    return write_idx;
+  }
   T &at(size_t idx) {
     return data[idx];
   }

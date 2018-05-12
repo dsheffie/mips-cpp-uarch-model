@@ -131,6 +131,7 @@ public:
   virtual void complete(sim_state &machine_state);
   virtual bool retire(sim_state &machine_state);
   virtual bool ready(sim_state &machine_state) const;
+  virtual void undo(sim_state &machine_state);
   virtual int get_dest() const {
     return -1;
   }
