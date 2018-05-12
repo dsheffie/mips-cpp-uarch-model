@@ -82,6 +82,7 @@ public:
     machine_state.cpr1_rat[get_dest()] = prf_id;
     m->prf_idx = prf_id;
     machine_state.cpr1_valid.clear_bit(prf_id);
+    dprintf(2, "::::: prev dest of mtc is %d, new dest %d\n", m->prev_prf_idx, prf_id);
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
@@ -111,12 +112,8 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    if(m->prev_prf_idx != -1) {
-      machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
-    }
-    if(m->prf_idx != -1) {
-      machine_state.cpr1_freevec.clear_bit(m->prf_idx);
-    }
+    machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.cpr1_freevec.clear_bit(m->prf_idx);
   }
 };
 
@@ -174,7 +171,6 @@ public:
       machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     }
     if(m->prf_idx != -1) {
-      machine_state.gpr_rat[m->prf_idx] = -1;
       machine_state.gpr_freevec.clear_bit(m->prf_idx);
     }
   }
@@ -282,7 +278,6 @@ public:
       }
       if(m->prf_idx != -1) {
 	machine_state.gpr_freevec.clear_bit(m->prf_idx);
-	machine_state.gpr_rat[m->prf_idx] = -1;
       }
     }
   }
@@ -309,6 +304,12 @@ public:
     }
     if(get_dest() > 0) {
       m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
+      if(m->prev_prf_idx == -1) {
+	dprintf(2, "dest register %d has bad old prf\n",
+		get_dest());
+	asm("int3");
+	exit(-1);
+      }
       int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
       if(prf_id == -1) {
 	return false;
@@ -357,6 +358,10 @@ public:
     }
   }
   virtual bool retire(sim_state &machine_state) {
+    if(m->prev_prf_idx==-1) {
+      dprintf(2, "it's wrecked..%x\n", m->pc);
+      exit(-1);
+    }
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     retired = true;
     return true;
@@ -367,7 +372,6 @@ public:
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
       }
       if(m->prf_idx != -1) {
-	machine_state.gpr_rat[m->prf_idx] = -1;
 	machine_state.gpr_freevec.clear_bit(m->prf_idx);
       }
     }
@@ -487,7 +491,6 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     if(m->prev_prf_idx != -1) {
-      machine_state.gpr_rat[m->prev_prf_idx] = -1;
       machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     }
     retired = true;
@@ -499,7 +502,6 @@ public:
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
       }
       if(m->prf_idx != -1) {
-	machine_state.gpr_rat[m->prf_idx] = -1;
 	machine_state.gpr_freevec.clear_bit(m->prf_idx);
       }
     }
@@ -672,7 +674,6 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    machine_state.gpr_rat[m->prf_idx] = -1;
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
   }
@@ -829,7 +830,6 @@ public:
   }
   virtual void undo(sim_state &machine_state) {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
-    machine_state.gpr_rat[m->prf_idx] = -1;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
   }
 };

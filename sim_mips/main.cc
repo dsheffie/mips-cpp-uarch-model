@@ -252,6 +252,12 @@ extern "C" {
 	  break;
 	}
 	busted_alloc_cnt = 0;
+
+	if(u->op->get_dest()==2) {
+	  dprintf(2, "==> op @ %x writing 2, new prf %d\n",
+		  u->pc, u->prf_idx);
+	}
+	
 	rs_queue->push(u);
 	decode_queue.pop();
 	u->alloc_cycle = curr_cycle;
@@ -353,6 +359,8 @@ extern "C" {
 	  break;
 	}
 
+
+	 
 	u->op->retire(machine_state);
 	
 	if(u->branch_exception) {
