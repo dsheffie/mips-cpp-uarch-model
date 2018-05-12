@@ -428,8 +428,10 @@ public:
     if(get_dest() != -1) {
       m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
       int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
-      if(prf_id == -1)
+      if(prf_id == -1) {
+	dprintf(2, "%lu gprs in use..\n", machine_state.gpr_freevec.popcount());
 	return false;
+      }
       assert(prf_id >= 0);
       machine_state.gpr_freevec.set_bit(prf_id);
       machine_state.gpr_rat[get_dest()] = prf_id;
