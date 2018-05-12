@@ -467,7 +467,13 @@ public:
 	break;
       }
     m->branch_exception = not(m->predict_taken);
-    dprintf(2, "=> %lu : executing branch\n", get_curr_cycle());
+    dprintf(2, "=> %lu : executing jump %x, this = %p\n",
+	    get_curr_cycle(), m->pc, this);
+
+    if(m->complete_cycle != -1) {
+      dprintf(2,"mistakes have been made\n");
+      asm("int3");
+    }
     
     if(get_dest() != -1) {
       machine_state.gpr_prf[m->prf_idx] = m->pc + 8;

@@ -173,20 +173,25 @@ extern "C" {
 
     while(not(machine_state.terminate_sim)) {
       int alloc_amt = 0;
-      while(not(decode_queue.empty()) and not(rob.full()) and (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
+      
+      while(not(decode_queue.empty()) and not(rob.full()) and
+	    (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
+	if(busted_alloc_cnt == 16) {
+	  dprintf(2, "@ %llu broken decode : %x breaks allocation\n", get_curr_cycle(), u->pc);
+	  exit(-1);
+	}
 	if(u->op == nullptr) {
 	  busted_alloc_cnt++;
-	  if(busted_alloc_cnt == 16) {
-	    dprintf(2, "@ %llu broken decode : %x breaks allocation\n", get_curr_cycle(), u->pc);
-	    exit(-1);
-	  }
 	  break;
 	}
 	if(u->decode_cycle == curr_cycle) {
-	  dprintf(2, "@ %llu broken decode : %x was decoded this cycle \n", get_curr_cycle(), u->pc);
+	  dprintf(2, "@ %llu broken decode : %x was decoded this cycle \n",
+		  get_curr_cycle(), u->pc);
 	  break;
 	}
+	
+	sim_queue<sim_op> *rs_queue = nullptr;
 	bool rs_available = false;
 	switch(u->op->get_op_class())
 	  {
@@ -200,7 +205,7 @@ extern "C" {
 	      if(not(machine_state.alu_rs.at(p).full())) {
 		machine_state.last_alu_rs = p;
 		rs_available = true;
-		machine_state.alu_rs.at(p).push(u);
+		rs_queue = &(machine_state.alu_rs.at(p));
 		break;
 	      }
 	    }
@@ -212,20 +217,20 @@ extern "C" {
 	    //dprintf(2, "want jmp for %x \n", u->pc);
 	    if(not(machine_state.jmp_rs.full())) {
 	      rs_available = true;
-	      machine_state.jmp_rs.push(u);
+	      rs_queue = &(machine_state.jmp_rs);
 	    }
 	    break;
 	  case mips_op_type::mem:
 	    //dprintf(2, "want mem rs for %x \n", u->pc);
 	    if(not(machine_state.mem_rs.full())) {
 	      rs_available = true;
-	      machine_state.mem_rs.push(u);
+	      rs_queue = &(machine_state.mem_rs);
 	    }
 	    break;
 	  case mips_op_type::system:
 	    if(not(machine_state.system_rs.full())) {
 	      rs_available = true;
-	      machine_state.system_rs.push(u);
+	      rs_queue = &(machine_state.system_rs);
 	    }
 	    break;
 	  }
@@ -241,10 +246,13 @@ extern "C" {
 	  exit(-1);
 	  break;
 	}
-	busted_alloc_cnt = 0;
 	if(not(u->op->allocate(machine_state))) {
+	  busted_alloc_cnt++;
+	  dprintf(2, "allocation failed...\n");
 	  break;
 	}
+	busted_alloc_cnt = 0;
+	rs_queue->push(u);
 	decode_queue.pop();
 	u->alloc_cycle = curr_cycle;
 	u->rob_idx = rob.push(u);

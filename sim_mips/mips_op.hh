@@ -21,9 +21,9 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   uint64_t fetch_cycle = 0;
   bool predict_taken = false;
   
-  uint64_t decode_cycle = 0;
-  uint64_t alloc_cycle = 0;
-  uint64_t complete_cycle = 0;
+  int64_t decode_cycle = -1;
+  int64_t alloc_cycle = -1;
+  int64_t complete_cycle = -1;
   /* finished execution */
   bool is_complete = false;
   bool branch_exception = false;
