@@ -45,7 +45,14 @@ public:
     machine_state.cpr0_freevec.clear_bit(m->prev_prf_idx);
     return true;
   }
-
+  virtual void undo(sim_state &machine_state) {
+    if(m->prev_prf_idx != -1) {
+      machine_state.cpr0_rat[get_dest()] = m->prev_prf_idx;
+    }
+    if(m->prf_idx != -1) {
+      machine_state.cpr0_freevec.clear_bit(m->prf_idx);
+    }
+  }
 };
 
 class mtc1 : public mips_op {
@@ -351,7 +358,6 @@ public:
 protected:
   itype i_;
   jump_type jt;
-  uint32_t branch_target = 0;
 public:
   jump_op(sim_op op, jump_type jt) :
     mips_op(op), i_(op->inst), jt(jt) {
@@ -410,7 +416,26 @@ public:
     }
   }
   virtual void execute(sim_state &machine_state) {
-    m->correct_pc = machine_state.gpr_prf[m->src0_prf];
+    uint32_t pc_mask = (~((1U<<28)-1));
+    uint32_t jaddr = (m->inst & ((1<<26)-1)) << 2;
+    switch(jt)
+      {
+      case jump_type::jr:
+      case jump_type::jalr:
+	m->correct_pc = machine_state.gpr_prf[m->src0_prf];
+	break;
+      case jump_type::j:
+      case jump_type::jal:
+	m->correct_pc = ((m->pc + 4)&pc_mask) | jaddr;
+	break;
+      }
+    m->branch_exception = not(m->predict_taken);
+
+    //if(m->branch_exception) {
+    //dprintf(2, "branch target %x\n", m->correct_pc);
+    // exit(-1);
+    //}
+    
     if(get_dest() != -1) {
       machine_state.gpr_prf[m->prf_idx] = m->pc + 8;
     }
@@ -528,6 +553,19 @@ public:
   }
 };
 
+static mips_op* decode_jtype_insn(sim_op m_op) {
+  uint32_t opcode = (m_op->inst)>>26;
+  switch(opcode)
+    {
+    case 0x2:
+      return new jump_op(m_op, jump_op::jump_type::j);
+    case 0x3:
+      return new jump_op(m_op, jump_op::jump_type::jal);
+    default:
+      break;
+    }
+  return nullptr;
+}
 
 static mips_op* decode_itype_insn(sim_op m_op) {
   uint32_t opcode = (m_op->inst)>>26;
@@ -562,6 +600,7 @@ static mips_op* decode_itype_insn(sim_op m_op) {
     }
   return nullptr;
 }
+
 
 static mips_op* decode_rtype_insn(sim_op m_op) {
   uint32_t opcode = (m_op->inst)>>26;
@@ -752,15 +791,14 @@ mips_op* decode_insn(sim_op m_op) {
   bool isStoreCond = (opcode == 0x38);
 
 
-  if(isRType) {
+  if(isRType)
     return decode_rtype_insn(m_op);
-  }
   else if(isSpecial2)
     return nullptr;
   else if(isSpecial3)
     return nullptr;
   else if(isJType)
-    return nullptr;
+    return decode_jtype_insn(m_op);
   else if(isCoproc0) {
     switch((m_op->inst >> 21) &31) 
       {

@@ -124,11 +124,11 @@ extern "C" {
       
       for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
 	sparse_mem &mem = s->mem;
+	dprintf(2, "fetch pc %x\n", machine_state.fetch_pc);
 	uint32_t inst = accessBigEndian(mem.get32(machine_state.fetch_pc));
 	auto f = new mips_meta_op(machine_state.fetch_pc, inst,
 				  machine_state.fetch_pc+4, curr_cycle);
 	fetch_queue.push(f);
-	dprintf(2, "fetch pc %x\n", machine_state.fetch_pc);
 	machine_state.fetch_pc += 4;
       }
       if(machine_state.nuke) {
@@ -168,13 +168,18 @@ extern "C" {
   void allocate(void *arg) {
     auto &decode_queue = machine_state.decode_queue;
     auto &rob = machine_state.rob;
+    int busted_alloc_cnt = 0;
 
     while(not(machine_state.terminate_sim)) {
       int alloc_amt = 0;
       while(not(decode_queue.empty()) and not(rob.full()) and (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
 	if(u->op == nullptr) {
-	  dprintf(2, "@ %llu broken decode : %x breaks allocation\n", get_curr_cycle(), u->pc);
+	  busted_alloc_cnt++;
+	  if(busted_alloc_cnt == 16) {
+	    dprintf(2, "@ %llu broken decode : %x breaks allocation\n", get_curr_cycle(), u->pc);
+	    exit(-1);
+	  }
 	  break;
 	}
 	if(u->decode_cycle == curr_cycle) {
@@ -228,7 +233,7 @@ extern "C" {
 	  dprintf(2, "stuck...\n");
 	  break;
 	}
-	
+	busted_alloc_cnt = 0;
 	decode_queue.pop();
 	u->op->allocate(machine_state);
 	u->alloc_cycle = curr_cycle;
@@ -350,13 +355,6 @@ extern "C" {
 	delete u;
 	dprintf(2,"drained branch delay slot\n");
 
-	//if(rob.empty()) {
-	//	  dprintf(2, "empty rob, don't need do undo things..\n");
-	//}
-	//else {
-	//dprintf(2, "not empty rob,  need to undo  things..\n");
-	//exit(-1);
-	//}
 	dprintf(2,"read ptr %d, write ptr %d\n", rob.get_read_idx(),
 		rob.get_write_idx());
 

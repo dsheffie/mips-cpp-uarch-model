@@ -1,7 +1,7 @@
 UNAME_S = $(shell uname -s)
 
 ifeq ($(UNAME_S),Linux)
-     CXX = g++ -march=native
+     CXX = clang++-4.0 -march=native
      EXTRA_LD = -ldl -lffi -lbfd
 endif
 
