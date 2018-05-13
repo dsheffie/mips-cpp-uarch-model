@@ -1,19 +1,28 @@
 UNAME_S = $(shell uname -s)
 
+OBJ = main.o loadelf.o parseMips.o helper.o profileMips.o gthread.o mips_op.o
+
 ifeq ($(UNAME_S),Linux)
-     CXX = clang++-4.0 -march=native
-     EXTRA_LD = -ldl -lffi -lbfd
+	CXX = clang++-4.0 -march=native
+	OBJ += gthread_asm.o
+	EXTRA_LD = -ldl -lffi -lbfd
 endif
 
 ifeq ($(UNAME_S),FreeBSD)
-     CXX = CC -march=native
-     EXTRA_LD = -L/usr/local/lib
+	CXX = CC -march=native
+	OBJ += gthread_asm.o
+	EXTRA_LD = -L/usr/local/lib
+endif
+
+ifeq ($(UNAME_S),Darwin)
+	CXX = clang++ -march=native
+	OBJ += gthread_asm_osx.o
 endif
 
 CXXFLAGS = -std=c++11 -g $(OPT) $(LLVM_CXXFLAGS)
-LIBS =  $(EXTRA_LD) -lpthread -lffi -lcurses -lz -lunwind -lboost_system
+LIBS =  $(EXTRA_LD) -lpthread -lffi -lcurses -lz #-lunwind -lboost_system
 
-OBJ = main.o loadelf.o parseMips.o helper.o profileMips.o gthread.o gthread_asm.o mips_op.o
+
 DEP = $(OBJ:.o=.d)
 OPT = -O0 -g -fomit-frame-pointer -std=c++11
 EXE = sim_mips
