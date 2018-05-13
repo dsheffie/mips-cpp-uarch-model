@@ -251,6 +251,9 @@ public:
 	case 0x00: /*sll*/
 	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] << sa;
 	  break;
+	case 0x02: /*srl */
+	  machine_state.gpr_prf[m->prf_idx] = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]) >> sa;
+	  break;
 	case 0x21: { /* addu */
 	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
 	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
@@ -370,8 +373,12 @@ public:
       case 0x09: /* addiu */
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] + simm32;
 	break;
-      case 0x0A: /* slti */
+      case 0x0a: /* slti */
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] < simm32;
+	break;
+      case 0x0b: /* sltiu */
+      machine_state.gpr_prf[m->prf_idx] = 
+      static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]) < static_cast<uint32_t>(simm32);
 	break;
       case 0x0c: /* andi */
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] & uimm32;
@@ -379,7 +386,9 @@ public:
       case 0x0d: /* ori */
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] | uimm32;
 	break;
-
+      case 0x0e: /* xori */
+	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] ^ uimm32;
+	break;
       default:
 	dprintf(2, "implement me %x\n", m->pc);
 	exit(-1);
@@ -587,7 +596,13 @@ public:
     switch(bt)
       {
       case branch_type::blez:
+      case branch_type::blezl:
       case branch_type::bgtz:
+      case branch_type::bgtzl:
+      case branch_type::bgez:
+      case branch_type::bgezl:
+      case branch_type::bltz:
+      case branch_type::bltzl:
 	return -1;
       default:
 	break;
@@ -655,7 +670,19 @@ public:
 	take_br = machine_state.gpr_prf[m->src0_prf] <= 0;
 	m->has_delay_slot = true;
 	break;
-
+      case branch_type::bltz:
+	take_br = machine_state.gpr_prf[m->src0_prf] < 0;
+	m->has_delay_slot = true;
+	break;
+      case branch_type::bgez:
+	take_br = machine_state.gpr_prf[m->src0_prf] >= 0;
+	m->has_delay_slot = true;
+	break;
+      case branch_type::bltzl:
+	take_br = machine_state.gpr_prf[m->src0_prf] < 0;
+	m->likely_squash = not(take_br);
+	m->has_delay_slot = take_br;
+	break;
       default:
 	dprintf(2, "wtf @ %x\n", m->pc);
 	exit(-1);
@@ -1036,6 +1063,21 @@ static mips_op* decode_itype_insn(sim_op m_op) {
   uint32_t opcode = (m_op->inst)>>26;
   switch(opcode)
     {
+    case 0x1:
+      switch((m_op->inst >> 16) & 31)
+	{
+	case 0x0:
+	  return new branch_op(m_op,branch_op::branch_type::bltz);
+	case 0x1:
+	  return new branch_op(m_op,branch_op::branch_type::bgez);
+	case 0x2:
+	  return new branch_op(m_op,branch_op::branch_type::bltzl);
+	case 0x3:
+	  return new branch_op(m_op,branch_op::branch_type::bgezl);
+	default:
+	  dprintf(2, "unknown branch type @ %x\n", m_op->pc);
+	  exit(-1);
+	}
     case 0x04: /* beq */
       return new branch_op(m_op,branch_op::branch_type::beq);
     case 0x05: /* bne */
