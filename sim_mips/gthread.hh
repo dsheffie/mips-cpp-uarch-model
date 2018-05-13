@@ -26,6 +26,9 @@ private:
   std::shared_ptr<gthread> prev = nullptr;
   uint64_t state[7] = {0};
   uint8_t stack_alloc[stack_sz] = {0};
+  int64_t get_id() const {
+    return id;
+  }
   void remove_from_list() {
     if(next) {
       next->prev = prev;

@@ -42,6 +42,7 @@ void gthread_yield() {
 				 next->arg);
   }
   else {
+    //dprintf(2, "curr %p, next %p\n", curr->get_id(), next->get_id());
     switch_gthread_asm(curr->state,next->state);
   }
 }

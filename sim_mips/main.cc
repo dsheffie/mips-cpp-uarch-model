@@ -116,9 +116,6 @@ extern "C" {
     while(not(machine_state.terminate_sim)) {
       //dprintf(2, "cycle %llu : icnt %llu\n", curr_cycle, machine_state.icnt);
       curr_cycle++;
-      if(machine_state.icnt >= machine_state.maxicnt) {
-	machine_state.terminate_sim = true;
-      }
       //if(curr_cycle >= 256) {
       //machine_state.terminate_sim = true;
       //}
@@ -160,9 +157,9 @@ extern "C" {
 	fetch_queue.pop();
 	u->decode_cycle = curr_cycle;
 	u->op = decode_insn(u);
-	//if(u->op) {
-	//dprintf(2, "op at pc %x was decoded\n", u->pc);
-	//}
+	if(u->op) {
+	  dprintf(2, "op at pc %x was decoded\n", u->pc);
+	}
 	decode_queue.push(u);
       }
       gthread_yield();
@@ -177,7 +174,7 @@ extern "C" {
 
     while(not(machine_state.terminate_sim)) {
       int alloc_amt = 0;
-      
+      dprintf(2, "%llu allocation...\n", get_curr_cycle());
       while(not(decode_queue.empty()) and not(rob.full()) and
 	    (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
@@ -284,7 +281,8 @@ extern "C" {
 	//dprintf(2, "op at pc %x was allocated\n", u->pc);
 	alloc_amt++;
       }
-      //dprintf(2,"%d instr allocated\n", alloc_amt);
+      dprintf(2,"%d instr allocated, decode queue empty %d, rob full %d\n", 
+	      alloc_amt, decode_queue.empty(), rob.full());
       gthread_yield();
     }
     gthread_terminate();
@@ -297,6 +295,7 @@ extern "C" {
     auto & mem_rs = machine_state.mem_rs;
     auto & system_rs = machine_state.system_rs;
     while(not(machine_state.terminate_sim)) {
+      int exec_cnt = 0;
       if(not(machine_state.nuke)) {
 	//alu loop
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
@@ -304,6 +303,7 @@ extern "C" {
 	    if(alu_rs.at(i).peek()->op->ready(machine_state)) {
 	      sim_op u = alu_rs.at(i).pop();
 	      u->op->execute(machine_state);
+	      exec_cnt++;
 	    }
 	  }
 	}
@@ -311,21 +311,25 @@ extern "C" {
 	  if(jmp_rs.peek()->op->ready(machine_state)) {
 	    sim_op u = jmp_rs.pop();
 	    u->op->execute(machine_state);
+	    exec_cnt++;
 	  }
 	}
 	if(not(mem_rs.empty())) {
 	  if(mem_rs.peek()->op->ready(machine_state)) {
 	    sim_op u = mem_rs.pop();
 	    u->op->execute(machine_state);
+	    exec_cnt++;
 	  }
 	}
 	if(not(system_rs.empty())) {
 	  if(system_rs.peek()->op->ready(machine_state)) {
 	    sim_op u = system_rs.pop();
 	    u->op->execute(machine_state);
+	    exec_cnt++;
 	  }	
 	}
       }
+      dprintf(2, "%d instructions began exec @ %llu\n", exec_cnt, get_curr_cycle());
       gthread_yield();
     }
     gthread_terminate();
@@ -366,8 +370,6 @@ extern "C" {
 	  u = nullptr;
 	  break;
 	}
-
-
 	 
 	u->op->retire(machine_state);
 	machine_state.retire_log.push_back(retire_entry(u->inst, u->pc, u->exec_parity));
@@ -379,24 +381,18 @@ extern "C" {
 	  }
 	  break;
 	}
+
+	dprintf(2, "head of rob retiring for %x, rob.full() = %d\n", u->pc, rob.full());
 	retire_amt++;
 	rob.pop();
-	
-	if(u->pc == 0xa0020028) {
-	  dprintf(2, "bad op alloc'd @ fetch_cycle %llu, decode_cycle %llu, alloc_cycle %llu\n", 
-		  u->fetch_cycle, u->decode_cycle,u->alloc_cycle);
-	  exit(-1);
-	}	
-
-	dprintf(2, "head of rob retiring for %x\n", u->pc);
 
 	delete u;
 	u = nullptr;
       }
 
       if(u!=nullptr and u->branch_exception) {
-	dprintf(2, "%lu @ EXCEPTION @ %x, u = %p, complete %d, delay %d\n",
-		get_curr_cycle(), u->pc, u, u->is_complete, u->has_delay_slot);
+	dprintf(2, "%lu @ EXCEPTION @ %x, rob.full = %d, rob.empty() = %d, complete %d, delay %d\n",
+		get_curr_cycle(), u->pc, rob.full(), rob.empty(), u->is_complete, u->has_delay_slot);
 	rob.pop();
 	int exception_cycles = 0;
 	if(u->has_delay_slot and u->likely_squash) {
@@ -405,9 +401,16 @@ extern "C" {
 	}
 	if(u->has_delay_slot) {
 	  /* wait for branch delay instr to allocate */
+	  int delay_cnt = 0;
 	  while(rob.empty()) {
+	    dprintf(2, "%llu : waiting for instruction in delay slot, pc %x, nuke %d\n", 
+		    get_curr_cycle(), u->pc, machine_state.nuke);
 	    exception_cycles++;
+	    delay_cnt++;
 	    gthread_yield();
+	    if(delay_cnt > 8) {
+	      exit(-1);
+	    }
 	  }
 
 	  while(not(rob.empty())) {
@@ -528,6 +531,9 @@ extern "C" {
       else {
 	gthread_yield();
       }
+      if(machine_state.icnt >= machine_state.maxicnt) {
+	machine_state.terminate_sim = true;
+      }
     }
     gthread_terminate();
   }
@@ -602,10 +608,17 @@ int main(int argc, char *argv[]) {
   
   start_gthreads();
 
+  uint32_t parity = 0;
+  for(int i = 0; i < 32; i++) {
+    parity ^= machine_state.arch_grf[i];
+  }
+
   for(int i = 0; i < 32; i++) {
     std::cout << "reg " << getGPRName(i) << " : " 
 	      << std::hex << machine_state.arch_grf[i] << std::dec << "\n"; 
   }
+  std::cout << "parity = " << std::hex <<  parity << std::dec << "\n";
+
   for(int i = 0; i < 32; i++) {
     std::cout << "reg " << getGPRName(i) << " writer pc : " 
 	      << std::hex << machine_state.arch_grf_last_pc[i] << std::dec << "\n"; 
@@ -613,8 +626,7 @@ int main(int argc, char *argv[]) {
   std::ofstream os("log.txt", std::ios::out);
   for(auto &p : machine_state.retire_log) {
     os << std::hex << p.pc << std::dec << " : " 
-       << getAsmString(p.inst, p.pc) << " " 
-       << std::hex << p.parity << std::dec
+       << getAsmString(p.inst, p.pc)
        << "\n";
   }
   os.close();
