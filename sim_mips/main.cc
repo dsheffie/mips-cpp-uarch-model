@@ -390,6 +390,7 @@ extern "C" {
 	dprintf(2, "head of rob retiring for %x\n", u->pc);
 
 	delete u;
+	u = nullptr;
       }
 
       if(u!=nullptr and u->branch_exception) {
