@@ -828,8 +828,11 @@ public:
     sparse_mem & mem = *(machine_state.mem);
     switch(st)
       {
+      case store_type::sb:
+	mem.at(effective_address) = static_cast<int8_t>(store_data);
+	break;
       case store_type::sh:
-	*((int16_t*)(mem + effective_address)) = accessBigEndian(static_cast<int64_t>(store_data));
+	*((int16_t*)(mem + effective_address)) = accessBigEndian(static_cast<int16_t>(store_data));
 	break;
       case store_type::sw:
 	*((int32_t*)(mem + effective_address)) = accessBigEndian(store_data);
