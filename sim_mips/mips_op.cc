@@ -193,11 +193,14 @@ public:
 
 
 class rtype_alu_op : public mips_op {
+public:
+  enum class r_type {sll, srl, sra, addu, add, subu, sub, and_, or_, xor_, nor_, slt, sltu, sllv, wrecked};
 protected:
   rtype r;
+  r_type rt;
 public:
-  rtype_alu_op(sim_op op) :
-    mips_op(op), r(op->inst) {
+  rtype_alu_op(sim_op op, r_type rt) :
+    mips_op(op), r(op->inst), rt(rt) {
     this->op_class = mips_op_type::alu;
   }
   virtual int get_dest() const {
@@ -246,32 +249,35 @@ public:
     if(m->prf_idx != -1) {
       uint32_t funct = m->inst & 63;
       uint32_t sa = (m->inst >> 6) & 31;
-      switch(funct)
+      switch(rt)
 	{
-	case 0x00: /*sll*/
+	case r_type::sll:
 	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] << sa;
 	  break;
-	case 0x02: /*srl */
+	case r_type::srl:
 	  machine_state.gpr_prf[m->prf_idx] = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]) >> sa;
 	  break;
-	case 0x21: { /* addu */
+	case r_type::sra:
+	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] >> sa;
+	  break;
+	case r_type::addu: {
 	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
 	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
 	  machine_state.gpr_prf[m->prf_idx] = (urs + urt);
 	  break;
 	}
-	case 0x23: {/*subu*/  
+	case r_type::subu: {
 	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
 	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
 	  uint32_t y = urs - urt;
 	  machine_state.gpr_prf[m->prf_idx] = y;
 	  break;
 	}
-	case 0x24:
+	case r_type::and_:
 	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] &
 	    machine_state.gpr_prf[m->src1_prf];
 	  break;
-	case 0x2B: { /* sltu */
+	case r_type::sltu: {
 	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
 	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
 	  machine_state.gpr_prf[m->prf_idx] = (urs < urt);
@@ -1038,7 +1044,7 @@ public:
 
 class rtype_const_shift_alu_op : public rtype_alu_op {
 public:
-  rtype_const_shift_alu_op(sim_op op) : rtype_alu_op(op) {}
+  rtype_const_shift_alu_op(sim_op op, rtype_alu_op::r_type rt) : rtype_alu_op(op, rt) {}
   virtual int get_src1() const {
     return -1;
   }
@@ -1138,24 +1144,24 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
   switch(funct) 
     {
     case 0x00: /*sll*/
-      return new rtype_const_shift_alu_op(m_op);
+      return new rtype_const_shift_alu_op(m_op, rtype_alu_op::r_type::sll);
 #if 0
     case 0x01: /* movci */
       _movci(inst,s);
       break;
 #endif
     case 0x02: /* srl */
-      return new rtype_const_shift_alu_op(m_op);
+      return new rtype_const_shift_alu_op(m_op, rtype_alu_op::r_type::srl);
     case 0x03: /* sra */
-      return new rtype_const_shift_alu_op(m_op);
+      return new rtype_const_shift_alu_op(m_op, rtype_alu_op::r_type::sra);
     case 0x04: /* sllv */
-      return new rtype_alu_op(m_op);
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::sllv);
     case 0x05:
       return new monitor_op(m_op);
     case 0x06:
-      return new rtype_alu_op(m_op);
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::wrecked);
     case 0x07:
-      return new rtype_alu_op(m_op);
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::wrecked);
     case 0x08: /* jr */
       return new jump_op(m_op, jump_op::jump_type::jr);
     case 0x09: /* jalr */
@@ -1222,25 +1228,25 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
       break;
 #endif
     case 0x20: /* add */
-      return new rtype_alu_op(m_op);
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::add);
     case 0x21: 
-      return new rtype_alu_op(m_op);
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::addu);
     case 0x22: /* sub */
-      return new rtype_alu_op(m_op);
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::sub);
     case 0x23: /*subu*/  
-      return new rtype_alu_op(m_op);
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::subu);
     case 0x24: /* and */
-      return new rtype_alu_op(m_op);
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::and_);
     case 0x25: /* or */
-      return new rtype_alu_op(m_op);
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::or_);
     case 0x26: /* xor */
-      return new rtype_alu_op(m_op);
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::xor_);
     case 0x27: /* nor */
-      return new rtype_alu_op(m_op);
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::nor_);
     case 0x2A: /* slt */
-      return new rtype_alu_op(m_op);
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::slt);
     case 0x2B:  /* sltu */
-      return new rtype_alu_op(m_op);
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::sltu);
 #if 0
     case 0x0B: /* movn */
       s->gpr[rd] = (s->gpr[rt] != 0) ? s->gpr[rs] : s->gpr[rd];
