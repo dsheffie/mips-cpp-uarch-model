@@ -288,18 +288,7 @@ extern "C" {
     auto & mem_rs = machine_state.mem_rs;
     auto & system_rs = machine_state.system_rs;
     while(not(machine_state.terminate_sim)) {
-      if(machine_state.nuke) {
-	for(int i = 0; i < machine_state.num_alu_rs; i++) {
-	  alu_rs.at(i).clear();
-	}
-	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
-	  fpu_rs.at(i).clear();
-	}
-	jmp_rs.clear();
-	mem_rs.clear();
-	system_rs.clear();
-      }
-      else {
+      if(not(machine_state.nuke)) {
 	//alu loop
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
 	  if(not(alu_rs.at(i).empty()) ) {
@@ -505,6 +494,16 @@ extern "C" {
 	}
 	machine_state.decode_queue.clear();
 	machine_state.fetch_queue.clear();
+	for(int i = 0; i < machine_state.num_alu_rs; i++) {
+	  machine_state.alu_rs.at(i).clear();
+	}
+	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
+	  machine_state.fpu_rs.at(i).clear();
+	}
+	machine_state.jmp_rs.clear();
+	machine_state.mem_rs.clear();
+	machine_state.system_rs.clear();
+
 	machine_state.nuke = false;
       }
       else {
