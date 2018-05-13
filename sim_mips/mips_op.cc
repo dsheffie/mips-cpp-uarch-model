@@ -194,7 +194,9 @@ public:
 
 class rtype_alu_op : public mips_op {
 public:
-  enum class r_type {sll, srl, sra, addu, add, subu, sub, and_, or_, xor_, nor_, slt, sltu, sllv, wrecked};
+  enum class r_type {sll, srl, sra, addu, add, subu, sub, and_, 
+      or_, xor_, nor_, slt, sltu, sllv, movn, movz,
+      wrecked};
 protected:
   rtype r;
   r_type rt;
@@ -212,12 +214,27 @@ public:
   virtual int get_src1() const {
     return r.rr.rs;
   }
+  virtual int get_src2() const {
+    switch(rt) 
+      {
+      case r_type::movn:
+      case r_type::movz:
+	return get_dest();
+	break;
+      default:
+	break;
+      }
+    return -1;
+  }
   virtual bool allocate(sim_state &machine_state) {
     if(get_src0() != -1) {
       m->src0_prf = machine_state.gpr_rat[get_src0()];
     }
     if(get_src1() != -1) {
       m->src1_prf = machine_state.gpr_rat[get_src1()];
+    }
+    if(get_src2() != -1) {
+      m->src2_prf = machine_state.gpr_rat[get_src2()];
     }
     if(get_dest() > 0) {
       m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
@@ -237,6 +254,9 @@ public:
       return false;
     }
     if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+      return false;
+    }
+    if(m->src2_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src2_prf))) {
       return false;
     }
     return true;
@@ -1186,6 +1206,10 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
       return new jump_op(m_op, jump_op::jump_type::jr);
     case 0x09: /* jalr */
       return new jump_op(m_op, jump_op::jump_type::jalr);
+    case 0x0a: /* movz */
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::movz);
+    case 0x0b: /* movn */
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::movn);
 #if 0
     case 0x0C: /* syscall */
       printf("syscall()\n");
@@ -1268,14 +1292,6 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
     case 0x2B:  /* sltu */
       return new rtype_alu_op(m_op, rtype_alu_op::r_type::sltu);
 #if 0
-    case 0x0B: /* movn */
-      s->gpr[rd] = (s->gpr[rt] != 0) ? s->gpr[rs] : s->gpr[rd];
-      s->pc +=4;
-      break;
-    case 0x0A: /* movz */
-      s->gpr[rd] = (s->gpr[rt] == 0) ? s->gpr[rs] : s->gpr[rd];
-      s->pc += 4;
-      break;
     case 0x34: /* teq */
       if(s->gpr[rs] == s->gpr[rt]) {
 	printf("teq trap!!!!!\n");
