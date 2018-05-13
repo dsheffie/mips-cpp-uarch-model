@@ -564,8 +564,7 @@ uint32_t not_ready_count = 0;
 
 class branch_op : public mips_op {
 public:
-  enum class branch_type {beq, bne, blez, bgtz,
-			  beql, bnel, blezl, bgtzl};
+  enum class branch_type {beq, bne, blez, bgtz, beql, bnel, blezl, bgtzl, bgez, bgezl, bltz, bltzl};
 protected:
   itype i_;
   branch_type bt;
@@ -582,7 +581,7 @@ public:
     op->correct_pc = branch_target;
   }
   virtual int get_src0() const {
-    return i_.ii.rt;
+    return i_.ii.rs;
   }
   virtual int get_src1() const {
     switch(bt)
@@ -593,7 +592,7 @@ public:
       default:
 	break;
       }
-    return i_.ii.rs;
+    return i_.ii.rt;
   }
   virtual bool allocate(sim_state &machine_state) {
     dprintf(2, "branch allocated\n");
