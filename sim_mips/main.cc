@@ -134,9 +134,6 @@ extern "C" {
 	fetch_queue.push(f);
 	machine_state.fetch_pc += 4;
       }
-      if(machine_state.nuke) {
-	fetch_queue.clear();
-      }
       gthread_yield();
     }
     gthread_terminate();
@@ -159,9 +156,6 @@ extern "C" {
 	//dprintf(2, "op at pc %x was decoded\n", u->pc);
 	//}
 	decode_queue.push(u);
-      }
-      if(machine_state.nuke) {
-	decode_queue.clear();
       }
       gthread_yield();
     }
@@ -378,6 +372,7 @@ extern "C" {
 
 	 
 	u->op->retire(machine_state);
+	machine_state.retire_log.push_back(std::pair<uint32_t,uint32_t>(u->inst, u->pc));
 	
 	if(u->branch_exception) {
 	  if(u->op->retired == false) {
@@ -389,6 +384,12 @@ extern "C" {
 	retire_amt++;
 	rob.pop();
 	
+	if(u->pc == 0xa0020028) {
+	  dprintf(2, "bad op alloc'd @ fetch_cycle %llu, decode_cycle %llu, alloc_cycle %llu\n", 
+		  u->fetch_cycle, u->decode_cycle,u->alloc_cycle);
+	  exit(-1);
+	}	
+
 	dprintf(2, "head of rob retiring for %x\n", u->pc);
 
 	delete u;
@@ -396,11 +397,10 @@ extern "C" {
       }
 
       if(u!=nullptr and u->branch_exception) {
-	dprintf(2, "%lu => EXCEPTION @ %x, u = %p, complete %d, delay %d\n",
+	dprintf(2, "%lu @ EXCEPTION @ %x, u = %p, complete %d, delay %d\n",
 		get_curr_cycle(), u->pc, u, u->is_complete, u->has_delay_slot);
 	rob.pop();
 	int exception_cycles = 0;
-	
 	if(u->has_delay_slot) {
 	  while(not(rob.empty())) {
 	    auto uu = rob.peek();
@@ -418,6 +418,7 @@ extern "C" {
 	    }
 	    dprintf(2, "branch delay insn @ %x retiring in exception cleanup\n",
 		    uu->pc);
+	    machine_state.retire_log.push_back(std::pair<uint32_t,uint32_t>(uu->inst, uu->pc));
 	    uu->op->retire(machine_state);
 	    rob.pop();
 	    delete uu;
@@ -502,6 +503,8 @@ extern "C" {
 	if(exception_cycles == 0) {
 	  gthread_yield();
 	}
+	machine_state.decode_queue.clear();
+	machine_state.fetch_queue.clear();
 	machine_state.nuke = false;
       }
       else {
@@ -578,6 +581,10 @@ int main(int argc, char *argv[]) {
   gthread::make_gthread(&retire, nullptr);
   
   start_gthreads();
+  for(auto &p : machine_state.retire_log) {
+    std::cout << std::hex << p.second << std::dec << " : " 
+	      << getAsmString(p.first, p.second) << "\n";
+  }
   std::cout << "SIMULATION COMPLETE : "
 	    << machine_state.icnt << " inst retired\n";
   return 0;

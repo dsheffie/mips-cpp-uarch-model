@@ -3,6 +3,8 @@
 
 #include <memory>
 #include <vector>
+#include <list>
+
 #include "sparse_mem.hh"
 #include "sim_queue.hh"
 #include "sim_bitvec.hh"
@@ -100,6 +102,8 @@ struct sim_state {
 
   sparse_mem *mem = nullptr;
   uint64_t icnt = 0;
+
+  std::list<std::pair<uint32_t,uint32_t>> retire_log;
 
   bool gpr_rat_sanity_check(int64_t prf_idx) const {
     for(int i = 0; i < 32; i++) {
