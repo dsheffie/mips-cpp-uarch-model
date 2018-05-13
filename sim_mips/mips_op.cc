@@ -578,13 +578,20 @@ public:
     int32_t imm = ((int32_t)himm) << 2;
     uint32_t npc = m->pc+4;
     branch_target = (imm+npc);
-    op->has_delay_slot = true;
     op->correct_pc = branch_target;
   }
   virtual int get_src0() const {
     return i_.ii.rt;
   }
   virtual int get_src1() const {
+    switch(bt)
+      {
+      case branch_type::blez:
+      case branch_type::bgtz:
+	return -1;
+      default:
+	break;
+      }
     return i_.ii.rs;
   }
   virtual bool allocate(sim_state &machine_state) {
@@ -624,9 +631,11 @@ public:
       {
       case branch_type::beq:
 	take_br = machine_state.gpr_prf[m->src0_prf] == machine_state.gpr_prf[m->src1_prf];
+	m->has_delay_slot = true;
 	break;
       case branch_type::bne:
 	take_br = machine_state.gpr_prf[m->src0_prf] != machine_state.gpr_prf[m->src1_prf];
+	m->has_delay_slot = true;
 	break;
       case branch_type::beql:
 	take_br = machine_state.gpr_prf[m->src0_prf] == machine_state.gpr_prf[m->src1_prf];
@@ -636,14 +645,15 @@ public:
 	take_br = machine_state.gpr_prf[m->src0_prf] != machine_state.gpr_prf[m->src1_prf];
 	m->has_delay_slot = not(take_br);
 	break;
-#if 0
-      case 0x06:
-	//_blez(inst, s); 
+      case branch_type::blez:
+	take_br = machine_state.gpr_prf[m->src0_prf] > 0;
+	m->has_delay_slot = true;
 	break;
-      case 0x07:
-	//_bgtz(inst, s); 
+      case branch_type::bgtz:
+	take_br = machine_state.gpr_prf[m->src0_prf] <= 0;
+	m->has_delay_slot = true;
 	break;
-#endif
+
       default:
 	dprintf(2, "wtf @ %x\n", m->pc);
 	exit(-1);

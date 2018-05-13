@@ -391,6 +391,12 @@ extern "C" {
 	rob.pop();
 	int exception_cycles = 0;
 	if(u->has_delay_slot) {
+	  /* wait for branch delay instr to allocate */
+	  while(rob.empty()) {
+	    exception_cycles++;
+	    gthread_yield();
+	  }
+
 	  while(not(rob.empty())) {
 	    auto uu = rob.peek();
 	    dprintf(2, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
