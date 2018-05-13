@@ -262,7 +262,12 @@ public:
 	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
 	  uint32_t y = urs - urt;
 	  machine_state.gpr_prf[m->prf_idx] = y;
+	  break;
 	}
+	case 0x24:
+	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] &
+	    machine_state.gpr_prf[m->src1_prf];
+	  break;
 	case 0x2B: { /* sltu */
 	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
 	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
@@ -368,10 +373,13 @@ public:
       case 0x0A: /* slti */
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] < simm32;
 	break;
+      case 0x0c: /* andi */
+	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] & uimm32;
+	break;
       case 0x0d: /* ori */
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] | uimm32;
 	break;
-	
+
       default:
 	dprintf(2, "implement me %x\n", m->pc);
 	exit(-1);
@@ -625,8 +633,8 @@ public:
 	m->has_delay_slot = not(take_br);
 	break;
       case branch_type::bnel:
-	dprintf(2, "got bnel, time to die\n");
-	exit(-1);
+	take_br = machine_state.gpr_prf[m->src0_prf] != machine_state.gpr_prf[m->src1_prf];
+	m->has_delay_slot = not(take_br);
 	break;
 #if 0
       case 0x06:
@@ -725,11 +733,18 @@ public:
     sparse_mem & mem = *(machine_state.mem);
     switch(lt)
       {
-      case load_type::lbu: {
+      case load_type::lbu:
 	*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
 	  static_cast<uint32_t>(mem.at(effective_address));
 	break;
-      }
+      case load_type::lh:
+	machine_state.gpr_prf[m->prf_idx] = 
+	  accessBigEndian(*((int16_t*)(mem + effective_address)));
+	break;
+      case load_type::lhu:
+	*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
+	  static_cast<uint32_t>(accessBigEndian(*(uint16_t*)(mem + effective_address))); 
+	break;
       case load_type::lw:
 	machine_state.gpr_prf[m->prf_idx] =
 	  accessBigEndian(*((int32_t*)(mem + effective_address))); 
@@ -813,6 +828,9 @@ public:
     sparse_mem & mem = *(machine_state.mem);
     switch(st)
       {
+      case store_type::sh:
+	*((int16_t*)(mem + effective_address)) = accessBigEndian(static_cast<int64_t>(store_data));
+	break;
       case store_type::sw:
 	*((int32_t*)(mem + effective_address)) = accessBigEndian(store_data);
 	break;
@@ -1025,10 +1043,18 @@ static mips_op* decode_itype_insn(sim_op m_op) {
       return new branch_op(m_op,branch_op::branch_type::bnel);
     case 0x17:
       return new branch_op(m_op,branch_op::branch_type::bgtzl);
+    case 0x21: /* lh */
+      return new load_op(m_op, load_op::load_type::lh);
     case 0x23: /* lw */
       return new load_op(m_op, load_op::load_type::lw);
     case 0x24: /* lbu */
       return new load_op(m_op, load_op::load_type::lbu);
+    case 0x25: /* lbu */
+      return new load_op(m_op, load_op::load_type::lhu);
+    case 0x28: /* sb */
+      return new store_op(m_op, store_op::store_type::sb);
+    case 0x29: /* sh */
+      return new store_op(m_op, store_op::store_type::sh);
     case 0x2B: /* sw */
       return new store_op(m_op, store_op::store_type::sw);
     default:
