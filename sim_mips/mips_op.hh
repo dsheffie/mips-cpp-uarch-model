@@ -39,7 +39,7 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   int64_t src0_prf = -1, src1_prf = -1, src2_prf = -1, src3_prf = -1;
   
   mips_op* op = nullptr;
-  
+
   mips_meta_op(uint32_t pc, uint32_t inst,  uint32_t fetch_npc, uint32_t fetch_cycle) :
     pc(pc), inst(inst), fetch_npc(fetch_npc), fetch_cycle(fetch_cycle), predict_taken(false)  {
 
@@ -99,6 +99,7 @@ struct sim_state {
   sim_queue<sim_op> system_rs;
 
   sparse_mem *mem = nullptr;
+  uint64_t icnt = 0;
 
   bool gpr_rat_sanity_check(int64_t prf_idx) const {
     for(int i = 0; i < 32; i++) {

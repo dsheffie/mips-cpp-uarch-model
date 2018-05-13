@@ -578,6 +578,8 @@ int main(int argc, char *argv[]) {
   gthread::make_gthread(&retire, nullptr);
   
   start_gthreads();
+  std::cout << "SIMULATION COMPLETE : "
+	    << machine_state.icnt << " inst retired\n";
   return 0;
   
   double runtime = timestamp();

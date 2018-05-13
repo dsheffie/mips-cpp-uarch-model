@@ -49,6 +49,7 @@ public:
     machine_state.cpr0_freevec.clear_bit(m->prev_prf_idx);
     machine_state.cpr0_valid.clear_bit(m->prev_prf_idx);
     retired = true;
+    machine_state.icnt++;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -113,6 +114,7 @@ public:
     machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
     retired = true;
+    machine_state.icnt++;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -173,6 +175,7 @@ public:
     if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
       dprintf(2, "mapping still exists!..%x\n", m->pc);      
     }
+    machine_state.icnt++;
     retired = true;
     return true;
   }
@@ -285,6 +288,7 @@ public:
       }
     }
     retired = true;
+    machine_state.icnt++;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -387,6 +391,7 @@ public:
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     retired = true;
+    machine_state.icnt++;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -523,6 +528,7 @@ public:
       machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     }
     retired = true;
+    machine_state.icnt++;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -648,6 +654,7 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     retired = true;
+    machine_state.icnt++;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -729,6 +736,7 @@ public:
     dprintf(2, "LOAD @ %x complete to prf %d!, alloc'd @ %llu\n",
 	    m->pc, m->prf_idx, m->alloc_cycle);
     retired = true;
+    machine_state.icnt++;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -801,6 +809,7 @@ public:
 	exit(-1);
       }
     retired = true;
+    machine_state.icnt++;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -830,6 +839,7 @@ public:
   virtual bool retire(sim_state &machine_state) {
     machine_state.terminate_sim = true;
     retired = true;
+    machine_state.icnt++;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -934,6 +944,7 @@ public:
     dprintf(2, "==> execute monitor op with reason %u, return address %x\n",
 	    reason, src_regs[3]);
     retired = true;
+    machine_state.icnt++;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
