@@ -302,6 +302,10 @@ public:
 	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] &
 	    machine_state.gpr_prf[m->src1_prf];
 	  break;
+	case r_type::or_:
+	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] |
+	    machine_state.gpr_prf[m->src1_prf];
+	  break;
 	case r_type::sltu: {
 	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
 	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
@@ -415,7 +419,6 @@ public:
       {
       case 0x09: /* addiu */
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] + simm32;
-	dprintf(2, "======> %x ADDIU RESULT %x\n", m->pc, machine_state.gpr_prf[m->prf_idx]);
 	break;
       case 0x0a: /* slti */
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] < simm32;
@@ -713,11 +716,11 @@ public:
 	m->has_delay_slot = take_br;
 	break;
       case branch_type::blez:
-	take_br = machine_state.gpr_prf[m->src0_prf] > 0;
+	take_br = machine_state.gpr_prf[m->src0_prf] <= 0;
 	m->has_delay_slot = true;
 	break;
       case branch_type::bgtz:
-	take_br = machine_state.gpr_prf[m->src0_prf] <= 0;
+	take_br = machine_state.gpr_prf[m->src0_prf] > 0;
 	m->has_delay_slot = true;
 	break;
       case branch_type::bltz:
@@ -975,13 +978,14 @@ public:
     }
   }
   virtual bool retire(sim_state &machine_state) {
-    machine_state.terminate_sim = true;
     retired = true;
     machine_state.icnt++;
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
+  virtual bool stop_sim() const {
+    return true;
   }
+  virtual void undo(sim_state &machine_state) {}
 };
 
 
@@ -1073,6 +1077,11 @@ public:
 	else if(fd==2)
 	  fflush(stderr);
       }
+      case 10: /* close */
+	if(src_regs[0] > 2) {
+	  machine_state.gpr_prf[m->prf_idx] = close(src_regs[0]);
+	}
+	break;
       case 55:
 	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 0)) = accessBigEndian(K1SIZE);
 	/* No Icache */

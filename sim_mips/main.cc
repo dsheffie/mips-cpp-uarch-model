@@ -355,6 +355,7 @@ extern "C" {
     while(not(machine_state.terminate_sim)) {
       int retire_amt = 0;
       sim_op u = nullptr;
+      bool stop_sim = false;
       while(not(rob.empty()) and (retire_amt < retire_bw)) {
 	
 	u = rob.peek();
@@ -385,9 +386,14 @@ extern "C" {
 	dprintf(2, "head of rob retiring for %x, rob.full() = %d\n", u->pc, rob.full());
 	retire_amt++;
 	rob.pop();
+	
+	stop_sim = u->op->stop_sim();
 
 	delete u;
 	u = nullptr;
+	if(stop_sim) {
+	  break;
+	}
       }
 
       if(u!=nullptr and u->branch_exception) {
@@ -403,8 +409,8 @@ extern "C" {
 	  /* wait for branch delay instr to allocate */
 	  int delay_cnt = 0;
 	  while(rob.empty()) {
-	    dprintf(2, "%llu : waiting for instruction in delay slot, pc %x, nuke %d\n", 
-		    get_curr_cycle(), u->pc, machine_state.nuke);
+	    dprintf(2, "%llu : waiting for instruction in delay slot, pc %x, nuke %d, icnt %llu\n", 
+		    get_curr_cycle(), u->pc, machine_state.nuke, machine_state.icnt);
 	    exception_cycles++;
 	    delay_cnt++;
 	    gthread_yield();
@@ -531,7 +537,7 @@ extern "C" {
       else {
 	gthread_yield();
       }
-      if(machine_state.icnt >= machine_state.maxicnt) {
+      if(machine_state.icnt >= machine_state.maxicnt or stop_sim) {
 	machine_state.terminate_sim = true;
       }
     }

@@ -171,6 +171,9 @@ public:
   virtual bool retire(sim_state &machine_state);
   virtual bool ready(sim_state &machine_state) const;
   virtual void undo(sim_state &machine_state);
+  virtual bool stop_sim() const {
+    return false;
+  }
   virtual int get_dest() const {
     return -1;
   }
