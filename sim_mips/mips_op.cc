@@ -317,7 +317,7 @@ public:
 	    machine_state.gpr_prf[m->src1_prf];
 	  break;
 	case r_type::slt:
-	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src1_prf] &
+	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src1_prf] <
 	    machine_state.gpr_prf[m->src0_prf];
 	  break;
 	case r_type::sltu: {

@@ -380,7 +380,6 @@ extern "C" {
 	      std::cout << "func reg " << getGPRName(i) << " : " 
 			<< std::hex << s->gpr[i] << std::dec << "\n"; 
 	      error = true;
-	      break;
 	    }
 	  }
 	  if(error) {
