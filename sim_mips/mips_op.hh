@@ -31,6 +31,7 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   bool branch_exception = false;
 
   bool has_delay_slot = false;
+  bool likely_squash = false;
   uint32_t correct_pc = 0;
   
   int32_t rob_idx = -1;
@@ -101,8 +102,8 @@ struct sim_state {
   sim_queue<sim_op> system_rs;
 
   sparse_mem *mem = nullptr;
-  uint64_t icnt = 0;
-
+  uint64_t icnt = 0, maxicnt = ~(0UL);
+  
   std::list<std::pair<uint32_t,uint32_t>> retire_log;
 
   bool gpr_rat_sanity_check(int64_t prf_idx) const {

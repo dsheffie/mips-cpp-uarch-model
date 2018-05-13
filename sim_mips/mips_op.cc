@@ -520,6 +520,7 @@ public:
 	break;
       }
     m->branch_exception = not(m->predict_taken);
+
     dprintf(2, "=> %lu : executing jump %x, this = %p\n",
 	    get_curr_cycle(), m->pc, this);
 
@@ -639,11 +640,13 @@ public:
 	break;
       case branch_type::beql:
 	take_br = machine_state.gpr_prf[m->src0_prf] == machine_state.gpr_prf[m->src1_prf];
-	m->has_delay_slot = not(take_br);
+	m->likely_squash = not(take_br);
+	m->has_delay_slot = take_br;
 	break;
       case branch_type::bnel:
 	take_br = machine_state.gpr_prf[m->src0_prf] != machine_state.gpr_prf[m->src1_prf];
-	m->has_delay_slot = not(take_br);
+	m->likely_squash = not(take_br);
+	m->has_delay_slot = take_br;
 	break;
       case branch_type::blez:
 	take_br = machine_state.gpr_prf[m->src0_prf] > 0;
@@ -668,7 +671,17 @@ public:
 	exit(-1);
       }
     }
-    
+
+    if(m->likely_squash) {
+      dprintf(2,"LIKELY SQUASHHHHHH\n");
+      m->branch_exception = true;
+      m->correct_pc = m->pc + 8;
+    }
+
+    if(m->pc == 0xa00200b4) {
+      dprintf(2, "=====> %llu : bne @ %x in execute, taken = %d, target = %x, exception = %d\n", 
+	      get_curr_cycle(), m->pc, take_br, branch_target, m->branch_exception);
+    }
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {

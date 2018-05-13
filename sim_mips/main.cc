@@ -113,7 +113,14 @@ uint64_t get_curr_cycle() {
 extern "C" {
   void cycle_count(void *arg) {
     while(not(machine_state.terminate_sim)) {
+      //dprintf(2, "cycle %llu : icnt %llu\n", curr_cycle, machine_state.icnt);
       curr_cycle++;
+      if(machine_state.icnt >= machine_state.maxicnt) {
+	machine_state.terminate_sim = true;
+      }
+      //if(curr_cycle >= 256) {
+      //machine_state.terminate_sim = true;
+      //}
       gthread_yield();
     }
     gthread_terminate();
@@ -173,9 +180,10 @@ extern "C" {
       while(not(decode_queue.empty()) and not(rob.full()) and
 	    (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
-	if(busted_alloc_cnt == 16) {
-	  dprintf(2, "@ %llu broken decode : %x breaks allocation\n", get_curr_cycle(), u->pc);
-	  exit(-1);
+	if(busted_alloc_cnt == 64) {
+	  dprintf(2, "@ %llu broken decode : (pc %x, insn %x) breaks allocation\n", 
+		  get_curr_cycle(), u->pc, u->inst);
+	  machine_state.terminate_sim = true;
 	}
 	if(u->op == nullptr) {
 	  busted_alloc_cnt++;
@@ -390,6 +398,10 @@ extern "C" {
 		get_curr_cycle(), u->pc, u, u->is_complete, u->has_delay_slot);
 	rob.pop();
 	int exception_cycles = 0;
+	if(u->has_delay_slot and u->likely_squash) {
+	  dprintf(2,"impossible to have both delay lot and likely squash!!!\n");
+	  exit(-1);
+	}
 	if(u->has_delay_slot) {
 	  /* wait for branch delay instr to allocate */
 	  while(rob.empty()) {
@@ -539,8 +551,8 @@ int main(int argc, char *argv[]) {
   size_t pgSize = getpagesize();
   char *filename = nullptr;
   char *sysArgs = nullptr;
-
-  while((c=getopt(argc,argv,"a:cf:hi:jo:rt"))!=-1) {
+  uint64_t maxicnt = ~(0UL);
+  while((c=getopt(argc,argv,"a:cf:m:"))!=-1) {
     switch(c) {
     case 'a':
       sysArgs = strdup(optarg);
@@ -550,6 +562,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'f':
       filename = optarg;
+      break;
+    case 'm':
+      maxicnt = atoi(optarg);
       break;
     default:
       break;
@@ -573,9 +588,8 @@ int main(int argc, char *argv[]) {
   load_elf(filename, s);
   mkMonitorVectors(s);
 
-
   machine_state.initialize(sm);
-  
+  machine_state.maxicnt = maxicnt;
 
   gthread::make_gthread(&cycle_count, nullptr);
   gthread::make_gthread(&fetch, nullptr);
