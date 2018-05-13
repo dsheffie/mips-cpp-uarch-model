@@ -308,6 +308,15 @@ public:
 	  machine_state.gpr_prf[m->prf_idx] = (urs < urt);
 	  break;
 	}
+	case r_type::movn:
+	  machine_state.gpr_prf[m->prf_idx] = (machine_state.gpr_prf[m->src0_prf] != 0) ? 
+	    machine_state.gpr_prf[m->src1_prf] : machine_state.gpr_prf[m->src2_prf];
+	  break;
+	case r_type::movz:
+	  machine_state.gpr_prf[m->prf_idx] = (machine_state.gpr_prf[m->src0_prf] == 0) ? 
+	    machine_state.gpr_prf[m->src1_prf] : machine_state.gpr_prf[m->src2_prf];
+	  break;
+
 	default:
 	  dprintf(2, "rtype wtf ((pc = %x)\n", m->pc);
 	  exit(-1);
