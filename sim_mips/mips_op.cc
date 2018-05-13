@@ -577,7 +577,7 @@ public:
       exit(-1);
     
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
-      dprintf(2, "branch %x : src0 (prf %d) not ready\n", m->src0_prf, m->pc);
+      dprintf(2, "branch %x : src0 (prf %d) not ready\n",m->pc, m->src0_prf );
       not_ready_count++;
       return false;
     }
