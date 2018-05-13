@@ -34,6 +34,8 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   bool likely_squash = false;
   uint32_t correct_pc = 0;
   
+  uint32_t exec_parity = 0;
+
   int32_t rob_idx = -1;
   /* result will get written to prf idx */
   int64_t prf_idx = -1;
@@ -56,6 +58,14 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
 
 typedef mips_meta_op* sim_op;
 
+struct retire_entry {
+  uint32_t inst;
+  uint32_t pc;
+  uint32_t parity;
+  retire_entry(uint32_t inst, uint32_t pc, uint32_t parity) : 
+    inst(inst), pc(pc), parity(parity) {}
+};
+
 struct sim_state {
   bool terminate_sim = false;
   bool nuke = false;
@@ -72,6 +82,9 @@ struct sim_state {
   int num_cpr1_prf_ = -1;
   int num_fcr1_prf_ = -1;
   
+  int32_t arch_grf[32] = {0};
+  int32_t arch_grf_last_pc[32] = {0};
+
   int32_t *gpr_prf = nullptr;
   uint32_t *cpr0_prf = nullptr;
   uint32_t *cpr1_prf = nullptr;
@@ -104,7 +117,7 @@ struct sim_state {
   sparse_mem *mem = nullptr;
   uint64_t icnt = 0, maxicnt = ~(0UL);
   
-  std::list<std::pair<uint32_t,uint32_t>> retire_log;
+  std::list<retire_entry> retire_log;
 
   bool gpr_rat_sanity_check(int64_t prf_idx) const {
     for(int i = 0; i < 32; i++) {
@@ -132,6 +145,13 @@ struct sim_state {
       fcr1_freevec.set_bit(i);
       fcr1_valid.set_bit(i);
     }
+  }
+  uint32_t gpr_parity() const {
+    uint32_t p = 0;
+    for(int i = 0; i < 32; i++) {
+      p ^= arch_grf[i];
+    }
+    return p;
   }
   
   void initialize(sparse_mem *mem);

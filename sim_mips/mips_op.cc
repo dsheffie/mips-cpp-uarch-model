@@ -207,10 +207,10 @@ public:
     return r.rr.rd;
   }
   virtual int get_src0() const {
-    return r.rr.rs;
+    return r.rr.rt;
   }
   virtual int get_src1() const {
-    return r.rr.rt;
+    return r.rr.rs;
   }
   virtual bool allocate(sim_state &machine_state) {
     if(get_src0() != -1) {
@@ -247,7 +247,6 @@ public:
       exit(-1);
     }
     if(m->prf_idx != -1) {
-      uint32_t funct = m->inst & 63;
       uint32_t sa = (m->inst >> 6) & 31;
       switch(rt)
 	{
@@ -256,19 +255,25 @@ public:
 	  break;
 	case r_type::srl:
 	  machine_state.gpr_prf[m->prf_idx] = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]) >> sa;
+	  dprintf(2, "%x : srl result = %d, shift amt %d, gpr %d, src prf %d src val %d \n",
+		  m->pc, machine_state.gpr_prf[m->prf_idx], sa, get_src0(), m->src0_prf,  machine_state.gpr_prf[m->src0_prf]);
 	  break;
 	case r_type::sra:
 	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] >> sa;
 	  break;
+	case r_type::sllv:
+	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] <<
+	    (machine_state.gpr_prf[m->src1_prf] & 0x1f);
+	  break;
 	case r_type::addu: {
-	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
-	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
+	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
+	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
 	  machine_state.gpr_prf[m->prf_idx] = (urs + urt);
 	  break;
 	}
 	case r_type::subu: {
-	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
-	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
+	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
+	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
 	  uint32_t y = urs - urt;
 	  machine_state.gpr_prf[m->prf_idx] = y;
 	  break;
@@ -278,13 +283,13 @@ public:
 	    machine_state.gpr_prf[m->src1_prf];
 	  break;
 	case r_type::sltu: {
-	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
-	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
+	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
+	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
 	  machine_state.gpr_prf[m->prf_idx] = (urs < urt);
 	  break;
 	}
 	default:
-	  dprintf(2, "wtf is funct %x (pc = %x)\n", funct, m->pc);
+	  dprintf(2, "rtype wtf ((pc = %x)\n", m->pc);
 	  exit(-1);
 	}
     }
@@ -306,6 +311,9 @@ public:
       if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
 	dprintf(2, "mapping still exists!..%x\n", m->pc);      
       }
+      machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+      machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+      m->exec_parity = machine_state.gpr_parity();
     }
     retired = true;
     machine_state.icnt++;
@@ -378,6 +386,7 @@ public:
       {
       case 0x09: /* addiu */
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] + simm32;
+	dprintf(2, "======> %x ADDIU RESULT %x\n", m->pc, machine_state.gpr_prf[m->prf_idx]);
 	break;
       case 0x0a: /* slti */
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] < simm32;
@@ -421,6 +430,9 @@ public:
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     retired = true;
     machine_state.icnt++;
+    machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+    machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+    m->exec_parity = machine_state.gpr_parity();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -556,9 +568,12 @@ public:
       }
       machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
       machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+      machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+      machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     }
     retired = true;
     machine_state.icnt++;
+    m->exec_parity = machine_state.gpr_parity();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -710,10 +725,6 @@ public:
       m->correct_pc = m->pc + 8;
     }
 
-    if(m->pc == 0xa00200b4) {
-      dprintf(2, "=====> %llu : bne @ %x in execute, taken = %d, target = %x, exception = %d\n", 
-	      get_curr_cycle(), m->pc, take_br, branch_target, m->branch_exception);
-    }
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
@@ -724,6 +735,7 @@ public:
   virtual bool retire(sim_state &machine_state) {
     retired = true;
     machine_state.icnt++;
+    m->exec_parity = machine_state.gpr_parity();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -818,6 +830,11 @@ public:
 	    m->pc, m->prf_idx, m->alloc_cycle);
     retired = true;
     machine_state.icnt++;
+
+    machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+    machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+    m->exec_parity = machine_state.gpr_parity();
+      
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -1032,6 +1049,9 @@ public:
 	    reason, src_regs[3]);
     retired = true;
     machine_state.icnt++;
+    machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+    machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+    m->exec_parity = machine_state.gpr_parity();
     return true;
   }
   virtual void undo(sim_state &machine_state) {

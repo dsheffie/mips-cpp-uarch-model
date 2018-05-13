@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <iostream>
 #include <set>
+#include <fstream>
 
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -369,7 +370,7 @@ extern "C" {
 
 	 
 	u->op->retire(machine_state);
-	machine_state.retire_log.push_back(std::pair<uint32_t,uint32_t>(u->inst, u->pc));
+	machine_state.retire_log.push_back(retire_entry(u->inst, u->pc, u->exec_parity));
 	
 	if(u->branch_exception) {
 	  if(u->op->retired == false) {
@@ -425,7 +426,7 @@ extern "C" {
 	    }
 	    dprintf(2, "branch delay insn @ %x retiring in exception cleanup\n",
 		    uu->pc);
-	    machine_state.retire_log.push_back(std::pair<uint32_t,uint32_t>(uu->inst, uu->pc));
+	    machine_state.retire_log.push_back(retire_entry(uu->inst, uu->pc, uu->exec_parity));
 	    uu->op->retire(machine_state);
 	    rob.pop();
 	    delete uu;
@@ -600,10 +601,23 @@ int main(int argc, char *argv[]) {
   gthread::make_gthread(&retire, nullptr);
   
   start_gthreads();
-  for(auto &p : machine_state.retire_log) {
-    std::cout << std::hex << p.second << std::dec << " : " 
-	      << getAsmString(p.first, p.second) << "\n";
+
+  for(int i = 0; i < 32; i++) {
+    std::cout << "reg " << getGPRName(i) << " : " 
+	      << std::hex << machine_state.arch_grf[i] << std::dec << "\n"; 
   }
+  for(int i = 0; i < 32; i++) {
+    std::cout << "reg " << getGPRName(i) << " writer pc : " 
+	      << std::hex << machine_state.arch_grf_last_pc[i] << std::dec << "\n"; 
+  }
+  std::ofstream os("log.txt", std::ios::out);
+  for(auto &p : machine_state.retire_log) {
+    os << std::hex << p.pc << std::dec << " : " 
+       << getAsmString(p.inst, p.pc) << " " 
+       << std::hex << p.parity << std::dec
+       << "\n";
+  }
+  os.close();
   std::cout << "SIMULATION COMPLETE : "
 	    << machine_state.icnt << " inst retired\n";
   return 0;
