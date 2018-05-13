@@ -372,10 +372,15 @@ public:
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
+      dprintf(2, "::%x arch reg %d -> prf %lld\n", m->pc, get_dest(), m->prf_idx);
       machine_state.gpr_valid.set_bit(m->prf_idx);
     }
   }
   virtual bool retire(sim_state &machine_state) {
+    dprintf(2, "::%x %s %d\n", m->pc, __PRETTY_FUNCTION__, m->is_complete);
+    if(m->is_complete == false) {
+      exit(-1);
+    }
     if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
       dprintf(2, "mapping still exists!..%x\n", m->pc);      
     }
@@ -566,9 +571,13 @@ public:
     dprintf(2, "branch allocated\n");
     if(get_src0() != -1) {
       m->src0_prf = machine_state.gpr_rat[get_src0()];
+      dprintf(2, "branch src0 arch reg %d, prf %d\n",
+	      get_src0(), m->src0_prf);
     }
     if(get_src1() != -1) {
       m->src1_prf = machine_state.gpr_rat[get_src1()];
+      dprintf(2, "branch src1 arch reg %d, prf %d\n",
+	      get_src1(), m->src1_prf);
     }
     return true;
   }
@@ -577,7 +586,8 @@ public:
       exit(-1);
     
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
-      dprintf(2, "branch %x : src0 (prf %d) not ready\n",m->pc, m->src0_prf );
+      dprintf(2, "branch %x : src0 (prf %d) not ready, alloc'd @ %llu\n",
+	      m->pc, m->src0_prf,m->alloc_cycle );
       not_ready_count++;
       return false;
     }
@@ -676,6 +686,8 @@ public:
     machine_state.gpr_rat_sanity_check(prf_id);
     machine_state.gpr_freevec.set_bit(prf_id);
     machine_state.gpr_rat[get_dest()] = prf_id;
+    dprintf(2, "allocated load -> %d to prf %lld, rat = %lld\n", 
+	    get_dest(), prf_id, machine_state.gpr_rat[get_dest()]);
     m->prf_idx = prf_id;
     machine_state.gpr_valid.clear_bit(prf_id);
     return true;
@@ -714,8 +726,8 @@ public:
     machine_state.gpr_valid.set_bit(m->prf_idx);
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
-    dprintf(2, "LOAD @ %x complete to prf %d!\n",
-	    m->pc, m->prf_idx);
+    dprintf(2, "LOAD @ %x complete to prf %d!, alloc'd @ %llu\n",
+	    m->pc, m->prf_idx, m->alloc_cycle);
     retired = true;
     return true;
   }
@@ -796,7 +808,33 @@ public:
   }
 };
 
-
+class break_op : public mips_op {
+public:
+  break_op(sim_op op) : mips_op(op) {
+    this->op_class = mips_op_type::system;
+  }
+  virtual bool allocate(sim_state &machine_state) {
+    return true;
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    return true;
+  }
+  virtual void execute(sim_state &machine_state) {
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+    }
+  }
+  virtual bool retire(sim_state &machine_state) {
+    machine_state.terminate_sim = true;
+    retired = true;
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {
+  }
+};
 
 
 class monitor_op : public mips_op {
@@ -1010,9 +1048,10 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
       printf("syscall()\n");
       exit(-1);
       break;
+#endif
     case 0x0D: /* break */
-      s->brk = 1;
-      break;
+      return new break_op(m_op);
+#if 0 
     case 0x0f: /* sync */
       s->pc += 4;
       break;

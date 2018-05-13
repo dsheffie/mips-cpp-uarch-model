@@ -188,8 +188,6 @@ extern "C" {
 	  break;
 	}
 	if(u->decode_cycle == curr_cycle) {
-	  dprintf(2, "@ %llu broken decode : %x was decoded this cycle \n",
-		  get_curr_cycle(), u->pc);
 	  break;
 	}
 	
@@ -253,6 +251,10 @@ extern "C" {
 	  dprintf(2, "allocation failed...\n");
 	  break;
 	}
+
+	dprintf(2, "@ %llu allocation for %x : prf_idx = %lld\n",
+		get_curr_cycle(), u->pc, u->prf_idx);
+
 	busted_alloc_cnt = 0;
 	
 	std::set<int32_t> gpr_prf_debug;
@@ -396,29 +398,33 @@ extern "C" {
       if(u!=nullptr and u->branch_exception) {
 	dprintf(2, "%lu => EXCEPTION @ %x, u = %p, complete %d, delay %d\n",
 		get_curr_cycle(), u->pc, u, u->is_complete, u->has_delay_slot);
-	machine_state.nuke = true;
 	rob.pop();
 	int exception_cycles = 0;
 	
 	if(u->has_delay_slot) {
 	  while(not(rob.empty())) {
 	    auto uu = rob.peek();
-	      if(not(uu->is_complete and (uu->complete_cycle == curr_cycle))) {
-		exception_cycles++;
-		gthread_yield();
-	      }
-	      if(uu->branch_exception) {
-		dprintf(2, "branch exception in delay slot\n");
-		exit(-1);
-	      }
-	      dprintf(2, "branch delay insn @ %x retiring in exception cleanup\n",
-		      uu->pc);
-	      uu->op->retire(machine_state);
-	      rob.pop();
-	      delete uu;
-	      break;
+	    dprintf(2, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
+		    uu->pc, uu->is_complete, get_curr_cycle());
+	    while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
+	      dprintf(2, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
+		      uu->pc, uu->is_complete, get_curr_cycle());
+	      exception_cycles++;
+	      gthread_yield();
+	    }
+	    if(uu->branch_exception) {
+	      dprintf(2, "branch exception in delay slot\n");
+	      exit(-1);
+	    }
+	    dprintf(2, "branch delay insn @ %x retiring in exception cleanup\n",
+		    uu->pc);
+	    uu->op->retire(machine_state);
+	    rob.pop();
+	    delete uu;
+	    break;
 	  }
 	}
+	machine_state.nuke = true;
 	machine_state.fetch_pc = u->correct_pc;
 	delete u;
 
@@ -471,12 +477,7 @@ extern "C" {
 
 	std::set<int32_t> gpr_prf_debug;
 	for(int i = 0; i < 32; i++) {
-	  dprintf(2, "gpr[%d] maps to prf %d\n", i, machine_state.gpr_rat[i]);
 	  auto it = gpr_prf_debug.find(machine_state.gpr_rat[i]);
-	  if(it != gpr_prf_debug.end()) {
-	    dprintf(2,"found existing register mapping for arch reg %d to prf %d\n",
-		    i, machine_state.gpr_rat[i]);
-	  }
 	  gpr_prf_debug.insert(machine_state.gpr_rat[i]);
 	}
 	dprintf(2,"found %zu register mappings\n",
