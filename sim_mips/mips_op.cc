@@ -289,19 +289,22 @@ public:
 
 class rtype_alu_op : public mips_op {
 public:
-  enum class r_type {sll, srl, sra, addu, add, subu, sub, and_, 
-      or_, xor_, nor_, slt, sltu, sllv, movn, movz,
-      wrecked};
+  enum class r_type {sll, srl, sra, srlv, srav,
+		     addu, add, subu, sub, and_, 
+		     or_, xor_, nor_, slt, sltu,
+		     teq, sllv, movn, movz,
+		     wrecked};
 protected:
   rtype r;
   r_type rt;
+  bool take_trap;
 public:
   rtype_alu_op(sim_op op, r_type rt) :
-    mips_op(op), r(op->inst), rt(rt) {
+    mips_op(op), r(op->inst), rt(rt), take_trap(false) {
     this->op_class = mips_op_type::alu;
   }
   virtual int get_dest() const {
-    return r.rr.rd;
+    return (rt != r_type::teq) ? r.rr.rd : -1;
   }
   virtual int get_src0() const {
     return r.rr.rt;
@@ -380,6 +383,11 @@ public:
 	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] <<
 	    (machine_state.gpr_prf[m->src1_prf] & 0x1f);
 	  break;
+	case r_type::srlv:
+	  machine_state.gpr_prf[m->prf_idx] = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]) >>
+	    (machine_state.gpr_prf[m->src1_prf] & 0x1f);
+	  break;
+	  
 	case r_type::addu: {
 	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
 	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
@@ -419,7 +427,9 @@ public:
 	  machine_state.gpr_prf[m->prf_idx] = (machine_state.gpr_prf[m->src0_prf] == 0) ? 
 	    machine_state.gpr_prf[m->src1_prf] : machine_state.gpr_prf[m->src2_prf];
 	  break;
-
+	case r_type::teq:
+	  take_trap = machine_state.gpr_prf[m->src0_prf] == machine_state.gpr_prf[m->src1_prf];
+	  break;
 	default:
 	  dprintf(2, "rtype wtf ((pc = %x)\n", m->pc);
 	  exit(-1);
@@ -449,6 +459,10 @@ public:
     }
     retired = true;
     machine_state.icnt++;
+    if(take_trap) {
+      dprintf(2, "need to trap...\n");
+      exit(-1);
+    }
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -1128,6 +1142,71 @@ public:
   }
 };
 
+class clz_op : public mips_op {
+public:
+  clz_op(sim_op op) : mips_op(op) {
+    this->op_class = mips_op_type::alu;
+  }
+  virtual int get_dest() const {
+    return (m->inst >> 11) & 31;
+  }
+  virtual int get_src0() const {
+    return (m->inst >> 21) & 31;
+  }
+  virtual bool allocate(sim_state &machine_state) {
+    m->src0_prf = machine_state.gpr_rat[get_src0()];
+    m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
+    int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
+    if(prf_id == -1)
+      return false;
+    machine_state.gpr_rat_sanity_check(prf_id);
+    machine_state.gpr_freevec.set_bit(prf_id);
+    machine_state.gpr_rat[get_dest()] = prf_id;
+    m->prf_idx = prf_id;
+    machine_state.gpr_valid.clear_bit(prf_id);
+    return true;
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
+      return false;
+    }
+    return true;
+  }
+  virtual void execute(sim_state &machine_state) {
+    if(machine_state.gpr_prf[m->src0_prf]==0) {
+      machine_state.gpr_prf[m->prf_idx] = 32;
+    }
+    else {
+      machine_state.gpr_prf[m->prf_idx] = __builtin_clz(machine_state.gpr_prf[m->src0_prf]);
+    }
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      machine_state.gpr_valid.set_bit(m->prf_idx);
+    }
+  }
+  virtual bool retire(sim_state &machine_state) {
+    machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+    if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
+      dprintf(2, "mapping still exists!..%x\n", m->pc);      
+    }
+    machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+    machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+    m->exec_parity = machine_state.gpr_parity();
+    retired = true;
+    machine_state.icnt++;
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {
+    machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.gpr_freevec.clear_bit(m->prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prf_idx);
+  }
+};
+
 
 class mult_div_op : public mips_op {
 public:
@@ -1139,9 +1218,11 @@ public:
     this->op_class = mips_op_type::alu;
   }
   virtual int get_src0() const {
+    /* rs */
     return (m->inst >> 21) & 31;
   }
   virtual int get_src1() const {
+    /* rt */
     return (m->inst >> 16) & 31;
   }
   virtual bool allocate(sim_state &machine_state) {
@@ -1185,19 +1266,29 @@ public:
   }
   virtual void execute(sim_state &machine_state) {
     int latency = 4;
+    uint32_t *lo = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->lo_prf_idx]);
+    uint32_t *hi = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->hi_prf_idx]);
+    
+    dprintf(2, "DEST LO PRF %d, DEST HI PRF %d\n", m->lo_prf_idx, m->hi_prf_idx);
     switch(mdt)
       {
       case mult_div_types::multu: {
 	uint64_t u_a64 = static_cast<uint64_t>(*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->src1_prf]));
 	uint64_t u_b64 = static_cast<uint64_t>(*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->src0_prf]));
-	uint32_t *lo = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->lo_prf_idx]);
-	uint32_t *hi = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->hi_prf_idx]);
 	uint64_t y = u_a64*u_b64;
-	dprintf(2, "DEST LO PRF %d, DEST HI PRF %d\n", m->lo_prf_idx, m->hi_prf_idx);
 	*lo = static_cast<uint32_t>(y);
 	*hi = static_cast<uint32_t>(y>>32);
 	break;
       }
+      case mult_div_types::divu: {
+	if(machine_state.gpr_prf[m->src1_prf] != 0) {
+	  *lo = (uint32_t)machine_state.gpr_prf[m->src0_prf] / (uint32_t)machine_state.gpr_prf[m->src1_prf];
+	  *hi = (uint32_t)machine_state.gpr_prf[m->src0_prf] % (uint32_t)machine_state.gpr_prf[m->src1_prf];
+	}
+	latency = 32;
+	break;
+      }
+	
       default:
 	exit(-1);
       }
@@ -1506,10 +1597,10 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
       return new rtype_alu_op(m_op, rtype_alu_op::r_type::sllv);
     case 0x05:
       return new monitor_op(m_op);
-    case 0x06:
-      return new rtype_alu_op(m_op, rtype_alu_op::r_type::wrecked);
-    case 0x07:
-      return new rtype_alu_op(m_op, rtype_alu_op::r_type::wrecked);
+    case 0x06: /* srlv */
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::srlv);
+    case 0x07: /* srav */
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::srav);
     case 0x08: /* jr */
       return new jump_op(m_op, jump_op::jump_type::jr);
     case 0x09: /* jalr */
@@ -1559,14 +1650,9 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
       }
       s->pc += 4;
       break;
-    case 0x1B: /* divu */
-      if(s->gpr[rt] != 0) {
-	s->lo = (uint32_t)s->gpr[rs] / (uint32_t)s->gpr[rt];
-	s->hi = (uint32_t)s->gpr[rs] % (uint32_t)s->gpr[rt];
-      }
-      s->pc += 4;
-      break;
 #endif
+    case 0x1B: /* divu */
+      return new mult_div_op(m_op, mult_div_op::mult_div_types::divu);
     case 0x20: /* add */
       return new rtype_alu_op(m_op, rtype_alu_op::r_type::add);
     case 0x21: 
@@ -1587,15 +1673,8 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
       return new rtype_alu_op(m_op, rtype_alu_op::r_type::slt);
     case 0x2B:  /* sltu */
       return new rtype_alu_op(m_op, rtype_alu_op::r_type::sltu);
-#if 0
     case 0x34: /* teq */
-      if(s->gpr[rs] == s->gpr[rt]) {
-	printf("teq trap!!!!!\n");
-	exit(-1);
-      }
-      s->pc += 4;
-      break;
-#endif
+      return new rtype_alu_op(m_op, rtype_alu_op::r_type::teq);
     default:
       dprintf(2,"unknown RType instruction @ %x\n", m_op->pc); 
       return nullptr;
@@ -1648,6 +1727,8 @@ static mips_op* decode_special2_insn(sim_op m_op) {
     {
     case 0x2:
       return new mul_op(m_op);
+    case 0x20:
+      return new clz_op(m_op);
     default:
       break;
     }
