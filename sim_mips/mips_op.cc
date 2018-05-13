@@ -972,6 +972,74 @@ public:
   }
 };
 
+
+class mul_op : public mips_op {
+public:
+  mul_op(sim_op op) : mips_op(op) {
+    this->op_class = mips_op_type::alu;
+  }
+  virtual int get_dest() const {
+    return (m->inst >> 11) & 31;
+  }
+  virtual int get_src0() const {
+    return (m->inst >> 21) & 31;
+  }
+  virtual int get_src1() const {
+    return (m->inst >> 16) & 31;
+  }
+  virtual bool allocate(sim_state &machine_state) {
+    m->src0_prf = machine_state.gpr_rat[get_src0()];
+    m->src1_prf = machine_state.gpr_rat[get_src1()];
+    m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
+    int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
+    if(prf_id == -1)
+      return false;
+    machine_state.gpr_rat_sanity_check(prf_id);
+    machine_state.gpr_freevec.set_bit(prf_id);
+    machine_state.gpr_rat[get_dest()] = prf_id;
+    m->prf_idx = prf_id;
+    machine_state.gpr_valid.clear_bit(prf_id);
+    return true;
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
+      return false;
+    }
+    if(not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+      return false;
+    }
+    return true;
+  }
+  virtual void execute(sim_state &machine_state) {
+    int64_t a = static_cast<int64_t>(machine_state.gpr_prf[m->src1_prf]);
+    int64_t b = static_cast<int64_t>(machine_state.gpr_prf[m->src0_prf]);
+    int64_t y = a*b;
+    machine_state.gpr_prf[m->prf_idx] = static_cast<int32_t>(y);
+    m->complete_cycle = get_curr_cycle() + 4;
+  }
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      machine_state.gpr_valid.set_bit(m->prf_idx);
+    }
+  }
+  virtual bool retire(sim_state &machine_state) {
+    machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+    if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
+      dprintf(2, "mapping still exists!..%x\n", m->pc);      
+    }
+    machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+    machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+    m->exec_parity = machine_state.gpr_parity();
+    retired = true;
+    machine_state.icnt++;
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {}
+};
+
+
 class break_op : public mips_op {
 public:
   break_op(sim_op op) : mips_op(op) {
@@ -1395,6 +1463,19 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
   return nullptr;
 }
 
+static mips_op* decode_special2_insn(sim_op m_op) {
+  uint32_t funct = m_op->inst & 63; 
+  switch(funct)
+    {
+    case 0x2:
+      return new mul_op(m_op);
+    default:
+      break;
+    }
+  return nullptr;
+}
+
+
 mips_op* decode_insn(sim_op m_op) {
   uint32_t opcode = (m_op->inst)>>26;
   bool isRType = (opcode==0);
@@ -1411,8 +1492,9 @@ mips_op* decode_insn(sim_op m_op) {
 
   if(isRType)
     return decode_rtype_insn(m_op);
-  else if(isSpecial2)
-    return nullptr;
+  else if(isSpecial2) {
+    return decode_special2_insn(m_op);
+  }
   else if(isSpecial3)
     return nullptr;
   else if(isJType)
