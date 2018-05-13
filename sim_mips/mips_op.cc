@@ -733,6 +733,11 @@ public:
 	m->likely_squash = not(take_br);
 	m->has_delay_slot = take_br;
 	break;
+      case branch_type::bgezl:
+	take_br = machine_state.gpr_prf[m->src0_prf] >= 0;
+	m->likely_squash = not(take_br);
+	m->has_delay_slot = take_br;
+	break;
       default:
 	dprintf(2, "wtf @ %x\n", m->pc);
 	exit(-1);
@@ -1055,8 +1060,19 @@ public:
   virtual bool retire(sim_state &machine_state) {
     uint32_t reason = ((m->inst >> RSVD_INSTRUCTION_ARG_SHIFT) & RSVD_INSTRUCTION_ARG_MASK) >> 1;
     sparse_mem & mem = *(machine_state.mem);
+    machine_state.gpr_prf[m->prf_idx] = 0;
     switch(reason)
       {
+      case 8: {
+      /* int write(int file, char *ptr, int len) */
+	int fd = src_regs[0];
+	int nr = src_regs[2];
+	machine_state.gpr_prf[m->prf_idx] = per_page_rdwr<true>(mem, fd, src_regs[1], nr);
+	if(fd==1)
+	  fflush(stdout);
+	else if(fd==2)
+	  fflush(stderr);
+      }
       case 55:
 	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 0)) = accessBigEndian(K1SIZE);
 	/* No Icache */
@@ -1064,6 +1080,7 @@ public:
 	/* No Dcache */
 	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 8)) = 0;
 	break;
+
       default:
 	dprintf(2, "execute monitor op with reason %u\n", reason);
 	exit(-1);

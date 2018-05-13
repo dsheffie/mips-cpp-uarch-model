@@ -1249,26 +1249,6 @@ static void _lwr(uint32_t inst, state_t *s)
 }
 
 
-template <bool do_write>
-int per_page_rdwr(sparse_mem &mem, int fd, uint32_t offset, uint32_t nbytes) {
-  uint32_t last_byte = (offset+nbytes);
-  int acc = 0, rc = 0;
-  while(offset != last_byte) {
-    uint64_t next_page = (offset & (~(sparse_mem::pgsize-1))) + sparse_mem::pgsize;
-    next_page = std::min(next_page, static_cast<uint64_t>(last_byte));
-    uint32_t disp = (next_page - offset);
-    mem.prefault(offset);
-    if(do_write)
-      rc = write(fd, mem + offset, disp);
-    else 
-      rc = read(fd, mem + offset, disp);
-    if(rc == 0)
-      return 0;
-    acc += rc;
-    offset += disp;
-  }
-  return acc;
-}
 
 char* get_open_string(state_t *s, uint32_t offset) {
   size_t len = 0;
