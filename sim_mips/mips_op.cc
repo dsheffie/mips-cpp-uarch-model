@@ -257,6 +257,12 @@ public:
 	  machine_state.gpr_prf[m->prf_idx] = (urs + urt);
 	  break;
 	}
+	case 0x23: {/*subu*/  
+	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
+	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
+	  uint32_t y = urs - urt;
+	  machine_state.gpr_prf[m->prf_idx] = y;
+	}
 	case 0x2B: { /* sltu */
 	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
 	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
@@ -665,7 +671,7 @@ public:
 
 class load_op : public mips_op {
 public:
-  enum class load_type {lb,lbu,lh,lw}; 
+  enum class load_type {lb,lbu,lh,lhu,lw}; 
 protected:
   itype i_;
   load_type lt;
@@ -719,6 +725,11 @@ public:
     sparse_mem & mem = *(machine_state.mem);
     switch(lt)
       {
+      case load_type::lbu: {
+	*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
+	  static_cast<uint32_t>(mem.at(effective_address));
+	break;
+      }
       case load_type::lw:
 	machine_state.gpr_prf[m->prf_idx] =
 	  accessBigEndian(*((int32_t*)(mem + effective_address))); 
@@ -1016,6 +1027,8 @@ static mips_op* decode_itype_insn(sim_op m_op) {
       return new branch_op(m_op,branch_op::branch_type::bgtzl);
     case 0x23: /* lw */
       return new load_op(m_op, load_op::load_type::lw);
+    case 0x24: /* lbu */
+      return new load_op(m_op, load_op::load_type::lbu);
     case 0x2B: /* sw */
       return new store_op(m_op, store_op::store_type::sw);
     default:
