@@ -514,14 +514,14 @@ extern "C" {
 	dprintf(2, "%lu gprs in use..\n", machine_state.gpr_freevec.popcount());
 
 	std::set<int32_t> gpr_prf_debug;
-	for(int i = 0; i < 32; i++) {
+	for(int i = 0; i < 34; i++) {
 	  auto it = gpr_prf_debug.find(machine_state.gpr_rat[i]);
 	  gpr_prf_debug.insert(machine_state.gpr_rat[i]);
 	}
 	dprintf(2,"found %zu register mappings\n",
 		gpr_prf_debug.size());
 	
-	if(machine_state.gpr_freevec.popcount() != 32 or gpr_prf_debug.size() != 32) {
+	if(gpr_prf_debug.size() != 34) {
 	  
 	  for(int i = 0; i < machine_state.num_gpr_prf_; i++) {
 	    if(not(machine_state.gpr_freevec.get_bit(i)))

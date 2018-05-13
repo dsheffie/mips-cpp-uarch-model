@@ -43,6 +43,9 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   int64_t prev_prf_idx = -1;
   int64_t src0_prf = -1, src1_prf = -1, src2_prf = -1, src3_prf = -1;
   
+  int64_t hi_prf_idx = -1, lo_prf_idx = -1;
+  int64_t prev_hi_prf_idx = -1, prev_lo_prf_idx = -1;
+  
   mips_op* op = nullptr;
 
   mips_meta_op(uint32_t pc, uint32_t inst,  uint32_t fetch_npc, uint32_t fetch_cycle) :
@@ -72,7 +75,8 @@ struct sim_state {
   uint32_t fetch_pc = 0;
   uint32_t retire_pc = 0;
   
-  int32_t gpr_rat[32];
+  /* hi and lo in grf too */
+  int32_t gpr_rat[34];
   int32_t cpr0_rat[32];
   int32_t cpr1_rat[32];
   int32_t fcr1_rat[5];
@@ -89,7 +93,9 @@ struct sim_state {
   uint32_t *cpr0_prf = nullptr;
   uint32_t *cpr1_prf = nullptr;
   uint32_t *fcr1_prf = nullptr;
-  
+
+
+
   sim_bitvec gpr_freevec;
   sim_bitvec cpr0_freevec;
   sim_bitvec cpr1_freevec;
@@ -139,6 +145,12 @@ struct sim_state {
       cpr1_rat[i] = i;
       cpr1_freevec.set_bit(i);
       cpr1_valid.set_bit(i);
+    }
+    /* lo and hi regs */
+    for(int i = 32; i < 34; i++) {
+      gpr_rat[i] = i;
+      gpr_freevec.set_bit(i);
+      gpr_valid.set_bit(i);
     }
     for(int i = 0; i < 5; i++) {
       fcr1_rat[i] = i;
