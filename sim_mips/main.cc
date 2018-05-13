@@ -82,7 +82,7 @@ void sim_state::initialize(sparse_mem *mem) {
   
   fetch_queue.resize(16);
   decode_queue.resize(8);
-  rob.resize(2);
+  rob.resize(8);
 
   alu_rs.resize(num_alu_ports);
   for(int i = 0; i < num_alu_ports; i++) {
@@ -658,7 +658,8 @@ int main(int argc, char *argv[]) {
   }
   os.close();
   std::cout << "SIMULATION COMPLETE : "
-	    << machine_state.icnt << " inst retired\n";
+	    << machine_state.icnt << " inst retired in "
+	    << get_curr_cycle() << " cycles\n";
   std::cout << "CHECK INSN CNT : "
 	    << s->icnt << "\n";
   return 0;

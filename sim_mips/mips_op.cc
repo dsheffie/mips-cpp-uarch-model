@@ -735,8 +735,6 @@ public:
   }
 };
 
-uint32_t not_ready_count = 0;
-
 class branch_op : public mips_op {
 public:
   enum class branch_type {beq, bne, blez, bgtz, beql, bnel, blezl, bgtzl, bgez, bgezl, bltz, bltzl};
@@ -790,21 +788,15 @@ public:
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
-    if(not_ready_count == 10)
-      exit(-1);
-    
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       dprintf(2, "branch %x : src0 (prf %d) not ready, alloc'd @ %llu\n",
 	      m->pc, m->src0_prf,m->alloc_cycle );
-      not_ready_count++;
       return false;
     }
     if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
       dprintf(2, "branch %x : src1 not ready\n", m->pc);
-      not_ready_count++;
       return false;
     }
-    not_ready_count = 0;
     return true;
   }
   virtual void execute(sim_state &machine_state) {
