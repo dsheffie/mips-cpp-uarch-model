@@ -162,6 +162,8 @@ void mkMonitorVectors(state_t *s) {
 
 
 void execMips(state_t *s) {
+  if(s->brk) return;
+  
   sparse_mem &mem = s->mem;
   uint32_t inst = accessBigEndian(mem.get32(s->pc));
   
@@ -1279,7 +1281,7 @@ static void _monitorBody(uint32_t inst, state_t *s) {
   tms32_t tms32_buf;
   struct stat native_stat;
   stat32_t *host_stat = nullptr;
-
+  s->gpr[R_v0] = 0;
   switch(reason)
     {
     case 6: /* int open(char *path, int flags) */

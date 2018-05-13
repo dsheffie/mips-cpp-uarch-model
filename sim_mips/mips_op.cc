@@ -101,6 +101,10 @@ public:
       exit(-1);
     }
     machine_state.cpr1_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf];
+    dprintf(2, "%s : moving gpr %d (value %x) to cpr1 (reg %d)\n",
+	    __PRETTY_FUNCTION__, get_src0(), 
+	    machine_state.cpr1_prf[m->prf_idx],
+	    get_dest());
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
@@ -161,6 +165,9 @@ public:
       exit(-1);
     }
     machine_state.gpr_prf[m->prf_idx] = machine_state.cpr1_prf[m->src0_prf];
+    dprintf(2, "====> moving cpr1 value %x to grf from cpr1 reg % to gpr %d\n", 
+	    machine_state.cpr1_prf[m->src0_prf], 
+	    get_src0(), get_dest());
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
@@ -176,6 +183,9 @@ public:
       dprintf(2, "mapping still exists!..%x\n", m->pc);      
     }
     machine_state.icnt++;
+    machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+    machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+    m->exec_parity = machine_state.gpr_parity();
     retired = true;
     return true;
   }
@@ -305,6 +315,10 @@ public:
 	case r_type::or_:
 	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] |
 	    machine_state.gpr_prf[m->src1_prf];
+	  break;
+	case r_type::slt:
+	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src1_prf] &
+	    machine_state.gpr_prf[m->src0_prf];
 	  break;
 	case r_type::sltu: {
 	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);

@@ -371,7 +371,25 @@ extern "C" {
 	  u = nullptr;
 	  break;
 	}
-	 
+	if(s->pc == u->pc) {
+	  bool error = false;
+	  for(int i = 0; i < 32; i++) {
+	    if(s->gpr[i] != machine_state.arch_grf[i]) {
+	      std::cout << "uarch reg " << getGPRName(i) << " : " 
+			<< std::hex << machine_state.arch_grf[i] << std::dec << "\n"; 
+	      std::cout << "func reg " << getGPRName(i) << " : " 
+			<< std::hex << s->gpr[i] << std::dec << "\n"; 
+	      error = true;
+	      break;
+	    }
+	  }
+	  if(error) {
+	    dprintf(2, "%x : UARCH and FUNC simulator mismatch after %llu func and %llu uarch insn!\n",
+		    u->pc, s->icnt, machine_state.icnt);
+	    exit(-1);
+	  }
+	  execMips(s);
+	}
 	u->op->retire(machine_state);
 	machine_state.retire_log.push_back(retire_entry(u->inst, u->pc, u->exec_parity));
 	
@@ -437,6 +455,9 @@ extern "C" {
 		    uu->pc);
 	    machine_state.retire_log.push_back(retire_entry(uu->inst, uu->pc, uu->exec_parity));
 	    uu->op->retire(machine_state);
+	    if(s->pc == uu->pc) {
+	      execMips(s);
+	    }
 	    rob.pop();
 	    delete uu;
 	    break;
@@ -601,7 +622,8 @@ int main(int argc, char *argv[]) {
   load_elf(filename, s);
   mkMonitorVectors(s);
 
-  machine_state.initialize(sm);
+  sparse_mem *u_arch_mem = new sparse_mem(*sm);
+  machine_state.initialize(u_arch_mem);
   machine_state.maxicnt = maxicnt;
 
   gthread::make_gthread(&cycle_count, nullptr);
@@ -638,6 +660,8 @@ int main(int argc, char *argv[]) {
   os.close();
   std::cout << "SIMULATION COMPLETE : "
 	    << machine_state.icnt << " inst retired\n";
+  std::cout << "CHECK INSN CNT : "
+	    << s->icnt << "\n";
   return 0;
   
   double runtime = timestamp();

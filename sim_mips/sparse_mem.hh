@@ -27,6 +27,8 @@ public:
   }
   sparse_mem(const sparse_mem &other) {
     npages = other.npages;
+    mem = new uint8_t*[npages];
+    memset(mem, 0, sizeof(uint8_t*)*npages);
     for(size_t i = 0; i < npages; i++) {
       if(other.mem[i]) {
 	mem[i] = new uint8_t[pgsize];
