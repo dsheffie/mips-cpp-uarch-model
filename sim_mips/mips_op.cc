@@ -165,9 +165,6 @@ public:
       exit(-1);
     }
     machine_state.gpr_prf[m->prf_idx] = machine_state.cpr1_prf[m->src0_prf];
-    dprintf(2, "====> moving cpr1 value %x to grf from cpr1 reg % to gpr %d\n", 
-	    machine_state.cpr1_prf[m->src0_prf], 
-	    get_src0(), get_dest());
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
@@ -1036,7 +1033,102 @@ public:
     machine_state.icnt++;
     return true;
   }
-  virtual void undo(sim_state &machine_state) {}
+  virtual void undo(sim_state &machine_state) {
+    machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.gpr_freevec.clear_bit(m->prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prf_idx);
+  }
+};
+
+
+class mult_div_op : public mips_op {
+public:
+  enum class mult_div_types {mult, multu, div, divu};
+protected:
+  mult_div_types mdt;
+public:
+  mult_div_op(sim_op op, mult_div_types mdt) : mips_op(op), mdt(mdt) {
+    this->op_class = mips_op_type::alu;
+  }
+  virtual int get_src0() const {
+    return (m->inst >> 21) & 31;
+  }
+  virtual int get_src1() const {
+    return (m->inst >> 16) & 31;
+  }
+  virtual bool allocate(sim_state &machine_state) {
+    m->src0_prf = machine_state.gpr_rat[get_src0()];
+    m->src1_prf = machine_state.gpr_rat[get_src1()];
+    m->prev_lo_prf_idx = machine_state.gpr_rat[32];
+    m->prev_hi_prf_idx = machine_state.gpr_rat[33];
+    m->lo_prf_idx = machine_state.gpr_freevec.find_first_unset();
+    m->hi_prf_idx = machine_state.gpr_freevec.find_first_unset();
+    if(m->lo_prf_idx == -1 or m->hi_prf_idx == -1)
+      return false;
+
+    machine_state.gpr_freevec.set_bit(m->lo_prf_idx);
+    machine_state.gpr_freevec.set_bit(m->hi_prf_idx);
+
+    machine_state.gpr_rat[32] = m->lo_prf_idx;
+    machine_state.gpr_rat[33] = m->hi_prf_idx;
+
+    machine_state.gpr_valid.clear_bit(m->lo_prf_idx);
+    machine_state.gpr_valid.clear_bit(m->hi_prf_idx);
+    return true;
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
+      return false;
+    }
+    if(not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+      return false;
+    }
+    return true;
+  }
+  virtual void execute(sim_state &machine_state) {
+    int latency = 4;
+    switch(mdt)
+      {
+      case mult_div_types::multu: {
+	uint64_t u_a64 = static_cast<uint64_t>(*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->src1_prf]));
+	uint64_t u_b64 = static_cast<uint64_t>(*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->src0_prf]));
+	uint32_t *lo = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->lo_prf_idx]);
+	uint32_t *hi = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->hi_prf_idx]);
+	uint64_t y = u_a64*u_b64;
+	*lo = static_cast<uint32_t>(y);
+	*hi = static_cast<uint32_t>(y>>32);
+	break;
+      }
+      default:
+	exit(-1);
+      }
+    
+    m->complete_cycle = get_curr_cycle() + latency;
+  }
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      machine_state.gpr_valid.set_bit(m->lo_prf_idx);
+      machine_state.gpr_valid.set_bit(m->hi_prf_idx);
+    }
+  }
+  virtual bool retire(sim_state &machine_state) {
+    machine_state.gpr_freevec.clear_bit(m->prev_lo_prf_idx);
+    machine_state.gpr_freevec.clear_bit(m->prev_hi_prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prev_lo_prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prev_hi_prf_idx);
+    retired = true;
+    machine_state.icnt++;
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {
+    machine_state.gpr_rat[32] = m->prev_lo_prf_idx;
+    machine_state.gpr_rat[33] = m->prev_hi_prf_idx;
+    machine_state.gpr_freevec.clear_bit(m->lo_prf_idx);
+    machine_state.gpr_freevec.clear_bit(m->hi_prf_idx);
+    machine_state.gpr_valid.clear_bit(m->lo_prf_idx);
+    machine_state.gpr_valid.clear_bit(m->hi_prf_idx);
+  }
 };
 
 
@@ -1363,16 +1455,10 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
       s->pc += 4;
       break;
     }
-    case 0x19: { /* multu */
-      uint64_t y;
-      uint64_t u0 = (uint64_t)*((uint32_t*)&s->gpr[rs]);
-      uint64_t u1 = (uint64_t)*((uint32_t*)&s->gpr[rt]);
-      y = u0*u1;
-      *((uint32_t*)&(s->lo)) = (uint32_t)y;
-      *((uint32_t*)&(s->hi)) = (uint32_t)(y>>32);
-      s->pc += 4;
-      break;
-    }
+#endif
+    case 0x19:  /* multu */
+      return new mult_div_op(m_op, mult_div_op::mult_div_types::multu);
+#if 0
     case 0x1A: /* div */
       if(s->gpr[rt] != 0) {
 	s->lo = s->gpr[rs] / s->gpr[rt];
