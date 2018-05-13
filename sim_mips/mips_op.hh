@@ -99,6 +99,15 @@ struct sim_state {
   sim_queue<sim_op> system_rs;
 
   sparse_mem *mem = nullptr;
+
+  bool gpr_rat_sanity_check(int64_t prf_idx) const {
+    for(int i = 0; i < 32; i++) {
+      if(gpr_rat[i] == prf_idx) {
+	return true;
+      }
+    }
+    return false;
+  }
   
   void initialize_rat_mappings() {
     for(int i = 0; i < 32; i++) {
@@ -148,7 +157,9 @@ public:
   virtual int get_src2() const {
     return -1;
   }
-  
+  virtual int get_src3() const {
+    return -1;
+  }
   
   mips_op_type get_op_class() const {
     return op_class;

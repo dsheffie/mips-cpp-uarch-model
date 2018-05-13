@@ -47,15 +47,18 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     machine_state.cpr0_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.cpr0_valid.clear_bit(m->prev_prf_idx);
     retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
+    dprintf(2, "%s", __PRETTY_FUNCTION__);
     if(m->prev_prf_idx != -1) {
       machine_state.cpr0_rat[get_dest()] = m->prev_prf_idx;
     }
     if(m->prf_idx != -1) {
       machine_state.cpr0_freevec.clear_bit(m->prf_idx);
+      machine_state.cpr0_valid.set_bit(m->prf_idx);
     }
   }
 };
@@ -108,12 +111,15 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
     retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
+    dprintf(2, "%s", __PRETTY_FUNCTION__);
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
+    machine_state.cpr1_valid.set_bit(m->prf_idx);
   }
 };
 
@@ -134,7 +140,7 @@ public:
     int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
     if(prf_id == -1)
       return false;
-    assert(prf_id >= 0);
+    machine_state.gpr_rat_sanity_check(prf_id);
     machine_state.gpr_freevec.set_bit(prf_id);
     machine_state.gpr_rat[get_dest()] = prf_id;
     m->prf_idx = prf_id;
@@ -163,15 +169,21 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+    if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
+      dprintf(2, "mapping still exists!..%x\n", m->pc);      
+    }
     retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
+    dprintf(2, "%s", __PRETTY_FUNCTION__);
     if(m->prev_prf_idx != -1) {
       machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     }
     if(m->prf_idx != -1) {
       machine_state.gpr_freevec.clear_bit(m->prf_idx);
+      machine_state.gpr_valid.clear_bit(m->prf_idx);
     }
   }
 };
@@ -206,7 +218,7 @@ public:
       int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
       if(prf_id == -1)
 	return false;
-      assert(prf_id >= 0);
+      machine_state.gpr_rat_sanity_check(prf_id);
       machine_state.gpr_freevec.set_bit(prf_id);
       machine_state.gpr_rat[get_dest()] = prf_id;
       m->prf_idx = prf_id;
@@ -267,17 +279,23 @@ public:
   virtual bool retire(sim_state &machine_state) {
     if(m->prev_prf_idx != -1) {
       machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+      machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+      if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
+	dprintf(2, "mapping still exists!..%x\n", m->pc);      
+      }
     }
     retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
+    dprintf(2, "%s", __PRETTY_FUNCTION__);
     if(get_dest() > 0) {
       if(m->prev_prf_idx != -1) {
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
       }
       if(m->prf_idx != -1) {
 	machine_state.gpr_freevec.clear_bit(m->prf_idx);
+	machine_state.gpr_valid.clear_bit(m->prf_idx);
       }
     }
   }
@@ -304,16 +322,16 @@ public:
     }
     if(get_dest() > 0) {
       m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
-      if(m->prev_prf_idx == -1) {
-	dprintf(2, "dest register %d has bad old prf\n",
-		get_dest());
-	asm("int3");
-	exit(-1);
-      }
       int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
       if(prf_id == -1) {
 	return false;
       }
+      if(machine_state.gpr_rat_sanity_check(prf_id)) {
+	dprintf(2, "%x : dest register %d has old prf %d, new prf %d\n",
+		m->pc, get_dest(), m->prev_prf_idx, prf_id);
+	exit(-1);
+      }
+
       machine_state.gpr_freevec.set_bit(prf_id);
       machine_state.gpr_rat[get_dest()] = prf_id;
       m->prf_idx = prf_id;
@@ -358,21 +376,23 @@ public:
     }
   }
   virtual bool retire(sim_state &machine_state) {
-    if(m->prev_prf_idx==-1) {
-      dprintf(2, "it's wrecked..%x\n", m->pc);
-      exit(-1);
+    if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
+      dprintf(2, "mapping still exists!..%x\n", m->pc);      
     }
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
+    dprintf(2, "%s", __PRETTY_FUNCTION__);
     if(get_dest() > 0) {
       if(m->prev_prf_idx != -1) {
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
       }
       if(m->prf_idx != -1) {
 	machine_state.gpr_freevec.clear_bit(m->prf_idx);
+	machine_state.gpr_valid.clear_bit(m->prf_idx);
       }
     }
   }
@@ -439,7 +459,7 @@ public:
 	dprintf(2, "%lu gprs in use..\n", machine_state.gpr_freevec.popcount());
 	return false;
       }
-      assert(prf_id >= 0);
+      machine_state.gpr_rat_sanity_check(prf_id);
       machine_state.gpr_freevec.set_bit(prf_id);
       machine_state.gpr_rat[get_dest()] = prf_id;
       m->prf_idx = prf_id;
@@ -491,18 +511,24 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     if(m->prev_prf_idx != -1) {
+      if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
+	dprintf(2, "mapping still exists!..%x\n", m->pc);      
+      }
       machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+      machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     }
     retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
+    dprintf(2, "%s", __PRETTY_FUNCTION__);
     if(get_dest() != -1) {
       if(m->prev_prf_idx != -1) {
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
       }
       if(m->prf_idx != -1) {
 	machine_state.gpr_freevec.clear_bit(m->prf_idx);
+	machine_state.gpr_valid.clear_bit(m->prf_idx);
       }
     }
   }
@@ -606,7 +632,9 @@ public:
     retired = true;
     return true;
   }
-  virtual void undo(sim_state &machine_state) {}
+  virtual void undo(sim_state &machine_state) {
+      dprintf(2, "%s", __PRETTY_FUNCTION__);
+  }
 };
 
 
@@ -637,6 +665,7 @@ public:
     int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
     if(prf_id == -1)
       return false;
+    machine_state.gpr_rat_sanity_check(prf_id);
     machine_state.gpr_freevec.set_bit(prf_id);
     machine_state.gpr_rat[get_dest()] = prf_id;
     m->prf_idx = prf_id;
@@ -663,19 +692,27 @@ public:
     switch(lt)
       {
       case load_type::lw:
-	machine_state.gpr_prf[m->prf_idx] = accessBigEndian(*((int32_t*)(mem + effective_address))); 
+	machine_state.gpr_prf[m->prf_idx] =
+	  accessBigEndian(*((int32_t*)(mem + effective_address))); 
 	break;
       default:
 	exit(-1);
       }
 
+    if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
+      dprintf(2, "mapping still exists!..%x\n", m->pc);      
+    }
     machine_state.gpr_valid.set_bit(m->prf_idx);
+    machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
+    dprintf(2, "%s", __PRETTY_FUNCTION__);
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prf_idx);
   }
 };
 
@@ -743,7 +780,9 @@ public:
     retired = true;
     return true;
   }
-  virtual void undo(sim_state &machine_state) {}
+  virtual void undo(sim_state &machine_state) {
+    dprintf(2, "%s", __PRETTY_FUNCTION__);
+  }
 };
 
 
@@ -757,6 +796,21 @@ public:
   monitor_op(sim_op op) : mips_op(op) {
     this->op_class = mips_op_type::system;
   }
+  virtual int get_dest() const {
+    return 2;
+  }
+  virtual int get_src0() const {
+    return 4;
+  }
+  virtual int get_src1() const {
+    return 5;
+  }
+  virtual int get_src2() const {
+    return 6;
+  }
+  virtual int get_src3() const {
+    return 31;
+  }
   virtual bool allocate(sim_state &machine_state) {
     m->src0_prf = machine_state.gpr_rat[4];
     m->src1_prf = machine_state.gpr_rat[5];
@@ -766,6 +820,7 @@ public:
     int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
     if(prf_id == -1)
       return false;
+    machine_state.gpr_rat_sanity_check(prf_id);
     assert(prf_id >= 0);
     machine_state.gpr_freevec.set_bit(prf_id);
     machine_state.gpr_rat[2] = prf_id;
@@ -823,14 +878,20 @@ public:
       }
     /* not valid until after this instruction retires */
     machine_state.gpr_valid.set_bit(m->prf_idx);
+    machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+    if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
+      dprintf(2, "mapping still exists!..%x\n", m->pc);      
+    }
     dprintf(2, "==> execute monitor op with reason %u, return address %x\n",
 	    reason, src_regs[3]);
     retired = true;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
+    dprintf(2, "%s", __PRETTY_FUNCTION__);
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prf_idx);
   }
 };
 

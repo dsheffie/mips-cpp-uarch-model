@@ -1,5 +1,7 @@
 #include <cstdio>
 #include <iostream>
+#include <set>
+
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <fcntl.h>
@@ -79,7 +81,7 @@ void sim_state::initialize(sparse_mem *mem) {
   
   fetch_queue.resize(16);
   decode_queue.resize(8);
-  rob.resize(16);
+  rob.resize(2);
 
   alu_rs.resize(num_alu_ports);
   for(int i = 0; i < num_alu_ports; i++) {
@@ -252,11 +254,23 @@ extern "C" {
 	  break;
 	}
 	busted_alloc_cnt = 0;
-
-	if(u->op->get_dest()==2) {
-	  dprintf(2, "==> op @ %x writing 2, new prf %d\n",
-		  u->pc, u->prf_idx);
+	
+	std::set<int32_t> gpr_prf_debug;
+	for(int i = 0; i < 32; i++) {
+	  //	  dprintf(2, "gpr[%d] maps to prf %d\n", i, machine_state.gpr_rat[i]);
+	  auto it = gpr_prf_debug.find(machine_state.gpr_rat[i]);
+	  gpr_prf_debug.insert(machine_state.gpr_rat[i]);
 	}
+	
+	if(gpr_prf_debug.size() != 32) {
+	  for(int i = 0; i < 32; i++) { 
+	    dprintf(2, "gpr[%d] maps to prf %d\n", i, machine_state.gpr_rat[i]);
+	  }
+	  dprintf(2,"found %zu register mappings after %x allocs\n",
+		  gpr_prf_debug.size(), u->pc);
+	  exit(-1);
+	}
+	
 	
 	rs_queue->push(u);
 	decode_queue.pop();
@@ -379,8 +393,8 @@ extern "C" {
       }
 
       if(u!=nullptr and u->branch_exception) {
-	dprintf(2, "%lu => EXCEPTION @ %x, u = %p, complete %d\n",
-		get_curr_cycle(), u->pc, u, u->is_complete);
+	dprintf(2, "%lu => EXCEPTION @ %x, u = %p, complete %d, delay %d\n",
+		get_curr_cycle(), u->pc, u, u->is_complete, u->has_delay_slot);
 	machine_state.nuke = true;
 	rob.pop();
 	int exception_cycles = 0;
@@ -396,6 +410,8 @@ extern "C" {
 		dprintf(2, "branch exception in delay slot\n");
 		exit(-1);
 	      }
+	      dprintf(2, "branch delay insn @ %x retiring in exception cleanup\n",
+		      uu->pc);
 	      uu->op->retire(machine_state);
 	      rob.pop();
 	      delete uu;
@@ -441,11 +457,40 @@ extern "C" {
 	}
 	rob.clear();
 
+	if(exception_cycles == 0) {
+	  exception_cycles++;
+	  gthread_yield();
+	}
+
+	
 	dprintf(2, "@ %llu : exception cleared in %d cycles, new pc %x!\n",
 		get_curr_cycle(), exception_cycles, machine_state.fetch_pc);
 
 	dprintf(2, "%lu gprs in use..\n", machine_state.gpr_freevec.popcount());
-	if(machine_state.gpr_freevec.popcount() != 32) {
+
+	std::set<int32_t> gpr_prf_debug;
+	for(int i = 0; i < 32; i++) {
+	  dprintf(2, "gpr[%d] maps to prf %d\n", i, machine_state.gpr_rat[i]);
+	  auto it = gpr_prf_debug.find(machine_state.gpr_rat[i]);
+	  if(it != gpr_prf_debug.end()) {
+	    dprintf(2,"found existing register mapping for arch reg %d to prf %d\n",
+		    i, machine_state.gpr_rat[i]);
+	  }
+	  gpr_prf_debug.insert(machine_state.gpr_rat[i]);
+	}
+	dprintf(2,"found %zu register mappings\n",
+		gpr_prf_debug.size());
+	
+	if(machine_state.gpr_freevec.popcount() != 32 or gpr_prf_debug.size() != 32) {
+	  
+	  for(int i = 0; i < machine_state.num_gpr_prf_; i++) {
+	    if(not(machine_state.gpr_freevec.get_bit(i)))
+	      continue;
+	    auto it = gpr_prf_debug.find(i);
+	    if(it == gpr_prf_debug.end()) {
+	      dprintf(2, "no mapping to prf %d\n", i);
+	    }
+	  }
 	  exit(-1);
 	}
 	//for(uint64_t i = 0; i < rob.size(); i++) {
