@@ -55,6 +55,9 @@ public:
     }
     return c;
   }
+  uint64_t num_free() const {
+    return n_bits - popcount();
+  }
   int64_t find_first_unset() const {
     for(uint64_t w = 0; w < n_words; w++) {
       if(arr[w] == all_ones)

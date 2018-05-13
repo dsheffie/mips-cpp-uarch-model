@@ -199,6 +199,94 @@ public:
 };
 
 
+class lo_hi_move : public mips_op {
+public:
+  enum class lo_hi_type {mfhi, mflo, mthi, mtlo};
+protected:
+  lo_hi_type lht;
+public:
+  lo_hi_move(sim_op op, lo_hi_type lht) : mips_op(op), lht(lht) {
+    this->op_class = mips_op_type::alu;
+  }
+  virtual int get_dest() const {
+    switch(lht)
+      {
+      case lo_hi_type::mtlo:
+	return 32;
+      case lo_hi_type::mthi:
+	return 33;
+      case lo_hi_type::mflo:
+      case lo_hi_type::mfhi:
+	break;
+      }
+    return (m->inst >> 11) & 31;
+  }
+  virtual int get_src0() const {
+    switch(lht)
+      {
+      case lo_hi_type::mtlo:
+      case lo_hi_type::mthi:
+	break;
+      case lo_hi_type::mflo:
+	return 32;
+      case lo_hi_type::mfhi:
+	return 33;
+	break;
+      }
+    return (m->inst >> 21) & 31;
+  } 
+  virtual bool allocate(sim_state &machine_state) {
+    m->src0_prf = machine_state.gpr_rat[get_src0()];
+    m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
+    int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
+    if(prf_id == -1) {
+      return false;
+    }
+    machine_state.gpr_rat_sanity_check(prf_id);
+    machine_state.gpr_freevec.set_bit(prf_id);
+    machine_state.gpr_rat[get_dest()] = prf_id;
+    m->prf_idx = prf_id;
+    machine_state.gpr_valid.clear_bit(prf_id);
+    return true;
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
+      return false;
+    }
+    return true;
+  }
+  virtual void execute(sim_state &machine_state) {
+    machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf];
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      machine_state.gpr_valid.set_bit(m->prf_idx);
+    }
+  }
+  virtual bool retire(sim_state &machine_state) {
+    machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+    retired = true;
+    machine_state.icnt++;
+    machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+    machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+    m->exec_parity = machine_state.gpr_parity();
+    dprintf(2, "lohi : writing %x into gpr %d, src reg %d, src prf %d\n", 
+	    machine_state.gpr_prf[m->prf_idx], get_dest(), 
+	    get_src0(), m->src0_prf);
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {
+    machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.gpr_freevec.clear_bit(m->prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prf_idx);
+  }
+
+};
+
 class rtype_alu_op : public mips_op {
 public:
   enum class r_type {sll, srl, sra, addu, add, subu, sub, and_, 
@@ -1057,17 +1145,27 @@ public:
     return (m->inst >> 16) & 31;
   }
   virtual bool allocate(sim_state &machine_state) {
+    if(machine_state.gpr_freevec.num_free() < 2)
+      return false;
+
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->src1_prf = machine_state.gpr_rat[get_src1()];
     m->prev_lo_prf_idx = machine_state.gpr_rat[32];
     m->prev_hi_prf_idx = machine_state.gpr_rat[33];
-    m->lo_prf_idx = machine_state.gpr_freevec.find_first_unset();
-    m->hi_prf_idx = machine_state.gpr_freevec.find_first_unset();
-    if(m->lo_prf_idx == -1 or m->hi_prf_idx == -1)
-      return false;
 
+    m->lo_prf_idx = machine_state.gpr_freevec.find_first_unset();
+    if(m->lo_prf_idx==-1) {
+      dprintf(2,"terminal allocation error @ %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
+      exit(-1);
+    }
     machine_state.gpr_freevec.set_bit(m->lo_prf_idx);
+    m->hi_prf_idx = machine_state.gpr_freevec.find_first_unset();
+    if(m->hi_prf_idx==-1) {
+      dprintf(2,"terminal allocation error @ %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
+      exit(-1);
+    }
     machine_state.gpr_freevec.set_bit(m->hi_prf_idx);
+
 
     machine_state.gpr_rat[32] = m->lo_prf_idx;
     machine_state.gpr_rat[33] = m->hi_prf_idx;
@@ -1095,6 +1193,7 @@ public:
 	uint32_t *lo = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->lo_prf_idx]);
 	uint32_t *hi = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->hi_prf_idx]);
 	uint64_t y = u_a64*u_b64;
+	dprintf(2, "DEST LO PRF %d, DEST HI PRF %d\n", m->lo_prf_idx, m->hi_prf_idx);
 	*lo = static_cast<uint32_t>(y);
 	*hi = static_cast<uint32_t>(y>>32);
 	break;
@@ -1431,22 +1530,16 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
     case 0x0f: /* sync */
       s->pc += 4;
       break;
+#endif
     case 0x10: /* mfhi */
-      s->gpr[rd] = s->hi;
-      s->pc += 4;
-      break;
+      return new lo_hi_move(m_op, lo_hi_move::lo_hi_type::mfhi);
     case 0x11: /* mthi */ 
-      s->hi = s->gpr[rs];
-      s->pc += 4;
-      break;
+      return new lo_hi_move(m_op, lo_hi_move::lo_hi_type::mthi);
     case 0x12: /* mflo */
-      s->gpr[rd] = s->lo;
-      s->pc += 4;
-      break;
+      return new lo_hi_move(m_op, lo_hi_move::lo_hi_type::mflo);
     case 0x13: /* mtlo */
-      s->lo = s->gpr[rs];
-      s->pc += 4;
-      break;
+      return new lo_hi_move(m_op, lo_hi_move::lo_hi_type::mtlo);
+#if 0
     case 0x18: { /* mult */
       int64_t y;
       y = (int64_t)s->gpr[rs] * (int64_t)s->gpr[rt];
