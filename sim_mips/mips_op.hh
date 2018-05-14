@@ -175,6 +175,13 @@ struct sim_state {
   }
   
   void initialize(sparse_mem *mem);
+
+  ~sim_state() {
+    if(gpr_prf) delete [] gpr_prf;
+    if(cpr0_prf) delete [] cpr0_prf;
+    if(cpr1_prf) delete [] cpr1_prf;
+    if(fcr1_prf) delete [] fcr1_prf;
+  }
 };
 
 

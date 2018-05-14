@@ -681,14 +681,30 @@ int main(int argc, char *argv[]) {
   std::cout << machine_state.n_jumps << " jumps\n";
   std::cout << "CHECK INSN CNT : "
 	    << s->icnt << "\n";
-  return 0;
-  
-  double runtime = timestamp();
-  while(s->brk==0)
-    execMips(s);
-  runtime = timestamp()-runtime;
-  fprintf(stderr, "%sINTERP: %g sec, %zu ins executed, %g megains / sec%s\n", 
-	  KGRN, runtime, (size_t)s->icnt, s->icnt / (runtime*1e6), KNRM);
+
+
+  for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
+    auto f = machine_state.fetch_queue.at(i);
+    if(f) {
+      delete f;
+    }
+  }
+  for(size_t i = 0; i < machine_state.decode_queue.size(); i++) {
+    auto d = machine_state.decode_queue.at(i);
+    if(d) {
+      delete d;
+    }
+  }
+  for(size_t i = 0; i < machine_state.rob.size(); i++) {
+    auto r = machine_state.rob.at(i);
+    if(r) {
+      delete r;
+    }
+  }
+
+  delete s;
+  delete sm;
+  delete u_arch_mem;
   
   if(sysArgs)
     free(sysArgs);
@@ -699,9 +715,6 @@ int main(int argc, char *argv[]) {
     delete [] sysArgv;
   }
 
-  std::cerr << sm->count() << " pages touched\n";
-  delete s;
-  delete sm;
   return 0;
 }
 
