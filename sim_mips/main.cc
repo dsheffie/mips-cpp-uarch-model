@@ -540,6 +540,20 @@ extern "C" {
 	if(exception_cycles == 0) {
 	  gthread_yield();
 	}
+	
+	for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
+	  auto f = machine_state.fetch_queue.at(i);
+	  if(f) {
+	    delete f;
+	  }
+	}
+	for(size_t i = 0; i < machine_state.decode_queue.size(); i++) {
+	  auto d = machine_state.decode_queue.at(i);
+	  if(d) {
+	    delete d;
+	  }
+	}
+	
 	machine_state.decode_queue.clear();
 	machine_state.fetch_queue.clear();
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {

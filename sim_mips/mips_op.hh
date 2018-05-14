@@ -52,7 +52,6 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
     pc(pc), inst(inst), fetch_npc(fetch_npc), fetch_cycle(fetch_cycle), predict_taken(false)  {
 
   }
-
   ~mips_meta_op();
   std::shared_ptr<mips_meta_op> getptr() {
     return shared_from_this();
