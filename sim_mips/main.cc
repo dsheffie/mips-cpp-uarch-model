@@ -660,6 +660,11 @@ int main(int argc, char *argv[]) {
   std::cout << "SIMULATION COMPLETE : "
 	    << machine_state.icnt << " inst retired in "
 	    << get_curr_cycle() << " cycles\n";
+
+  std::cout << machine_state.n_branches << " branches\n";
+  std::cout << machine_state.miss_predicted_branches 
+	    << " miss predicted branches\n";
+  std::cout << machine_state.n_jumps << " jumps\n";
   std::cout << "CHECK INSN CNT : "
 	    << s->icnt << "\n";
   return 0;

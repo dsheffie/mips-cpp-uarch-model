@@ -621,6 +621,7 @@ public:
     mips_op(op), i_(op->inst), jt(jt) {
     this->op_class = mips_op_type::jmp;
     op->has_delay_slot = true;
+    op->is_branch_or_jump = true;
   }
   virtual int get_dest() const {
     switch(jt)
@@ -691,7 +692,7 @@ public:
 	m->correct_pc = ((m->pc + 4)&pc_mask) | jaddr;
 	break;
       }
-    m->branch_exception = not(m->predict_taken);
+    m->branch_exception = (m->fetch_npc != m->correct_pc);
 
     dprintf(2, "=> %lu : executing jump %x, this = %p\n",
 	    get_curr_cycle(), m->pc, this);
@@ -718,7 +719,9 @@ public:
     }
     retired = true;
     machine_state.icnt++;
+    machine_state.n_jumps++;
     m->exec_parity = machine_state.gpr_parity();
+
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -743,6 +746,19 @@ protected:
   branch_type bt;
   bool take_br = false;
   uint32_t branch_target = 0;
+  bool is_likely_branch() const {
+    switch(bt)
+      {
+      case branch_type::beql:
+      case branch_type::bnel:
+      case branch_type::blezl:
+      case branch_type::bgtzl:
+      case branch_type::bgezl:
+      case branch_type::bltzl:
+	return true;
+      }
+    return false;
+  }
 public:
   branch_op(sim_op op, branch_type bt) :
     mips_op(op), bt(bt), i_(op->inst), take_br(false) {
@@ -751,7 +767,7 @@ public:
     int32_t imm = ((int32_t)himm) << 2;
     uint32_t npc = m->pc+4;
     branch_target = (imm+npc);
-    op->correct_pc = branch_target;
+    op->is_branch_or_jump = true;
   }
   virtual int get_src0() const {
     return i_.ii.rs;
@@ -851,21 +867,25 @@ public:
 	exit(-1);
       }
 
-    if(take_br != m->predict_taken) {
-      if(take_br and not(m->predict_taken)) {
+    if(take_br) {
+      m->correct_pc = branch_target;
+      m->branch_exception = m->fetch_npc != m->correct_pc;
+    }
+    else {
+      m->correct_pc = m->pc + 8;
+      if(is_likely_branch()) {
 	m->branch_exception = true;
       }
       else {
-	dprintf(2, "need to handle other mispredict condition\n");
-	exit(-1);
+	m->branch_exception = m->fetch_npc != m->correct_pc;
       }
     }
 
-    if(m->likely_squash) {
-      dprintf(2,"LIKELY SQUASHHHHHH\n");
-      m->branch_exception = true;
-      m->correct_pc = m->pc + 8;
-    }
+    //if(m->likely_squash) {
+    //dprintf(2,"LIKELY SQUASHHHHHH\n");
+    //m->branch_exception = true;
+    // m->correct_pc = m->pc + 8;
+    //}
 
     m->complete_cycle = get_curr_cycle() + 1;
   }
@@ -877,6 +897,8 @@ public:
   virtual bool retire(sim_state &machine_state) {
     retired = true;
     machine_state.icnt++;
+    machine_state.n_branches++;
+    machine_state.miss_predicted_branches += m->branch_exception;
     m->exec_parity = machine_state.gpr_parity();
     return true;
   }
@@ -916,8 +938,6 @@ public:
     machine_state.gpr_rat_sanity_check(prf_id);
     machine_state.gpr_freevec.set_bit(prf_id);
     machine_state.gpr_rat[get_dest()] = prf_id;
-    dprintf(2, "allocated load -> %d to prf %lld, rat = %lld\n", 
-	    get_dest(), prf_id, machine_state.gpr_rat[get_dest()]);
     m->prf_idx = prf_id;
     machine_state.gpr_valid.clear_bit(prf_id);
     return true;

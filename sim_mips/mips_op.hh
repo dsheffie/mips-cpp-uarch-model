@@ -29,7 +29,7 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   /* finished execution */
   bool is_complete = false;
   bool branch_exception = false;
-
+  bool is_branch_or_jump = false;
   bool has_delay_slot = false;
   bool likely_squash = false;
   uint32_t correct_pc = 0;
@@ -69,6 +69,14 @@ struct retire_entry {
     inst(inst), pc(pc), parity(parity) {}
 };
 
+
+class branch_table {
+protected:
+  struct btb_entry {
+    uint32_t pc;
+  };
+};
+
 struct sim_state {
   bool terminate_sim = false;
   bool nuke = false;
@@ -93,8 +101,6 @@ struct sim_state {
   uint32_t *cpr0_prf = nullptr;
   uint32_t *cpr1_prf = nullptr;
   uint32_t *fcr1_prf = nullptr;
-
-
 
   sim_bitvec gpr_freevec;
   sim_bitvec cpr0_freevec;
@@ -122,7 +128,10 @@ struct sim_state {
 
   sparse_mem *mem = nullptr;
   uint64_t icnt = 0, maxicnt = ~(0UL);
-  
+  uint64_t n_branches = 0, n_jumps = 0;
+  uint64_t miss_predicted_branches = 0;
+  uint64_t miss_predicted_jumps = 0;
+
   std::list<retire_entry> retire_log;
 
   bool gpr_rat_sanity_check(int64_t prf_idx) const {
