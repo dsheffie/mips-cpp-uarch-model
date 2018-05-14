@@ -80,6 +80,7 @@ protected:
 struct sim_state {
   bool terminate_sim = false;
   bool nuke = false;
+  uint32_t delay_slot_npc = 0;
   uint32_t fetch_pc = 0;
   uint32_t retire_pc = 0;
   

@@ -1,5 +1,6 @@
 #include "mips_op.hh"
 #include "helper.hh"
+#include <map>
 
 class mtc0 : public mips_op {
 public:
@@ -738,6 +739,8 @@ public:
   }
 };
 
+std::map<uint32_t, uint32_t> branch_target_map;
+
 class branch_op : public mips_op {
 public:
   enum class branch_type {beq, bne, blez, bgtz, beql, bnel, blezl, bgtzl, bgez, bgezl, bltz, bltzl};
@@ -869,16 +872,18 @@ public:
 
     if(take_br) {
       m->correct_pc = branch_target;
-      m->branch_exception = m->fetch_npc != m->correct_pc;
     }
     else {
       m->correct_pc = m->pc + 8;
       if(is_likely_branch()) {
 	m->branch_exception = true;
       }
-      else {
-	m->branch_exception = m->fetch_npc != m->correct_pc;
-      }
+    }
+
+    m->branch_exception |= m->fetch_npc != m->correct_pc;    
+    if(m->correct_pc == (m->pc+8)) {
+      dprintf(2, "predicted taken, but branch wasn't taken, squash %d\n",
+	      m->branch_exception);
     }
 
     //if(m->likely_squash) {
@@ -900,6 +905,9 @@ public:
     machine_state.n_branches++;
     machine_state.miss_predicted_branches += m->branch_exception;
     m->exec_parity = machine_state.gpr_parity();
+
+    branch_target_map[m->pc] = m->correct_pc;
+
     return true;
   }
   virtual void undo(sim_state &machine_state) {

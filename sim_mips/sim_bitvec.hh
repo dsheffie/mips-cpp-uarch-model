@@ -45,7 +45,7 @@ public:
   uint64_t popcount() const {
     uint64_t c = 0;
     if((bpw*n_words) != n_bits) {
-      dprintf(2, "implement clean-up\n", n_words);
+      dprintf(2, "implement clean-up\n");
       exit(-1);
     }
     else {

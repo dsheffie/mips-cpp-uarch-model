@@ -2,6 +2,7 @@
 #include <iostream>
 #include <set>
 #include <fstream>
+#include <map>
 
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -111,6 +112,8 @@ uint64_t get_curr_cycle() {
   return curr_cycle;
 }
 
+extern std::map<uint32_t, uint32_t> branch_target_map;
+
 extern "C" {
   void cycle_count(void *arg) {
     while(not(machine_state.terminate_sim)) {
@@ -127,17 +130,26 @@ extern "C" {
   void fetch(void *arg) {
     machine_state.fetch_pc = s->pc;
     auto &fetch_queue = machine_state.fetch_queue;
+
     while(not(machine_state.terminate_sim)) {
       int fetch_amt = 0;
-      
       for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
 	sparse_mem &mem = s->mem;
-	//dprintf(2, "fetch pc %x\n", machine_state.fetch_pc);
+
 	uint32_t inst = accessBigEndian(mem.get32(machine_state.fetch_pc));
-	auto f = new mips_meta_op(machine_state.fetch_pc, inst,
-				  machine_state.fetch_pc+4, curr_cycle);
+	uint32_t npc = machine_state.fetch_pc + 4;
+	auto it = branch_target_map.find(machine_state.fetch_pc);
+	bool hit = false;
+	//if(it != branch_target_map.end()) {
+	//machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	// npc = it->second;
+	//hit = true;
+	//}
+	dprintf(2, "@%llu pc %x : predicting %x (hit %d)\n", 
+		get_curr_cycle(), machine_state.fetch_pc, npc, hit);
+	auto f = new mips_meta_op(machine_state.fetch_pc, inst, npc, curr_cycle);
 	fetch_queue.push(f);
-	machine_state.fetch_pc += 4;
+	machine_state.fetch_pc = npc;
       }
       gthread_yield();
     }
@@ -157,9 +169,6 @@ extern "C" {
 	fetch_queue.pop();
 	u->decode_cycle = curr_cycle;
 	u->op = decode_insn(u);
-	if(u->op) {
-	  dprintf(2, "op at pc %x was decoded\n", u->pc);
-	}
 	decode_queue.push(u);
       }
       gthread_yield();
@@ -174,7 +183,6 @@ extern "C" {
 
     while(not(machine_state.terminate_sim)) {
       int alloc_amt = 0;
-      dprintf(2, "%llu allocation...\n", get_curr_cycle());
       while(not(decode_queue.empty()) and not(rob.full()) and
 	    (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
@@ -542,6 +550,7 @@ extern "C" {
 	}
 	machine_state.decode_queue.clear();
 	machine_state.fetch_queue.clear();
+	machine_state.delay_slot_npc = 0;
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
 	  machine_state.alu_rs.at(i).clear();
 	}
