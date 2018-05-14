@@ -12,6 +12,8 @@
 
 uint64_t get_curr_cycle();
 
+extern int log_fd;
+
 enum class mips_op_type { unknown, alu, fp, jmp, mem, system };
 
 class mips_op;

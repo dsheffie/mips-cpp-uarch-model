@@ -34,7 +34,7 @@ public:
   }
   virtual void execute(sim_state &machine_state) {
     if(not(ready(machine_state))) {
-      dprintf(2, "mistakes were made @ %d\n", __LINE__);
+      dprintf(log_fd, "mistakes were made @ %d\n", __LINE__);
       exit(-1);
     }
     machine_state.cpr0_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf];
@@ -54,7 +54,7 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(2, "%s", __PRETTY_FUNCTION__);
+    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     if(m->prev_prf_idx != -1) {
       machine_state.cpr0_rat[get_dest()] = m->prev_prf_idx;
     }
@@ -87,7 +87,7 @@ public:
     machine_state.cpr1_rat[get_dest()] = prf_id;
     m->prf_idx = prf_id;
     machine_state.cpr1_valid.clear_bit(prf_id);
-    dprintf(2, "::::: prev dest of mtc is %d, new dest %d\n", m->prev_prf_idx, prf_id);
+    dprintf(log_fd, "::::: prev dest of mtc is %d, new dest %d\n", m->prev_prf_idx, prf_id);
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
@@ -98,11 +98,11 @@ public:
   }
   virtual void execute(sim_state &machine_state) {
     if(not(ready(machine_state))) {
-      dprintf(2, "mistakes were made @ %d\n", __LINE__);
+      dprintf(log_fd, "mistakes were made @ %d\n", __LINE__);
       exit(-1);
     }
     machine_state.cpr1_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf];
-    dprintf(2, "%s : moving gpr %d (value %x) to cpr1 (reg %d)\n",
+    dprintf(log_fd, "%s : moving gpr %d (value %x) to cpr1 (reg %d)\n",
 	    __PRETTY_FUNCTION__, get_src0(), 
 	    machine_state.cpr1_prf[m->prf_idx],
 	    get_dest());
@@ -111,7 +111,7 @@ public:
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
-      dprintf(2, "%x : m->prf_idx = %ld\n", m->pc, m->prf_idx);
+      dprintf(log_fd, "%x : m->prf_idx = %ld\n", m->pc, m->prf_idx);
       machine_state.cpr1_valid.set_bit(m->prf_idx);
     }
   }
@@ -123,7 +123,7 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(2, "%s", __PRETTY_FUNCTION__);
+    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
     machine_state.cpr1_valid.set_bit(m->prf_idx);
@@ -162,7 +162,7 @@ public:
   }
   virtual void execute(sim_state &machine_state) {
     if(not(ready(machine_state))) {
-      dprintf(2, "mistakes were made @ %d\n", __LINE__);
+      dprintf(log_fd, "mistakes were made @ %d\n", __LINE__);
       exit(-1);
     }
     machine_state.gpr_prf[m->prf_idx] = machine_state.cpr1_prf[m->src0_prf];
@@ -178,7 +178,7 @@ public:
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
-      dprintf(2, "mapping still exists!..%x\n", m->pc);      
+      dprintf(log_fd, "mapping still exists!..%x\n", m->pc);      
     }
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
@@ -188,7 +188,7 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(2, "%s", __PRETTY_FUNCTION__);
+    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     if(m->prev_prf_idx != -1) {
       machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     }
@@ -275,7 +275,7 @@ public:
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     m->exec_parity = machine_state.gpr_parity();
-    dprintf(2, "lohi : writing %x into gpr %d, src reg %d, src prf %d\n", 
+    dprintf(log_fd, "lohi : writing %x into gpr %d, src reg %d, src prf %d\n", 
 	    machine_state.gpr_prf[m->prf_idx], get_dest(), 
 	    get_src0(), m->src0_prf);
     return true;
@@ -362,7 +362,7 @@ public:
   }
   virtual void execute(sim_state &machine_state) {
     if(not(ready(machine_state))) {
-      dprintf(2, "mistakes were made @ %d\n", __LINE__);
+      dprintf(log_fd, "mistakes were made @ %d\n", __LINE__);
       exit(-1);
     }
     if(m->prf_idx != -1) {
@@ -374,7 +374,7 @@ public:
 	  break;
 	case r_type::srl:
 	  machine_state.gpr_prf[m->prf_idx] = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]) >> sa;
-	  dprintf(2, "%x : srl result = %d, shift amt %d, gpr %d, src prf %d src val %d \n",
+	  dprintf(log_fd, "%x : srl result = %d, shift amt %d, gpr %d, src prf %d src val %d \n",
 		  m->pc, machine_state.gpr_prf[m->prf_idx], sa, get_src0(), m->src0_prf,  machine_state.gpr_prf[m->src0_prf]);
 	  break;
 	case r_type::sra:
@@ -432,7 +432,7 @@ public:
 	  take_trap = machine_state.gpr_prf[m->src0_prf] == machine_state.gpr_prf[m->src1_prf];
 	  break;
 	default:
-	  dprintf(2, "rtype wtf ((pc = %x)\n", m->pc);
+	  dprintf(log_fd, "rtype wtf ((pc = %x)\n", m->pc);
 	  exit(-1);
 	}
     }
@@ -441,7 +441,7 @@ public:
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
-      //dprintf(2, "inst @ %x retiring, prf_idx = %d\n", m->pc, m->prf_idx);
+      //dprintf(log_fd, "inst @ %x retiring, prf_idx = %d\n", m->pc, m->prf_idx);
       if(m->prf_idx != -1) {
 	machine_state.gpr_valid.set_bit(m->prf_idx);
       }
@@ -452,7 +452,7 @@ public:
       machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
       machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
       if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
-	dprintf(2, "mapping still exists!..%x\n", m->pc);      
+	dprintf(log_fd, "mapping still exists!..%x\n", m->pc);      
       }
       machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
       machine_state.arch_grf_last_pc[get_dest()] = m->pc;
@@ -461,13 +461,13 @@ public:
     retired = true;
     machine_state.icnt++;
     if(take_trap) {
-      dprintf(2, "need to trap...\n");
+      dprintf(log_fd, "need to trap...\n");
       exit(-1);
     }
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(2, "%s", __PRETTY_FUNCTION__);
+    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     if(get_dest() > 0) {
       if(m->prev_prf_idx != -1) {
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
@@ -506,7 +506,7 @@ public:
 	return false;
       }
       if(machine_state.gpr_rat_sanity_check(prf_id)) {
-	dprintf(2, "%x : dest register %d has old prf %d, new prf %d\n",
+	dprintf(log_fd, "%x : dest register %d has old prf %d, new prf %d\n",
 		m->pc, get_dest(), m->prev_prf_idx, prf_id);
 	exit(-1);
       }
@@ -551,7 +551,7 @@ public:
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] ^ uimm32;
 	break;
       default:
-	dprintf(2, "implement me %x\n", m->pc);
+	dprintf(log_fd, "implement me %x\n", m->pc);
 	exit(-1);
       }
     m->complete_cycle = get_curr_cycle() + 1;
@@ -560,17 +560,17 @@ public:
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
-      dprintf(2, "::%x arch reg %d -> prf %lld\n", m->pc, get_dest(), m->prf_idx);
+      dprintf(log_fd, "::%x arch reg %d -> prf %lld\n", m->pc, get_dest(), m->prf_idx);
       machine_state.gpr_valid.set_bit(m->prf_idx);
     }
   }
   virtual bool retire(sim_state &machine_state) {
-    dprintf(2, "::%x %s %d\n", m->pc, __PRETTY_FUNCTION__, m->is_complete);
+    dprintf(log_fd, "::%x %s %d\n", m->pc, __PRETTY_FUNCTION__, m->is_complete);
     if(m->is_complete == false) {
       exit(-1);
     }
     if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
-      dprintf(2, "mapping still exists!..%x\n", m->pc);      
+      dprintf(log_fd, "mapping still exists!..%x\n", m->pc);      
     }
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
@@ -582,7 +582,7 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(2, "%s", __PRETTY_FUNCTION__);
+    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     if(get_dest() > 0) {
       if(m->prev_prf_idx != -1) {
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
@@ -654,7 +654,7 @@ public:
       m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
       int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
       if(prf_id == -1) {
-	dprintf(2, "%lu gprs in use..\n", machine_state.gpr_freevec.popcount());
+	dprintf(log_fd, "%lu gprs in use..\n", machine_state.gpr_freevec.popcount());
 	return false;
       }
       machine_state.gpr_rat_sanity_check(prf_id);
@@ -695,11 +695,11 @@ public:
       }
     m->branch_exception = (m->fetch_npc != m->correct_pc);
 
-    dprintf(2, "=> %lu : executing jump %x, this = %p\n",
+    dprintf(log_fd, "=> %lu : executing jump %x, this = %p\n",
 	    get_curr_cycle(), m->pc, this);
 
     if(m->complete_cycle != -1) {
-      dprintf(2,"mistakes have been made\n");
+      dprintf(log_fd,"mistakes have been made\n");
       asm("int3");
     }
     
@@ -711,7 +711,7 @@ public:
   virtual bool retire(sim_state &machine_state) {
     if(m->prev_prf_idx != -1) {
       if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
-	dprintf(2, "mapping still exists!..%x\n", m->pc);      
+	dprintf(log_fd, "mapping still exists!..%x\n", m->pc);      
       }
       machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
       machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
@@ -726,7 +726,7 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(2, "%s", __PRETTY_FUNCTION__);
+    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     if(get_dest() != -1) {
       if(m->prev_prf_idx != -1) {
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
@@ -793,27 +793,27 @@ public:
     return i_.ii.rt;
   }
   virtual bool allocate(sim_state &machine_state) {
-    dprintf(2, "branch allocated\n");
+    dprintf(log_fd, "branch allocated\n");
     if(get_src0() != -1) {
       m->src0_prf = machine_state.gpr_rat[get_src0()];
-      dprintf(2, "branch src0 arch reg %d, prf %d\n",
+      dprintf(log_fd, "branch src0 arch reg %d, prf %d\n",
 	      get_src0(), m->src0_prf);
     }
     if(get_src1() != -1) {
       m->src1_prf = machine_state.gpr_rat[get_src1()];
-      dprintf(2, "branch src1 arch reg %d, prf %d\n",
+      dprintf(log_fd, "branch src1 arch reg %d, prf %d\n",
 	      get_src1(), m->src1_prf);
     }
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
-      dprintf(2, "branch %x : src0 (prf %d) not ready, alloc'd @ %llu\n",
+      dprintf(log_fd, "branch %x : src0 (prf %d) not ready, alloc'd @ %llu\n",
 	      m->pc, m->src0_prf,m->alloc_cycle );
       return false;
     }
     if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
-      dprintf(2, "branch %x : src1 not ready\n", m->pc);
+      dprintf(log_fd, "branch %x : src1 not ready\n", m->pc);
       return false;
     }
     return true;
@@ -866,7 +866,7 @@ public:
 	m->has_delay_slot = take_br;
 	break;
       default:
-	dprintf(2, "wtf @ %x\n", m->pc);
+	dprintf(log_fd, "wtf @ %x\n", m->pc);
 	exit(-1);
       }
 
@@ -882,12 +882,12 @@ public:
 
     m->branch_exception |= m->fetch_npc != m->correct_pc;    
     if(m->correct_pc == (m->pc+8)) {
-      dprintf(2, "predicted taken, but branch wasn't taken, squash %d\n",
+      dprintf(log_fd, "predicted taken, but branch wasn't taken, squash %d\n",
 	      m->branch_exception);
     }
 
     //if(m->likely_squash) {
-    //dprintf(2,"LIKELY SQUASHHHHHH\n");
+    //dprintf(log_fd,"LIKELY SQUASHHHHHH\n");
     //m->branch_exception = true;
     // m->correct_pc = m->pc + 8;
     //}
@@ -911,7 +911,7 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-      dprintf(2, "%s", __PRETTY_FUNCTION__);
+      dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
   }
 };
 
@@ -952,7 +952,7 @@ public:
   }
   virtual bool ready(sim_state &machine_state) const {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
-      dprintf(2, "load @ %x not ready\n", m->pc);
+      dprintf(log_fd, "load @ %x not ready\n", m->pc);
       return false;
     }
     return true;
@@ -991,12 +991,12 @@ public:
       }
 
     if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
-      dprintf(2, "mapping still exists!..%x\n", m->pc);      
+      dprintf(log_fd, "mapping still exists!..%x\n", m->pc);      
     }
     machine_state.gpr_valid.set_bit(m->prf_idx);
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
-    dprintf(2, "LOAD @ %x complete to prf %d!, alloc'd @ %llu\n",
+    dprintf(log_fd, "LOAD @ %x complete to prf %d!, alloc'd @ %llu\n",
 	    m->pc, m->prf_idx, m->alloc_cycle);
     retired = true;
     machine_state.icnt++;
@@ -1008,7 +1008,7 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(2, "%s", __PRETTY_FUNCTION__);
+    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
@@ -1066,7 +1066,7 @@ public:
     }
   }
   virtual bool retire(sim_state &machine_state) {
-    dprintf(2, "store at head of rob, ea %x, data %d\n", effective_address, store_data);
+    dprintf(log_fd, "store at head of rob, ea %x, data %d\n", effective_address, store_data);
     sparse_mem & mem = *(machine_state.mem);
     switch(st)
       {
@@ -1087,7 +1087,7 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(2, "%s", __PRETTY_FUNCTION__);
+    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
   }
 };
 
@@ -1146,7 +1146,7 @@ public:
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
-      dprintf(2, "mapping still exists!..%x\n", m->pc);      
+      dprintf(log_fd, "mapping still exists!..%x\n", m->pc);      
     }
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
@@ -1211,7 +1211,7 @@ public:
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
-      dprintf(2, "mapping still exists!..%x\n", m->pc);      
+      dprintf(log_fd, "mapping still exists!..%x\n", m->pc);      
     }
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
@@ -1256,13 +1256,13 @@ public:
 
     m->lo_prf_idx = machine_state.gpr_freevec.find_first_unset();
     if(m->lo_prf_idx==-1) {
-      dprintf(2,"terminal allocation error @ %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
+      dprintf(log_fd,"terminal allocation error @ %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
       exit(-1);
     }
     machine_state.gpr_freevec.set_bit(m->lo_prf_idx);
     m->hi_prf_idx = machine_state.gpr_freevec.find_first_unset();
     if(m->hi_prf_idx==-1) {
-      dprintf(2,"terminal allocation error @ %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
+      dprintf(log_fd,"terminal allocation error @ %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
       exit(-1);
     }
     machine_state.gpr_freevec.set_bit(m->hi_prf_idx);
@@ -1289,7 +1289,7 @@ public:
     uint32_t *lo = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->lo_prf_idx]);
     uint32_t *hi = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->hi_prf_idx]);
     
-    dprintf(2, "DEST LO PRF %d, DEST HI PRF %d\n", m->lo_prf_idx, m->hi_prf_idx);
+    dprintf(log_fd, "DEST LO PRF %d, DEST HI PRF %d\n", m->lo_prf_idx, m->hi_prf_idx);
     switch(mdt)
       {
       case mult_div_types::multu: {
@@ -1435,13 +1435,13 @@ public:
     src_regs[3] = machine_state.gpr_prf[m->src3_prf];
     m->correct_pc = src_regs[3];
     m->complete_cycle = get_curr_cycle() + 1;
-    dprintf(2, "monitor exception @ cycle %lu, complete = %d\n",
+    dprintf(log_fd, "monitor exception @ cycle %lu, complete = %d\n",
 	    get_curr_cycle(), m->is_complete);
     m->branch_exception = true;
   }
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
-      dprintf(2, "**** monitor marked complete @ cycle %lu\n", get_curr_cycle());
+      dprintf(log_fd, "**** monitor marked complete @ cycle %lu\n", get_curr_cycle());
       m->is_complete = true;
     }
   }
@@ -1475,16 +1475,16 @@ public:
 	break;
 
       default:
-	dprintf(2, "execute monitor op with reason %u\n", reason);
+	dprintf(log_fd, "execute monitor op with reason %u\n", reason);
 	exit(-1);
       }
     /* not valid until after this instruction retires */
     machine_state.gpr_valid.set_bit(m->prf_idx);
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
-      dprintf(2, "mapping still exists!..%x\n", m->pc);      
+      dprintf(log_fd, "mapping still exists!..%x\n", m->pc);      
     }
-    dprintf(2, "==> execute monitor op with reason %u, return address %x\n",
+    dprintf(log_fd, "==> execute monitor op with reason %u, return address %x\n",
 	    reason, src_regs[3]);
     retired = true;
     machine_state.icnt++;
@@ -1494,7 +1494,7 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(2, "%s", __PRETTY_FUNCTION__);
+    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
@@ -1540,7 +1540,7 @@ static mips_op* decode_itype_insn(sim_op m_op) {
 	case 0x3:
 	  return new branch_op(m_op,branch_op::branch_type::bgezl);
 	default:
-	  dprintf(2, "unknown branch type @ %x\n", m_op->pc);
+	  dprintf(log_fd, "unknown branch type @ %x\n", m_op->pc);
 	  exit(-1);
 	}
     case 0x04: /* beq */
@@ -1696,7 +1696,7 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
     case 0x34: /* teq */
       return new rtype_alu_op(m_op, rtype_alu_op::r_type::teq);
     default:
-      dprintf(2,"unknown RType instruction @ %x\n", m_op->pc); 
+      dprintf(log_fd,"unknown RType instruction @ %x\n", m_op->pc); 
       return nullptr;
     }
 }
@@ -1815,32 +1815,32 @@ mips_meta_op::~mips_meta_op() {
 }
 
 bool mips_op::allocate(sim_state &machine_state) {
-  dprintf(2, "allocate must be implemented\n");
+  dprintf(log_fd, "allocate must be implemented\n");
   exit(-1);
   return false;
 }
 
 void mips_op::execute(sim_state &machine_state) {
-  dprintf(2, "execute must be implemented, pc %x\n", m->pc);
+  dprintf(log_fd, "execute must be implemented, pc %x\n", m->pc);
   exit(-1);
 }
 
 void mips_op::complete(sim_state &machine_state) {
-  dprintf(2, "complete must be implemented, pc %x\n", m->pc);
+  dprintf(log_fd, "complete must be implemented, pc %x\n", m->pc);
   exit(-1);
 }
 
 bool mips_op::retire(sim_state &machine_state) {
-  dprintf(2, "retire must be implemented, pc %x\n", m->pc);
+  dprintf(log_fd, "retire must be implemented, pc %x\n", m->pc);
   return false;
 }
 
 bool mips_op::ready(sim_state &machine_state) const {
-  dprintf(2, "ready must be implemented\n");
+  dprintf(log_fd, "ready must be implemented\n");
   return false;
 }
 
 void mips_op::undo(sim_state &machine_state) {
-  dprintf(2, "implement %x for undo\n", m->pc);
+  dprintf(log_fd, "implement %x for undo\n", m->pc);
   exit(-1);
 }

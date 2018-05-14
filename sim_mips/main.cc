@@ -27,6 +27,7 @@
 
 #include "mips_op.hh"
 
+int log_fd = 2;
 char **sysArgv = nullptr;
 int sysArgc = 0;
 bool enClockFuncts = false;
@@ -117,7 +118,7 @@ extern std::map<uint32_t, uint32_t> branch_target_map;
 extern "C" {
   void cycle_count(void *arg) {
     while(not(machine_state.terminate_sim)) {
-      //dprintf(2, "cycle %llu : icnt %llu\n", curr_cycle, machine_state.icnt);
+      //dprintf(log_fd, "cycle %llu : icnt %llu\n", curr_cycle, machine_state.icnt);
       curr_cycle++;
       //if(curr_cycle >= 256) {
       //machine_state.terminate_sim = true;
@@ -145,7 +146,7 @@ extern "C" {
 	// npc = it->second;
 	//hit = true;
 	//}
-	dprintf(2, "@%llu pc %x : predicting %x (hit %d)\n", 
+	dprintf(log_fd, "@%llu pc %x : predicting %x (hit %d)\n", 
 		get_curr_cycle(), machine_state.fetch_pc, npc, hit);
 	auto f = new mips_meta_op(machine_state.fetch_pc, inst, npc, curr_cycle);
 	fetch_queue.push(f);
@@ -187,7 +188,7 @@ extern "C" {
 	    (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
 	if(busted_alloc_cnt == 64) {
-	  dprintf(2, "@ %llu broken decode : (pc %x, insn %x) breaks allocation\n", 
+	  dprintf(log_fd, "@ %llu broken decode : (pc %x, insn %x) breaks allocation\n", 
 		  get_curr_cycle(), u->pc, u->inst);
 	  machine_state.terminate_sim = true;
 	}
@@ -204,10 +205,10 @@ extern "C" {
 	switch(u->op->get_op_class())
 	  {
 	  case mips_op_type::unknown:
-	    dprintf(2, "want unknown for %x \n", u->pc);
+	    dprintf(log_fd, "want unknown for %x \n", u->pc);
 	    break;
 	  case mips_op_type::alu:
-	    //dprintf(2, "want alu for %x \n", u->pc);
+	    //dprintf(log_fd, "want alu for %x \n", u->pc);
 	    for(int i = 0; i < machine_state.num_alu_rs; i++) {
 	      int p = (i + machine_state.last_alu_rs) % machine_state.num_alu_rs;
 	      if(not(machine_state.alu_rs.at(p).full())) {
@@ -219,17 +220,17 @@ extern "C" {
 	    }
 	    break;
 	  case mips_op_type::fp:
-	    dprintf(2, "want fp for %x \n", u->pc);
+	    dprintf(log_fd, "want fp for %x \n", u->pc);
 	    break;
 	  case mips_op_type::jmp:
-	    //dprintf(2, "want jmp for %x \n", u->pc);
+	    //dprintf(log_fd, "want jmp for %x \n", u->pc);
 	    if(not(machine_state.jmp_rs.full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.jmp_rs);
 	    }
 	    break;
 	  case mips_op_type::mem:
-	    //dprintf(2, "want mem rs for %x \n", u->pc);
+	    //dprintf(log_fd, "want mem rs for %x \n", u->pc);
 	    if(not(machine_state.mem_rs.full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.mem_rs);
@@ -244,39 +245,39 @@ extern "C" {
 	  }
 	
 	if(not(rs_available)) {
-	  //dprintf(2, "no rs for alloc @ %x this cycle \n", u->pc);
+	  //dprintf(log_fd, "no rs for alloc @ %x this cycle \n", u->pc);
 	  break;
 	}
 	
 	/* just yield... */
 	if(u->op == nullptr) {
-	  dprintf(2, "stuck...\n");
+	  dprintf(log_fd, "stuck...\n");
 	  exit(-1);
 	  break;
 	}
 	if(not(u->op->allocate(machine_state))) {
 	  busted_alloc_cnt++;
-	  dprintf(2, "allocation failed...\n");
+	  dprintf(log_fd, "allocation failed...\n");
 	  break;
 	}
 
-	dprintf(2, "@ %llu allocation for %x : prf_idx = %lld\n",
+	dprintf(log_fd, "@ %llu allocation for %x : prf_idx = %lld\n",
 		get_curr_cycle(), u->pc, u->prf_idx);
 
 	busted_alloc_cnt = 0;
 	
 	std::set<int32_t> gpr_prf_debug;
 	for(int i = 0; i < 32; i++) {
-	  //	  dprintf(2, "gpr[%d] maps to prf %d\n", i, machine_state.gpr_rat[i]);
+	  //	  dprintf(log_fd, "gpr[%d] maps to prf %d\n", i, machine_state.gpr_rat[i]);
 	  auto it = gpr_prf_debug.find(machine_state.gpr_rat[i]);
 	  gpr_prf_debug.insert(machine_state.gpr_rat[i]);
 	}
 	
 	if(gpr_prf_debug.size() != 32) {
 	  for(int i = 0; i < 32; i++) { 
-	    dprintf(2, "gpr[%d] maps to prf %d\n", i, machine_state.gpr_rat[i]);
+	    dprintf(log_fd, "gpr[%d] maps to prf %d\n", i, machine_state.gpr_rat[i]);
 	  }
-	  dprintf(2,"found %zu register mappings after %x allocs\n",
+	  dprintf(log_fd,"found %zu register mappings after %x allocs\n",
 		  gpr_prf_debug.size(), u->pc);
 	  exit(-1);
 	}
@@ -286,10 +287,10 @@ extern "C" {
 	decode_queue.pop();
 	u->alloc_cycle = curr_cycle;
 	u->rob_idx = rob.push(u);
-	//dprintf(2, "op at pc %x was allocated\n", u->pc);
+	//dprintf(log_fd, "op at pc %x was allocated\n", u->pc);
 	alloc_amt++;
       }
-      dprintf(2,"%d instr allocated, decode queue empty %d, rob full %d\n", 
+      dprintf(log_fd,"%d instr allocated, decode queue empty %d, rob full %d\n", 
 	      alloc_amt, decode_queue.empty(), rob.full());
       gthread_yield();
     }
@@ -337,7 +338,7 @@ extern "C" {
 	  }	
 	}
       }
-      dprintf(2, "%d instructions began exec @ %llu\n", exec_cnt, get_curr_cycle());
+      dprintf(log_fd, "%d instructions began exec @ %llu\n", exec_cnt, get_curr_cycle());
       gthread_yield();
     }
     gthread_terminate();
@@ -348,7 +349,7 @@ extern "C" {
       for(size_t i = 0; not(machine_state.nuke) and (i < rob.size()); i++) {
 	if((rob.at(i) != nullptr) and not(rob.at(i)->is_complete)) {
 	  if(rob.at(i)->op == nullptr) {
-	    dprintf(2, "@ %llu : op @ %x is broken\n", get_curr_cycle(), rob.at(i)->pc);
+	    dprintf(log_fd, "@ %llu : op @ %x is broken\n", get_curr_cycle(), rob.at(i)->pc);
 	    exit(-1);
 	  }
 	  rob.at(i)->op->complete(machine_state);
@@ -368,7 +369,7 @@ extern "C" {
 	
 	u = rob.peek();
 	//if(u->op->ready(machine_state)) {
-	//dprintf(2, "head of rob could execute\n");
+	//dprintf(log_fd, "head of rob could execute\n");
 	//}
 	
 	if(not(u->is_complete)) {
@@ -391,7 +392,7 @@ extern "C" {
 	    }
 	  }
 	  if(error) {
-	    dprintf(2, "%x : UARCH and FUNC simulator mismatch after %llu func and %llu uarch insn!\n",
+	    dprintf(log_fd, "%x : UARCH and FUNC simulator mismatch after %llu func and %llu uarch insn!\n",
 		    u->pc, s->icnt, machine_state.icnt);
 	    exit(-1);
 	  }
@@ -402,13 +403,13 @@ extern "C" {
 	
 	if(u->branch_exception) {
 	  if(u->op->retired == false) {
-	    dprintf(2,"-> %lu : how is this possible?\n", get_curr_cycle());
+	    dprintf(log_fd,"-> %lu : how is this possible?\n", get_curr_cycle());
 	    exit(-1);
 	  }
 	  break;
 	}
 
-	dprintf(2, "head of rob retiring for %x, rob.full() = %d\n", u->pc, rob.full());
+	dprintf(log_fd, "head of rob retiring for %x, rob.full() = %d\n", u->pc, rob.full());
 	retire_amt++;
 	rob.pop();
 	
@@ -422,19 +423,19 @@ extern "C" {
       }
 
       if(u!=nullptr and u->branch_exception) {
-	dprintf(2, "%lu @ EXCEPTION @ %x, rob.full = %d, rob.empty() = %d, complete %d, delay %d\n",
+	dprintf(log_fd, "%lu @ EXCEPTION @ %x, rob.full = %d, rob.empty() = %d, complete %d, delay %d\n",
 		get_curr_cycle(), u->pc, rob.full(), rob.empty(), u->is_complete, u->has_delay_slot);
 	rob.pop();
 	int exception_cycles = 0;
 	if(u->has_delay_slot and u->likely_squash) {
-	  dprintf(2,"impossible to have both delay lot and likely squash!!!\n");
+	  dprintf(log_fd,"impossible to have both delay lot and likely squash!!!\n");
 	  exit(-1);
 	}
 	if(u->has_delay_slot) {
 	  /* wait for branch delay instr to allocate */
 	  int delay_cnt = 0;
 	  while(rob.empty()) {
-	    dprintf(2, "%llu : waiting for instruction in delay slot, pc %x, nuke %d, icnt %llu\n", 
+	    dprintf(log_fd, "%llu : waiting for instruction in delay slot, pc %x, nuke %d, icnt %llu\n", 
 		    get_curr_cycle(), u->pc, machine_state.nuke, machine_state.icnt);
 	    exception_cycles++;
 	    delay_cnt++;
@@ -446,19 +447,19 @@ extern "C" {
 
 	  while(not(rob.empty())) {
 	    auto uu = rob.peek();
-	    dprintf(2, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
+	    dprintf(log_fd, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
 		    uu->pc, uu->is_complete, get_curr_cycle());
 	    while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
-	      dprintf(2, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
+	      dprintf(log_fd, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
 		      uu->pc, uu->is_complete, get_curr_cycle());
 	      exception_cycles++;
 	      gthread_yield();
 	    }
 	    if(uu->branch_exception) {
-	      dprintf(2, "branch exception in delay slot\n");
+	      dprintf(log_fd, "branch exception in delay slot\n");
 	      exit(-1);
 	    }
-	    dprintf(2, "branch delay insn @ %x retiring in exception cleanup\n",
+	    dprintf(log_fd, "branch delay insn @ %x retiring in exception cleanup\n",
 		    uu->pc);
 
 	    machine_state.log_insn(uu->inst, uu->pc, uu->exec_parity);
@@ -475,12 +476,12 @@ extern "C" {
 	machine_state.fetch_pc = u->correct_pc;
 	delete u;
 
-	dprintf(2,"read ptr %d, write ptr %d\n", rob.get_read_idx(),
+	dprintf(log_fd,"read ptr %d, write ptr %d\n", rob.get_read_idx(),
 		rob.get_write_idx());
 
 	for(size_t i = 0; i < rob.size(); i++) {
 	  if(rob.at(i)) {
-	    dprintf(2, "%d %x\n", i, rob.at(i)->pc);
+	    dprintf(log_fd, "%d %x\n", i, rob.at(i)->pc);
 	  }
 	}
 	
@@ -488,7 +489,7 @@ extern "C" {
 	while(true) {
 	  auto uu = rob.at(i);
 	  if(uu) {
-	    dprintf(2, "rob slot %d from %x has prf id %d, prev prf id %d\n",
+	    dprintf(log_fd, "rob slot %d from %x has prf id %d, prev prf id %d\n",
 		    i, uu->pc, uu->prf_idx, uu->prev_prf_idx);
 	    uu->op->undo(machine_state);
 	    delete uu;
@@ -504,7 +505,7 @@ extern "C" {
 	  }
 	  c++;
 	  if(c % retire_bw == 0) {
-	    dprintf(2, "@ %llu : yield for undo\n", get_curr_cycle());
+	    dprintf(log_fd, "@ %llu : yield for undo\n", get_curr_cycle());
 	    exception_cycles++;
 	    gthread_yield();
 	  }
@@ -517,17 +518,17 @@ extern "C" {
 	}
 
 	
-	dprintf(2, "@ %llu : exception cleared in %d cycles, new pc %x!\n",
+	dprintf(log_fd, "@ %llu : exception cleared in %d cycles, new pc %x!\n",
 		get_curr_cycle(), exception_cycles, machine_state.fetch_pc);
 
-	dprintf(2, "%lu gprs in use..\n", machine_state.gpr_freevec.popcount());
+	dprintf(log_fd, "%lu gprs in use..\n", machine_state.gpr_freevec.popcount());
 
 	std::set<int32_t> gpr_prf_debug;
 	for(int i = 0; i < 34; i++) {
 	  auto it = gpr_prf_debug.find(machine_state.gpr_rat[i]);
 	  gpr_prf_debug.insert(machine_state.gpr_rat[i]);
 	}
-	dprintf(2,"found %zu register mappings\n",
+	dprintf(log_fd,"found %zu register mappings\n",
 		gpr_prf_debug.size());
 	
 	if(gpr_prf_debug.size() != 34) {
@@ -537,7 +538,7 @@ extern "C" {
 	      continue;
 	    auto it = gpr_prf_debug.find(i);
 	    if(it == gpr_prf_debug.end()) {
-	      dprintf(2, "no mapping to prf %d\n", i);
+	      dprintf(log_fd, "no mapping to prf %d\n", i);
 	    }
 	  }
 	  exit(-1);
@@ -633,6 +634,7 @@ int main(int argc, char *argv[]) {
     exit(-1);
   }
 
+  log_fd = open("/dev/null", O_WRONLY);
 
   /* Build argc and argv */
   sysArgc = buildArgcArgv(filename,sysArgs,&sysArgv);
