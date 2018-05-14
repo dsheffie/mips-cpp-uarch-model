@@ -398,7 +398,7 @@ extern "C" {
 	  execMips(s);
 	}
 	u->op->retire(machine_state);
-	machine_state.retire_log.push_back(retire_entry(u->inst, u->pc, u->exec_parity));
+	machine_state.log_insn(u->inst, u->pc, u->exec_parity);
 	
 	if(u->branch_exception) {
 	  if(u->op->retired == false) {
@@ -460,7 +460,8 @@ extern "C" {
 	    }
 	    dprintf(2, "branch delay insn @ %x retiring in exception cleanup\n",
 		    uu->pc);
-	    machine_state.retire_log.push_back(retire_entry(uu->inst, uu->pc, uu->exec_parity));
+
+	    machine_state.log_insn(uu->inst, uu->pc, uu->exec_parity);
 	    uu->op->retire(machine_state);
 	    if(s->pc == uu->pc) {
 	      execMips(s);
@@ -548,6 +549,20 @@ extern "C" {
 	if(exception_cycles == 0) {
 	  gthread_yield();
 	}
+	
+	for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
+	  auto f = machine_state.fetch_queue.at(i);
+	  if(f) {
+	    delete f;
+	  }
+	}
+	for(size_t i = 0; i < machine_state.decode_queue.size(); i++) {
+	  auto d = machine_state.decode_queue.at(i);
+	  if(d) {
+	    delete d;
+	  }
+	}
+	
 	machine_state.decode_queue.clear();
 	machine_state.fetch_queue.clear();
 	machine_state.delay_slot_npc = 0;
@@ -659,13 +674,15 @@ int main(int argc, char *argv[]) {
     std::cout << "reg " << getGPRName(i) << " writer pc : " 
 	      << std::hex << machine_state.arch_grf_last_pc[i] << std::dec << "\n"; 
   }
-  std::ofstream os("log.txt", std::ios::out);
-  for(auto &p : machine_state.retire_log) {
-    os << std::hex << p.pc << std::dec << " : " 
-       << getAsmString(p.inst, p.pc)
-       << "\n";
+  if(machine_state.log_execution) {
+    std::ofstream os("log.txt", std::ios::out);
+    for(auto &p : machine_state.retire_log) {
+      os << std::hex << p.pc << std::dec << " : " 
+	 << getAsmString(p.inst, p.pc)
+	 << "\n";
+    }
+    os.close();
   }
-  os.close();
   std::cout << "SIMULATION COMPLETE : "
 	    << machine_state.icnt << " inst retired in "
 	    << get_curr_cycle() << " cycles\n";
@@ -676,14 +693,30 @@ int main(int argc, char *argv[]) {
   std::cout << machine_state.n_jumps << " jumps\n";
   std::cout << "CHECK INSN CNT : "
 	    << s->icnt << "\n";
-  return 0;
-  
-  double runtime = timestamp();
-  while(s->brk==0)
-    execMips(s);
-  runtime = timestamp()-runtime;
-  fprintf(stderr, "%sINTERP: %g sec, %zu ins executed, %g megains / sec%s\n", 
-	  KGRN, runtime, (size_t)s->icnt, s->icnt / (runtime*1e6), KNRM);
+
+
+  for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
+    auto f = machine_state.fetch_queue.at(i);
+    if(f) {
+      delete f;
+    }
+  }
+  for(size_t i = 0; i < machine_state.decode_queue.size(); i++) {
+    auto d = machine_state.decode_queue.at(i);
+    if(d) {
+      delete d;
+    }
+  }
+  for(size_t i = 0; i < machine_state.rob.size(); i++) {
+    auto r = machine_state.rob.at(i);
+    if(r) {
+      delete r;
+    }
+  }
+
+  delete s;
+  delete sm;
+  delete u_arch_mem;
   
   if(sysArgs)
     free(sysArgs);
@@ -694,9 +727,6 @@ int main(int argc, char *argv[]) {
     delete [] sysArgv;
   }
 
-  std::cerr << sm->count() << " pages touched\n";
-  delete s;
-  delete sm;
   return 0;
 }
 

@@ -52,7 +52,6 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
     pc(pc), inst(inst), fetch_npc(fetch_npc), fetch_cycle(fetch_cycle), predict_taken(false)  {
 
   }
-
   ~mips_meta_op();
   std::shared_ptr<mips_meta_op> getptr() {
     return shared_from_this();
@@ -60,14 +59,6 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
 };
 
 typedef mips_meta_op* sim_op;
-
-struct retire_entry {
-  uint32_t inst;
-  uint32_t pc;
-  uint32_t parity;
-  retire_entry(uint32_t inst, uint32_t pc, uint32_t parity) : 
-    inst(inst), pc(pc), parity(parity) {}
-};
 
 
 class branch_table {
@@ -133,8 +124,21 @@ struct sim_state {
   uint64_t miss_predicted_branches = 0;
   uint64_t miss_predicted_jumps = 0;
 
+  bool log_execution = false;
+  struct retire_entry {
+    uint32_t inst;
+    uint32_t pc;
+    uint32_t parity;
+    retire_entry(uint32_t inst, uint32_t pc, uint32_t parity) : 
+      inst(inst), pc(pc), parity(parity) {}
+  };
   std::list<retire_entry> retire_log;
-
+  void log_insn(uint32_t insn, uint32_t pc, uint32_t parity = 0) {
+    if(log_execution) {
+      retire_log.push_back(retire_entry(insn, pc, parity));
+    }
+  }
+  
   bool gpr_rat_sanity_check(int64_t prf_idx) const {
     for(int i = 0; i < 32; i++) {
       if(gpr_rat[i] == prf_idx) {
@@ -177,6 +181,13 @@ struct sim_state {
   }
   
   void initialize(sparse_mem *mem);
+
+  ~sim_state() {
+    if(gpr_prf) delete [] gpr_prf;
+    if(cpr0_prf) delete [] cpr0_prf;
+    if(cpr1_prf) delete [] cpr1_prf;
+    if(fcr1_prf) delete [] fcr1_prf;
+  }
 };
 
 
