@@ -82,8 +82,8 @@ void sim_state::initialize(sparse_mem *mem) {
   cpr1_valid.clear_and_resize(num_cpr1_prf);
   fcr1_valid.clear_and_resize(num_fcr1_prf);
   
-  fetch_queue.resize(4);
-  decode_queue.resize(4);
+  fetch_queue.resize(8);
+  decode_queue.resize(8);
   rob.resize(32);
 
   alu_rs.resize(num_alu_ports);
