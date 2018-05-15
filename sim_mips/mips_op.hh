@@ -128,8 +128,8 @@ struct sim_state {
   sparse_mem *mem = nullptr;
   uint64_t icnt = 0, maxicnt = ~(0UL);
   uint64_t n_branches = 0, n_jumps = 0;
-  uint64_t miss_predicted_branches = 0;
-  uint64_t miss_predicted_jumps = 0;
+  uint64_t mis_predicted_branches = 0;
+  uint64_t mis_predicted_jumps = 0;
 
   bool log_execution = false;
   struct retire_entry {

@@ -894,7 +894,7 @@ public:
     retired = true;
     machine_state.icnt++;
     machine_state.n_branches++;
-    machine_state.miss_predicted_branches += m->branch_exception;
+    machine_state.mis_predicted_branches += m->branch_exception;
     m->exec_parity = machine_state.gpr_parity();
 
     branch_target_map[m->pc] = m->correct_pc;
