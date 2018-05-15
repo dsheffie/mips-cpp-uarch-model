@@ -11,7 +11,7 @@ endif
 ifeq ($(UNAME_S),FreeBSD)
 	CXX = CC -march=native
 	OBJ += gthread_asm.o
-	EXTRA_LD = -L/usr/local/lib
+	EXTRA_LD = -L/usr/local/lib -lunwind
 endif
 
 ifeq ($(UNAME_S),Darwin)

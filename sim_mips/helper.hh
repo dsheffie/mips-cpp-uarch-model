@@ -5,15 +5,19 @@
 #include <vector>
 #include <cstdint>
 #include <iostream>
+#include <type_traits>
 
-#define KNRM  "\x1B[0m"
-#define KRED  "\x1B[31m"
-#define KGRN  "\x1B[32m"
-#define KYEL  "\x1B[33m"
-#define KBLU  "\x1B[34m"
-#define KMAG  "\x1B[35m"
-#define KCYN  "\x1B[36m"
-#define KWHT  "\x1B[37m"
+#include <cstdio>
+#include <cstdarg>
+
+static const char KNRM[] = "\x1B[0m";
+static const char KRED[] = "\x1B[31m";
+static const char KGRN[] = "\x1B[32m";
+static const char KYEL[] = "\x1B[33m";
+static const char KBLU[] = "\x1B[34m";
+static const char KMAG[] = "\x1B[35m";
+static const char KCYN[] = "\x1B[36m";
+static const char KWHT[] = "\x1B[37m";
 
 /* from gdb simulator */
 static const uint32_t RSVD_INSTRUCTION  = 0x00000005;
@@ -32,6 +36,7 @@ void dbt_backtrace();
     dbt_backtrace();							\
     abort();								\
   }
+
 
 
 double timestamp();
@@ -55,29 +60,39 @@ std::string toStringHex(T x) {
   return ss.str();
 }
 
-template <typename T>
+#define BS_PRED(SZ) (std::is_integral<T>::value && (sizeof(T)==SZ))
+template <typename T, typename std::enable_if<BS_PRED(1),T>::type* = nullptr>
 T accessBigEndian(T x) {
-#ifdef MIPSEL
-   return x;
-#else
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-  if(sizeof(x) == 1)
-    return x;
-  else if(sizeof(x) == 2)
-    return  __builtin_bswap16(x);
-  else if(sizeof(x) == 4)
-    return __builtin_bswap32(x);
-  else 
-    return __builtin_bswap64(x);
-#else
-   return x;
-#endif
-#endif
+  return x;
+}
+template <typename T, typename std::enable_if<BS_PRED(2),T>::type* = nullptr>
+T accessBigEndian(T x) {
+  return __builtin_bswap16(x);
+}
+template <typename T, typename std::enable_if<BS_PRED(4),T>::type* = nullptr>
+T accessBigEndian(T x) {
+  return __builtin_bswap32(x);
+}
+template <typename T, typename std::enable_if<BS_PRED(8),T>::type* = nullptr>
+T accessBigEndian(T x) {
+  return __builtin_bswap64(x);
 }
 
 template <class T> bool isPow2(T x) {
   return (((x-1)&x) == 0);
 }
+
+#ifdef  __FreeBSD__
+/* cribbed straight out of the FreeBSD source */
+inline int dprintf(int fd, const char * __restrict fmt, ...) {
+  va_list ap;
+  int ret;
+  va_start(ap, fmt);
+  ret = vdprintf(fd, fmt, ap);
+  va_end(ap);
+  return (ret);
+}
+#endif
 
 
 #endif
