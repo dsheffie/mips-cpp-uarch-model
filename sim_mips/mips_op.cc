@@ -759,6 +759,8 @@ protected:
       case branch_type::bgezl:
       case branch_type::bltzl:
 	return true;
+      default:
+	break;
       }
     return false;
   }
@@ -1015,6 +1017,7 @@ public:
   }
 };
 
+
 class store_op : public mips_op {
 public:
   enum class store_type {sb, sh, sw}; 
@@ -1089,6 +1092,90 @@ public:
   virtual void undo(sim_state &machine_state) {
     dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
   }
+};
+
+
+class fp_store_op : public mips_op {
+public:
+  enum class store_type {sdc1, swc1}; 
+protected:
+  itype i_;
+  store_type st;
+  int32_t imm = -1;
+  uint32_t effective_address = ~0;
+  union fp_store_data {
+    uint64_t u64;
+    uint32_t u32;
+    fp_store_data() : u64(0) {}
+  };
+  fp_store_data store_data;
+public:
+  fp_store_op(sim_op op, store_type st) :
+    mips_op(op), i_(op->inst), st(st) {
+    this->op_class = mips_op_type::mem;
+    int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
+    imm = static_cast<int32_t>(himm);
+  }
+  virtual int get_src0() const {
+    return (m->inst >> 16) & 31; /* cpr1 reg */
+  }
+  virtual int get_src1() const {
+    return (m->inst >> 21) & 31; /* gpr reg */
+  }
+  virtual bool allocate(sim_state &machine_state) {
+    m->src0_prf = machine_state.cpr1_rat[get_src0()];
+    m->src1_prf = machine_state.gpr_rat[get_src1()];
+    return true;
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    if(not(machine_state.cpr1_valid.get_bit(m->src0_prf)) or
+       not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+      return false;
+    }
+    return true;
+  }
+  virtual void execute(sim_state &machine_state) {
+    effective_address = machine_state.gpr_prf[m->src1_prf] + imm;
+    switch(st)
+      {
+      case store_type::sdc1:
+	store_data.u64 = *reinterpret_cast<uint64_t*>(&machine_state.cpr1_prf[m->src0_prf]);
+	break;
+      case store_type::swc1:
+	store_data.u32 = *reinterpret_cast<uint32_t*>(&machine_state.cpr1_prf[m->src0_prf]);
+	break;
+      }
+    
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+    }
+  }
+  virtual bool retire(sim_state &machine_state) {
+    sparse_mem & mem = *(machine_state.mem);
+#if 0
+    switch(st)
+      {
+      case store_type::sb:
+	mem.at(effective_address) = static_cast<int8_t>(store_data);
+	break;
+      case store_type::sh:
+	*((int16_t*)(mem + effective_address)) = accessBigEndian(static_cast<int16_t>(store_data));
+	break;
+      case store_type::sw:
+	*((int32_t*)(mem + effective_address)) = accessBigEndian(store_data);
+	break;
+      default:
+	exit(-1);
+      }
+#endif
+    retired = true;
+    machine_state.icnt++;
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {}
 };
 
 
@@ -1589,6 +1676,10 @@ static mips_op* decode_itype_insn(sim_op m_op) {
       return new store_op(m_op, store_op::store_type::sh);
     case 0x2B: /* sw */
       return new store_op(m_op, store_op::store_type::sw);
+    case 0x39:
+      return new fp_store_op(m_op, fp_store_op::store_type::swc1);
+    case 0x3d:
+      return new fp_store_op(m_op, fp_store_op::store_type::sdc1);
     default:
       break;
     }

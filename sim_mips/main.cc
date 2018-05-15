@@ -188,7 +188,7 @@ extern "C" {
 	    (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
 	if(busted_alloc_cnt == 64) {
-	  dprintf(log_fd, "@ %llu broken decode : (pc %x, insn %x) breaks allocation\n", 
+	  dprintf(/* log_fd*/ 2, "@ %llu broken decode : (pc %x, insn %x) breaks allocation\n", 
 		  get_curr_cycle(), u->pc, u->inst);
 	  machine_state.terminate_sim = true;
 	}
