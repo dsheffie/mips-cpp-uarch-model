@@ -1552,10 +1552,10 @@ public:
     machine_state.gpr_valid.clear_bit(m->prev_hi_prf_idx);
     retired = true;
     machine_state.icnt++;
-    machine_state.arch_gpr[32] = machine_state.gpr_prf[m->lo_prf_idx];
-    machine_state.arch_gpr_last_pc[32] = m->pc;
-    machine_state.arch_gpr[33] = machine_state.gpr_prf[m->hi_prf_idx];
-    machine_state.arch_gpr_last_pc[33] = m->pc;
+    machine_state.arch_grf[32] = machine_state.gpr_prf[m->lo_prf_idx];
+    machine_state.arch_grf_last_pc[32] = m->pc;
+    machine_state.arch_grf[33] = machine_state.gpr_prf[m->hi_prf_idx];
+    machine_state.arch_grf_last_pc[33] = m->pc;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
