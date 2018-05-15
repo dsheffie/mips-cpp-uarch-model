@@ -435,10 +435,7 @@ extern "C" {
 	machine_state.last_retire_pc = u->pc;
 	
 	if(u->branch_exception) {
-	  if(u->op->retired == false) {
-	    dprintf(log_fd,"-> %lu : how is this possible?\n", get_curr_cycle());
-	    exit(-1);
-	  }
+	  machine_state.nukes++;
 	  break;
 	}
 
@@ -721,9 +718,12 @@ int main(int argc, char *argv[]) {
 
 
   std::cout << machine_state.n_branches << " branches\n";
-  std::cout << machine_state.mis_predicted_branches 
+  std::cout << machine_state.mispredicted_branches 
 	    << " mispredicted branches\n";
   std::cout << machine_state.n_jumps << " jumps\n";
+  std::cout << machine_state.mispredicted_jumps 
+	    << " mispredicted jumps\n";
+  std::cout << machine_state.nukes << " nukes\n";
   std::cout << "CHECK INSN CNT : "
 	    << s->icnt << "\n";
 

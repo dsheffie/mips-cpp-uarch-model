@@ -2,6 +2,8 @@
 #include "helper.hh"
 #include <map>
 
+std::map<uint32_t, uint32_t> branch_target_map;
+
 class mtc0 : public mips_op {
 public:
   mtc0(sim_op op) : mips_op(op) {
@@ -711,7 +713,8 @@ public:
     machine_state.icnt++;
     machine_state.n_jumps++;
     m->exec_parity = machine_state.gpr_parity();
-
+    branch_target_map[m->pc] = m->correct_pc;
+    machine_state.mispredicted_jumps += m->branch_exception;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -728,7 +731,6 @@ public:
   }
 };
 
-std::map<uint32_t, uint32_t> branch_target_map;
 
 class branch_op : public mips_op {
 public:
@@ -894,7 +896,7 @@ public:
     retired = true;
     machine_state.icnt++;
     machine_state.n_branches++;
-    machine_state.mis_predicted_branches += m->branch_exception;
+    machine_state.mispredicted_branches += m->branch_exception;
     m->exec_parity = machine_state.gpr_parity();
 
     branch_target_map[m->pc] = m->correct_pc;
