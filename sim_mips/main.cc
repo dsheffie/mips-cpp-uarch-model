@@ -40,7 +40,7 @@ int buildArgcArgv(char *filename, char *sysArgs, char ***argv);
 static int fetch_bw = 4;
 static int alloc_bw = 2;
 static int decode_bw = 2;
-static int retire_bw = 2;
+static int retire_bw = 8;
 
 static int num_gpr_prf = 64;
 static int num_cpr0_prf = 64;
@@ -712,11 +712,13 @@ int main(int argc, char *argv[]) {
     }
     os.close();
   }
+  double ipc = static_cast<double>(machine_state.icnt) / get_curr_cycle();
+  
   std::cout << "SIMULATION COMPLETE : "
 	    << machine_state.icnt << " inst retired in "
 	    << get_curr_cycle() << " cycles\n";
 
-
+  std::cout << ipc << " instructions/cycle\n";
   std::cout << machine_state.n_branches << " branches\n";
   std::cout << machine_state.mispredicted_branches 
 	    << " mispredicted branches\n";
