@@ -435,12 +435,12 @@ extern "C" {
 	  /* wait for branch delay instr to allocate */
 	  int delay_cnt = 0;
 	  while(rob.empty()) {
-	    dprintf(log_fd, "%llu : waiting for instruction in delay slot, pc %x, nuke %d, icnt %llu\n", 
+	    dprintf(2, "%llu : waiting for instruction in delay slot, pc %x, nuke %d, icnt %llu\n", 
 		    get_curr_cycle(), u->pc, machine_state.nuke, machine_state.icnt);
 	    exception_cycles++;
 	    delay_cnt++;
 	    gthread_yield();
-	    if(delay_cnt > 8) {
+	    if(delay_cnt > 64) {
 	      exit(-1);
 	    }
 	  }
