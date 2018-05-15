@@ -37,12 +37,12 @@ int buildArgcArgv(char *filename, char *sysArgs, char ***argv);
 
 
 /* sim parameters */
-static int fetch_bw = 4;
-static int alloc_bw = 2;
-static int decode_bw = 2;
+static int fetch_bw = 8;
+static int alloc_bw = 8;
+static int decode_bw = 16;
 static int retire_bw = 8;
 
-static int num_gpr_prf = 64;
+static int num_gpr_prf = 128;
 static int num_cpr0_prf = 64;
 static int num_cpr1_prf = 64;
 static int num_fcr1_prf = 16;
@@ -114,6 +114,7 @@ uint64_t get_curr_cycle() {
 }
 
 extern std::map<uint32_t, uint32_t> branch_target_map;
+extern std::map<uint32_t, int32_t> branch_prediction_map;
 
 extern "C" {
   void cycle_count(void *arg) {
@@ -159,16 +160,16 @@ extern "C" {
 	
 	uint32_t inst = accessBigEndian(mem.get32(machine_state.fetch_pc));
 	uint32_t npc = machine_state.fetch_pc + 4;
-	auto it = branch_target_map.find(machine_state.fetch_pc);
-	bool hit = false, predict_taken = false;
-	if(it != branch_target_map.end()) {
-	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	  npc = it->second;
-	  hit = true;
+	bool predict_taken = false;
+	auto it = branch_prediction_map.find(machine_state.fetch_pc);
+	if(it != branch_prediction_map.end()) {
+	  /* predicted as taken */
+	  if(it->second > 1) {
+	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	    npc = branch_target_map.at(machine_state.fetch_pc);
+	    predict_taken = true;
+	  }
 	}
-	predict_taken = (npc != machine_state.fetch_pc+4);
-	//if(hit) {dprintf(2, "@%llu pc %x : predicting %x (hit %d)\n", 
-	//get_curr_cycle(), machine_state.fetch_pc, npc, hit);}
 
 	auto f = new mips_meta_op(machine_state.fetch_pc, inst, npc, curr_cycle, predict_taken);
 	fetch_queue.push(f);
@@ -722,15 +723,24 @@ int main(int argc, char *argv[]) {
   std::cout << machine_state.n_branches << " branches\n";
   std::cout << machine_state.mispredicted_branches 
 	    << " mispredicted branches\n";
+
+  
   std::cout << machine_state.n_jumps << " jumps\n";
   std::cout << machine_state.mispredicted_jumps 
 	    << " mispredicted jumps\n";
+  
   std::cout << machine_state.nukes << " nukes\n";
   std::cout << "CHECK INSN CNT : "
 	    << s->icnt << "\n";
 
-    std::cout << (machine_state.icnt/now)
-	      << " simulated instructions per second\n";
+  uint64_t total_branches_and_jumps = machine_state.n_branches + machine_state.n_jumps;
+  uint64_t total_mispredicted = machine_state.mispredicted_branches + machine_state.mispredicted_jumps;
+  double prediction_rate = static_cast<double>(total_branches_and_jumps - total_mispredicted) /
+    total_branches_and_jumps;  
+  std::cout << (prediction_rate*100.0) << "\% of branches and jumps predicted correctly\n";
+  
+  std::cout << (machine_state.icnt/now)
+	    << " simulated instructions per second\n";
 
   for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
     auto f = machine_state.fetch_queue.at(i);

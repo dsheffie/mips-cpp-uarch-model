@@ -3,6 +3,7 @@
 #include <map>
 
 std::map<uint32_t, uint32_t> branch_target_map;
+std::map<uint32_t, int32_t> branch_prediction_map;
 
 class mtc0 : public mips_op {
 public:
@@ -685,14 +686,6 @@ public:
 	break;
       }
     m->branch_exception = (m->fetch_npc != m->correct_pc);
-
-    dprintf(log_fd, "=> %lu : executing jump %x, this = %p\n",
-	    get_curr_cycle(), m->pc, this);
-
-    if(m->complete_cycle != -1) {
-      dprintf(log_fd,"mistakes have been made\n");
-      asm("int3");
-    }
     
     if(get_dest() != -1) {
       machine_state.gpr_prf[m->prf_idx] = m->pc + 8;
@@ -713,7 +706,11 @@ public:
     machine_state.icnt++;
     machine_state.n_jumps++;
     m->exec_parity = machine_state.gpr_parity();
+
+    /* strongly taken */
     branch_target_map[m->pc] = m->correct_pc;
+    branch_prediction_map[m->pc] = 3;
+    
     machine_state.mispredicted_jumps += m->branch_exception;
     return true;
   }
@@ -873,16 +870,10 @@ public:
       }
     }
 
-    m->branch_exception |= m->fetch_npc != m->correct_pc;    
-    if(m->correct_pc == (m->pc+8)) {
-      dprintf(log_fd, "predicted taken, but branch wasn't taken, squash %d\n",
-	      m->branch_exception);
-    }
-
-    //if(m->likely_squash) {
-    //dprintf(log_fd,"LIKELY SQUASHHHHHH\n");
-    //m->branch_exception = true;
-    // m->correct_pc = m->pc + 8;
+    m->branch_exception |= (m->predict_taken != take_br);
+    //if(m->predict_taken xor take_br) {
+    //dprintf(2, "%x : predicted %d, but branch was %d\n",
+    //m->pc, m->predict_taken, take_br);
     //}
 
     m->complete_cycle = get_curr_cycle() + 1;
@@ -899,7 +890,19 @@ public:
     machine_state.mispredicted_branches += m->branch_exception;
     m->exec_parity = machine_state.gpr_parity();
 
-    branch_target_map[m->pc] = m->correct_pc;
+    
+    branch_target_map[m->pc] = branch_target;
+    if(branch_prediction_map.find(m->pc)==branch_prediction_map.end()) {
+      /* initialize as either weakly taken or weakly not-taken */
+      branch_prediction_map[m->pc] = take_br ? 2 : 1;
+    }
+    else {
+      int32_t counter = branch_prediction_map.at(m->pc);
+      counter = take_br ? counter + 1 : counter - 1;
+      counter = std::min(3, counter);
+      counter = std::max(0, counter);
+      branch_prediction_map.at(m->pc) = counter;
+    }
 
     return true;
   }
