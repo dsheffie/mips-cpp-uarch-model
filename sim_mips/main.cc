@@ -600,7 +600,7 @@ int main(int argc, char *argv[]) {
 #ifdef MIPSEL
   bigEndianMips = false;
 #endif  
-  fprintf(stderr, "%s%s INTERP: built %s %s%s\n",
+  fprintf(stderr, "%s%s UARCH SIM: built %s %s%s\n",
 	  KGRN, bigEndianMips ? "MIPS" : "MIPSEL" ,
 	  __DATE__, __TIME__, KNRM);
 
@@ -658,8 +658,10 @@ int main(int argc, char *argv[]) {
   gthread::make_gthread(&execute, nullptr);
   gthread::make_gthread(&complete, nullptr);
   gthread::make_gthread(&retire, nullptr);
-  
+
+  double now = timestamp();
   start_gthreads();
+  now = timestamp() - now;
 
   uint32_t parity = 0;
   for(int i = 0; i < 32; i++) {
@@ -689,6 +691,7 @@ int main(int argc, char *argv[]) {
 	    << machine_state.icnt << " inst retired in "
 	    << get_curr_cycle() << " cycles\n";
 
+
   std::cout << machine_state.n_branches << " branches\n";
   std::cout << machine_state.miss_predicted_branches 
 	    << " miss predicted branches\n";
@@ -696,6 +699,8 @@ int main(int argc, char *argv[]) {
   std::cout << "CHECK INSN CNT : "
 	    << s->icnt << "\n";
 
+    std::cout << (machine_state.icnt/now)
+	      << " simulated instructions per second\n";
 
   for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
     auto f = machine_state.fetch_queue.at(i);

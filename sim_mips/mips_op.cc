@@ -87,7 +87,6 @@ public:
     machine_state.cpr1_rat[get_dest()] = prf_id;
     m->prf_idx = prf_id;
     machine_state.cpr1_valid.clear_bit(prf_id);
-    dprintf(log_fd, "::::: prev dest of mtc is %d, new dest %d\n", m->prev_prf_idx, prf_id);
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
@@ -97,21 +96,12 @@ public:
     return true;
   }
   virtual void execute(sim_state &machine_state) {
-    if(not(ready(machine_state))) {
-      dprintf(log_fd, "mistakes were made @ %d\n", __LINE__);
-      exit(-1);
-    }
     machine_state.cpr1_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf];
-    dprintf(log_fd, "%s : moving gpr %d (value %x) to cpr1 (reg %d)\n",
-	    __PRETTY_FUNCTION__, get_src0(), 
-	    machine_state.cpr1_prf[m->prf_idx],
-	    get_dest());
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
-      dprintf(log_fd, "%x : m->prf_idx = %ld\n", m->pc, m->prf_idx);
       machine_state.cpr1_valid.set_bit(m->prf_idx);
     }
   }
@@ -123,7 +113,6 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
     machine_state.cpr1_valid.set_bit(m->prf_idx);
@@ -1317,7 +1306,7 @@ public:
 
 class mult_div_op : public mips_op {
 public:
-  enum class mult_div_types {mult, multu, div, divu};
+  enum class mult_div_types {mult, multu, div, divu, madd, maddu};
 protected:
   mult_div_types mdt;
 public:
@@ -1332,12 +1321,40 @@ public:
     /* rt */
     return (m->inst >> 16) & 31;
   }
+  virtual int get_src2() const {
+    switch(mdt)
+      {
+      case mult_div_types::madd:
+      case mult_div_types::maddu:
+	return 32;
+      default:
+	break;
+      }
+    return -1;
+  }
+  virtual int get_src3() const {
+    switch(mdt)
+      {
+      case mult_div_types::madd:
+      case mult_div_types::maddu:
+	return 33;
+      default:
+	break;
+      }
+    return -1;
+  }
   virtual bool allocate(sim_state &machine_state) {
     if(machine_state.gpr_freevec.num_free() < 2)
       return false;
 
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->src1_prf = machine_state.gpr_rat[get_src1()];
+    if(get_src2() != -1) {
+      m->src2_prf = machine_state.gpr_rat[get_src2()];
+    }
+    if(get_src3() != -1) {
+      m->src3_prf = machine_state.gpr_rat[get_src3()];
+    }
     m->prev_lo_prf_idx = machine_state.gpr_rat[32];
     m->prev_hi_prf_idx = machine_state.gpr_rat[33];
 
@@ -1363,10 +1380,14 @@ public:
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
-    if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
+    if(not(machine_state.gpr_valid.get_bit(m->src0_prf)) or
+       not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
       return false;
     }
-    if(not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+    if(m->src2_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src2_prf))) {
+      return false;
+    }
+    if(m->src3_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src3_prf))) {
       return false;
     }
     return true;
@@ -1376,9 +1397,26 @@ public:
     uint32_t *lo = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->lo_prf_idx]);
     uint32_t *hi = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->hi_prf_idx]);
     
-    dprintf(log_fd, "DEST LO PRF %d, DEST HI PRF %d\n", m->lo_prf_idx, m->hi_prf_idx);
     switch(mdt)
       {
+      case mult_div_types::mult: {
+	int64_t y = static_cast<int64_t>(machine_state.gpr_prf[m->src1_prf]) *
+	  static_cast<int64_t>(machine_state.gpr_prf[m->src0_prf]);
+	*reinterpret_cast<int32_t*>(lo) = static_cast<int32_t>(y & 0xffffffff);
+	*reinterpret_cast<int32_t*>(hi) = static_cast<int32_t>(y >> 32);
+	break;
+      }
+      case mult_div_types::madd: {
+	int64_t acc = static_cast<int64_t>(machine_state.gpr_prf[m->src3_prf]) << 32;
+	acc |= static_cast<int64_t>(machine_state.gpr_prf[m->src2_prf]);
+	int64_t y = static_cast<int64_t>(machine_state.gpr_prf[m->src1_prf]) *
+	  static_cast<int64_t>(machine_state.gpr_prf[m->src0_prf]);
+	y += acc;
+	*reinterpret_cast<int32_t*>(lo) = static_cast<int32_t>(y & 0xffffffff);
+	*reinterpret_cast<int32_t*>(hi) = static_cast<int32_t>(y >> 32);
+	break;
+      }
+
       case mult_div_types::multu: {
 	uint64_t u_a64 = static_cast<uint64_t>(*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->src1_prf]));
 	uint64_t u_b64 = static_cast<uint64_t>(*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->src0_prf]));
@@ -1397,6 +1435,7 @@ public:
       }
 	
       default:
+	dprintf(2, "implement me @ %s\n", __PRETTY_FUNCTION__);
 	exit(-1);
       }
     
@@ -1741,16 +1780,8 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
       return new lo_hi_move(m_op, lo_hi_move::lo_hi_type::mflo);
     case 0x13: /* mtlo */
       return new lo_hi_move(m_op, lo_hi_move::lo_hi_type::mtlo);
-#if 0
-    case 0x18: { /* mult */
-      int64_t y;
-      y = (int64_t)s->gpr[rs] * (int64_t)s->gpr[rt];
-      s->lo = (int32_t)(y & 0xffffffff);
-      s->hi = (int32_t)(y >> 32);
-      s->pc += 4;
-      break;
-    }
-#endif
+    case 0x18: /* mult */
+      return new mult_div_op(m_op, mult_div_op::mult_div_types::mult);
     case 0x19:  /* multu */
       return new mult_div_op(m_op, mult_div_op::mult_div_types::multu);
 #if 0
@@ -1836,6 +1867,10 @@ static mips_op* decode_special2_insn(sim_op m_op) {
   uint32_t funct = m_op->inst & 63; 
   switch(funct)
     {
+    case 0x0:
+      return new mult_div_op(m_op, mult_div_op::mult_div_types::madd);
+    case 0x1:
+      return new mult_div_op(m_op, mult_div_op::mult_div_types::maddu);
     case 0x2:
       return new mul_op(m_op);
     case 0x20:
