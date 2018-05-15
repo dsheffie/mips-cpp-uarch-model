@@ -440,12 +440,10 @@ extern "C" {
 	  break;
 	}
 
-	dprintf(log_fd, "head of rob retiring for %x, rob.full() = %d\n", u->pc, rob.full());
 	retire_amt++;
 	rob.pop();
 	
 	stop_sim = u->op->stop_sim();
-
 	delete u;
 	u = nullptr;
 	if(stop_sim) {
@@ -457,7 +455,6 @@ extern "C" {
 	dprintf(log_fd, "%lu @ EXCEPTION @ %x, rob.full = %d, rob.empty() = %d, complete %d, delay %d\n",
 		get_curr_cycle(), u->pc, rob.full(), rob.empty(), u->is_complete, u->has_delay_slot);
 	rob.pop();
-	int exception_cycles = 0;
 	if(u->has_delay_slot and u->likely_squash) {
 	  dprintf(log_fd,"impossible to have both delay lot and likely squash!!!\n");
 	  exit(-1);
@@ -465,26 +462,20 @@ extern "C" {
 	if(u->has_delay_slot) {
 	  /* wait for branch delay instr to allocate */
 	  while(rob.empty()) {
-	    exception_cycles++;
 	    gthread_yield();
 	  }
 
 	  while(not(rob.empty())) {
 	    auto uu = rob.peek();
-	    dprintf(log_fd, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
-		    uu->pc, uu->is_complete, get_curr_cycle());
 	    while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
 	      dprintf(log_fd, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
 		      uu->pc, uu->is_complete, get_curr_cycle());
-	      exception_cycles++;
 	      gthread_yield();
 	    }
 	    if(uu->branch_exception) {
 	      dprintf(log_fd, "branch exception in delay slot\n");
 	      exit(-1);
 	    }
-	    dprintf(log_fd, "branch delay insn @ %x retiring in exception cleanup\n",
-		    uu->pc);
 
 	    machine_state.log_insn(uu->inst, uu->pc, uu->exec_parity);
 	    uu->op->retire(machine_state);
@@ -502,14 +493,6 @@ extern "C" {
 	machine_state.fetch_pc = u->correct_pc;
 	delete u;
 
-	dprintf(log_fd,"read ptr %d, write ptr %d\n", rob.get_read_idx(),
-		rob.get_write_idx());
-
-	for(size_t i = 0; i < rob.size(); i++) {
-	  if(rob.at(i)) {
-	    dprintf(log_fd, "%d %x\n", i, rob.at(i)->pc);
-	  }
-	}
 	
 	int64_t i = rob.get_write_idx(), c = 0;
 	while(true) {
@@ -531,24 +514,11 @@ extern "C" {
 	  }
 	  c++;
 	  if(c % retire_bw == 0) {
-	    dprintf(log_fd, "@ %llu : yield for undo\n", get_curr_cycle());
-	    exception_cycles++;
 	    gthread_yield();
 	  }
 	}
 	rob.clear();
-
-	if(exception_cycles == 0) {
-	  exception_cycles++;
-	  gthread_yield();
-	}
-
 	
-	dprintf(log_fd, "@ %llu : exception cleared in %d cycles, new pc %x!\n",
-		get_curr_cycle(), exception_cycles, machine_state.fetch_pc);
-
-	dprintf(log_fd, "%lu gprs in use..\n", machine_state.gpr_freevec.popcount());
-
 	std::set<int32_t> gpr_prf_debug;
 	for(int i = 0; i < 34; i++) {
 	  auto it = gpr_prf_debug.find(machine_state.gpr_rat[i]);
@@ -568,13 +538,6 @@ extern "C" {
 	    }
 	  }
 	  exit(-1);
-	}
-	//for(uint64_t i = 0; i < rob.size(); i++) {
-	//int64_t p = (i + rob.get_read_idx()) % rob.size();
-	//}
-
-	if(exception_cycles == 0) {
-	  gthread_yield();
 	}
 	
 	for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
@@ -604,6 +567,7 @@ extern "C" {
 	machine_state.system_rs.clear();
 
 	machine_state.nuke = false;
+	gthread_yield();
       }
       else {
 	gthread_yield();
