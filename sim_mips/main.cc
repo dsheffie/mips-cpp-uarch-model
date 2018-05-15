@@ -147,18 +147,30 @@ extern "C" {
       for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
 	sparse_mem &mem = s->mem;
 
+	if(machine_state.delay_slot_npc) {
+	  uint32_t inst = accessBigEndian(mem.get32(machine_state.delay_slot_npc));
+	  auto f = new mips_meta_op(machine_state.delay_slot_npc, inst,
+				    machine_state.delay_slot_npc+4,
+				    curr_cycle, false);
+	  fetch_queue.push(f);
+	  machine_state.delay_slot_npc = 0;
+	  continue;
+	}
+	
 	uint32_t inst = accessBigEndian(mem.get32(machine_state.fetch_pc));
 	uint32_t npc = machine_state.fetch_pc + 4;
 	auto it = branch_target_map.find(machine_state.fetch_pc);
-	bool hit = false;
-	//if(it != branch_target_map.end()) {
-	//machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	// npc = it->second;
-	//hit = true;
-	//}
-	dprintf(log_fd, "@%llu pc %x : predicting %x (hit %d)\n", 
-		get_curr_cycle(), machine_state.fetch_pc, npc, hit);
-	auto f = new mips_meta_op(machine_state.fetch_pc, inst, npc, curr_cycle);
+	bool hit = false, predict_taken = false;
+	if(it != branch_target_map.end()) {
+	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	  npc = it->second;
+	  hit = true;
+	}
+	predict_taken = (npc != machine_state.fetch_pc+4);
+	//if(hit) {dprintf(2, "@%llu pc %x : predicting %x (hit %d)\n", 
+	//get_curr_cycle(), machine_state.fetch_pc, npc, hit);}
+
+	auto f = new mips_meta_op(machine_state.fetch_pc, inst, npc, curr_cycle, predict_taken);
 	fetch_queue.push(f);
 	machine_state.fetch_pc = npc;
       }

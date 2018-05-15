@@ -50,8 +50,9 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   
   mips_op* op = nullptr;
 
-  mips_meta_op(uint32_t pc, uint32_t inst,  uint32_t fetch_npc, uint32_t fetch_cycle) :
-    pc(pc), inst(inst), fetch_npc(fetch_npc), fetch_cycle(fetch_cycle), predict_taken(false)  {
+  mips_meta_op(uint32_t pc, uint32_t inst,  uint32_t fetch_npc,
+	       uint32_t fetch_cycle, bool predict_taken) :
+    pc(pc), inst(inst), fetch_npc(fetch_npc), fetch_cycle(fetch_cycle), predict_taken(predict_taken)  {
 
   }
   ~mips_meta_op();
