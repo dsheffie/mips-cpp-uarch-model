@@ -110,6 +110,8 @@ public:
     machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
     retired = true;
     machine_state.icnt++;
+    machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
+    machine_state.arch_cpr1_last_pc[get_dest()] = m->pc;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -350,10 +352,6 @@ public:
     return true;
   }
   virtual void execute(sim_state &machine_state) {
-    if(not(ready(machine_state))) {
-      dprintf(log_fd, "mistakes were made @ %d\n", __LINE__);
-      exit(-1);
-    }
     if(m->prf_idx != -1) {
       uint32_t sa = (m->inst >> 6) & 31;
       switch(rt)
@@ -363,8 +361,6 @@ public:
 	  break;
 	case r_type::srl:
 	  machine_state.gpr_prf[m->prf_idx] = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]) >> sa;
-	  dprintf(log_fd, "%x : srl result = %d, shift amt %d, gpr %d, src prf %d src val %d \n",
-		  m->pc, machine_state.gpr_prf[m->prf_idx], sa, get_src0(), m->src0_prf,  machine_state.gpr_prf[m->src0_prf]);
 	  break;
 	case r_type::sra:
 	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] >> sa;
@@ -1084,6 +1080,107 @@ public:
 };
 
 
+class fp_load_op : public mips_op {
+public:
+  enum class load_type {ldc1,lwc1}; 
+protected:
+  itype i_;
+  load_type lt;
+  int32_t imm = -1;
+  uint32_t effective_address = ~0;
+public:
+  fp_load_op(sim_op op, load_type lt) :
+    mips_op(op), i_(op->inst), lt(lt) {
+    this->op_class = mips_op_type::mem;
+    int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
+    imm = static_cast<int32_t>(himm);
+  }
+  virtual int get_src0() const {
+    return (m->inst >> 21) & 31;
+  }
+  virtual int get_dest() const {
+    return  (m->inst >> 16) & 31;
+  }
+  virtual bool allocate(sim_state &machine_state) {
+    if(machine_state.cpr1_freevec.num_free() < 2)
+      return false;
+
+    m->src0_prf = machine_state.gpr_rat[get_src0()];
+    m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
+    m->aux_prev_prf_idx = machine_state.cpr1_rat[get_dest()+1];
+    
+    m->prf_idx = machine_state.cpr1_freevec.find_first_unset();
+    machine_state.cpr1_freevec.set_bit(m->prf_idx);
+    m->aux_prf_idx = machine_state.cpr1_freevec.find_first_unset();
+    machine_state.cpr1_freevec.set_bit(m->aux_prf_idx);
+
+    machine_state.cpr1_rat[get_dest()] = m->prf_idx;
+    machine_state.cpr1_valid.clear_bit(m->prf_idx);
+    machine_state.cpr1_rat[get_dest()+1] = m->aux_prf_idx;
+    machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
+    
+    return true;
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    return machine_state.gpr_valid.get_bit(m->src0_prf);
+  }
+  virtual void execute(sim_state &machine_state) {
+    effective_address = machine_state.gpr_prf[m->src0_prf] + imm;
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+    }
+  }
+  virtual bool retire(sim_state &machine_state) {
+    sparse_mem & mem = *(machine_state.mem);
+    union loader {
+      uint32_t u32[2];
+      uint64_t u64;
+      loader (uint64_t u64) : u64(u64) {}
+    };
+    static_assert(sizeof(loader)==8, "union-busted");
+    switch(lt)
+      {
+      case load_type::ldc1: {
+	loader u(accessBigEndian(*((uint64_t*)(mem + effective_address))));
+	*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = u.u32[0];
+	*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->aux_prf_idx]) = u.u32[1];
+	break;
+
+      }
+      default:
+	dprintf(2, "implement me %s\n", __PRETTY_FUNCTION__);
+	exit(-1);
+      }
+
+    machine_state.cpr1_valid.set_bit(m->prf_idx);
+    machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
+    machine_state.cpr1_valid.set_bit(m->aux_prf_idx);
+    machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->aux_prev_prf_idx);
+    retired = true;
+    machine_state.icnt++;
+    machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
+    machine_state.arch_cpr1_last_pc[get_dest()] = m->pc;
+    if(m->aux_prf_idx != -1) {
+      machine_state.arch_cpr1[get_dest()+1] = machine_state.cpr1_prf[m->aux_prf_idx];
+      machine_state.arch_cpr1_last_pc[get_dest()+1] = m->pc;
+    }
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {
+    machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.cpr1_freevec.clear_bit(m->prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prf_idx);
+    machine_state.cpr1_rat[get_dest()+1] = m->aux_prev_prf_idx;
+    machine_state.cpr1_freevec.clear_bit(m->aux_prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
+  }
+};
+
 class fp_store_op : public mips_op {
 public:
   enum class store_type {sdc1, swc1}; 
@@ -1092,12 +1189,7 @@ protected:
   store_type st;
   int32_t imm = -1;
   uint32_t effective_address = ~0;
-  union fp_store_data {
-    uint64_t u64;
-    uint32_t u32;
-    fp_store_data() : u64(0) {}
-  };
-  fp_store_data store_data;
+  uint32_t store_data[2] = {0};
 public:
   fp_store_op(sim_op op, store_type st) :
     mips_op(op), i_(op->inst), st(st) {
@@ -1114,11 +1206,17 @@ public:
   virtual bool allocate(sim_state &machine_state) {
     m->src0_prf = machine_state.cpr1_rat[get_src0()];
     m->src1_prf = machine_state.gpr_rat[get_src1()];
+    if(st == store_type::sdc1) {
+      m->src2_prf = machine_state.cpr1_rat[get_src0()+1];
+    }
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
     if(not(machine_state.cpr1_valid.get_bit(m->src0_prf)) or
        not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+      return false;
+    }
+    if(m->src2_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src2_prf))) {
       return false;
     }
     return true;
@@ -1128,10 +1226,11 @@ public:
     switch(st)
       {
       case store_type::sdc1:
-	store_data.u64 = *reinterpret_cast<uint64_t*>(&machine_state.cpr1_prf[m->src0_prf]);
+	store_data[0] = *reinterpret_cast<uint64_t*>(&machine_state.cpr1_prf[m->src0_prf]);
+	store_data[1] = *reinterpret_cast<uint64_t*>(&machine_state.cpr1_prf[m->src2_prf]);
 	break;
       case store_type::swc1:
-	store_data.u32 = *reinterpret_cast<uint32_t*>(&machine_state.cpr1_prf[m->src0_prf]);
+	store_data[0] = *reinterpret_cast<uint32_t*>(&machine_state.cpr1_prf[m->src0_prf]);
 	break;
       }
     
@@ -1144,22 +1243,18 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     sparse_mem & mem = *(machine_state.mem);
-#if 0
     switch(st)
       {
-      case store_type::sb:
-	mem.at(effective_address) = static_cast<int8_t>(store_data);
+      case store_type::swc1:
+	*((uint32_t*)(mem + effective_address)) = accessBigEndian(store_data[0]);
 	break;
-      case store_type::sh:
-	*((int16_t*)(mem + effective_address)) = accessBigEndian(static_cast<int16_t>(store_data));
-	break;
-      case store_type::sw:
-	*((int32_t*)(mem + effective_address)) = accessBigEndian(store_data);
+      case store_type::sdc1:
+	*((uint32_t*)(mem + effective_address)) = accessBigEndian(store_data[0]);
+	*((uint32_t*)(mem + effective_address + 4)) = accessBigEndian(store_data[1]);
 	break;
       default:
 	exit(-1);
       }
-#endif
     retired = true;
     machine_state.icnt++;
     return true;
@@ -1427,8 +1522,10 @@ public:
       }
       case mult_div_types::divu: {
 	if(machine_state.gpr_prf[m->src1_prf] != 0) {
-	  *lo = (uint32_t)machine_state.gpr_prf[m->src0_prf] / (uint32_t)machine_state.gpr_prf[m->src1_prf];
-	  *hi = (uint32_t)machine_state.gpr_prf[m->src0_prf] % (uint32_t)machine_state.gpr_prf[m->src1_prf];
+	  *lo = (uint32_t)machine_state.gpr_prf[m->src0_prf] /
+	    (uint32_t)machine_state.gpr_prf[m->src1_prf];
+	  *hi = (uint32_t)machine_state.gpr_prf[m->src0_prf] %
+	    (uint32_t)machine_state.gpr_prf[m->src1_prf];
 	}
 	latency = 32;
 	break;
@@ -1455,6 +1552,10 @@ public:
     machine_state.gpr_valid.clear_bit(m->prev_hi_prf_idx);
     retired = true;
     machine_state.icnt++;
+    machine_state.arch_gpr[32] = machine_state.gpr_prf[m->lo_prf_idx];
+    machine_state.arch_gpr_last_pc[32] = m->pc;
+    machine_state.arch_gpr[33] = machine_state.gpr_prf[m->hi_prf_idx];
+    machine_state.arch_gpr_last_pc[33] = m->pc;
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -1504,6 +1605,7 @@ public:
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
+      machine_state.gpr_valid.set_bit(m->prf_idx);
     }
   }
   virtual bool retire(sim_state &machine_state) {
@@ -1971,11 +2073,10 @@ mips_op* decode_insn(sim_op m_op) {
 
   if(isRType)
     return decode_rtype_insn(m_op);
-  else if(isSpecial2) {
+  else if(isSpecial2)
     return decode_special2_insn(m_op);
-  }
   else if(isSpecial3)
-    return nullptr;
+    return decode_special3_insn(m_op);
   else if(isJType)
     return decode_jtype_insn(m_op);
   else if(isCoproc0) {

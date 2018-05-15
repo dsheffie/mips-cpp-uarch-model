@@ -82,8 +82,8 @@ void sim_state::initialize(sparse_mem *mem) {
   cpr1_valid.clear_and_resize(num_cpr1_prf);
   fcr1_valid.clear_and_resize(num_fcr1_prf);
   
-  fetch_queue.resize(32);
-  decode_queue.resize(32);
+  fetch_queue.resize(4);
+  decode_queue.resize(4);
   rob.resize(32);
 
   alu_rs.resize(num_alu_ports);
@@ -120,6 +120,16 @@ extern "C" {
     while(not(machine_state.terminate_sim)) {
       //dprintf(log_fd, "cycle %llu : icnt %llu\n", curr_cycle, machine_state.icnt);
       curr_cycle++;
+      uint64_t delta = curr_cycle - machine_state.last_retire_cycle;
+      if(delta > 1024) {
+	dprintf(2, "no retirement in 1024 cycles, last pc = %x!\n",
+		machine_state.last_retire_pc);
+	machine_state.terminate_sim = true;
+      }
+      if(curr_cycle % (1UL<<18) == 0) {
+	dprintf(2, "heartbeat : %llu cycles, %ld instr retired!\n",
+		curr_cycle, machine_state.icnt);
+      }
       //if(curr_cycle >= 256) {
       //machine_state.terminate_sim = true;
       //}
@@ -391,8 +401,17 @@ extern "C" {
 	      error = true;
 	    }
 	  }
+	  for(int i = 0; i < 32; i++) {
+	    if(s->cpr1[i] != machine_state.arch_cpr1[i]) {
+	      std::cout << "uarch cpr1 " << i << " : " 
+			<< std::hex << machine_state.arch_cpr1[i] << std::dec << "\n"; 
+	      std::cout << "func cpr1 " << i << " : " 
+			<< std::hex << s->cpr1[i] << std::dec << "\n"; 
+	      error = true;
+	    }
+	  }
 	  if(error) {
-	    dprintf(log_fd, "%x : UARCH and FUNC simulator mismatch after %llu func and %llu uarch insn!\n",
+	    dprintf(2, "%x : UARCH and FUNC simulator mismatch after %llu func and %llu uarch insn!\n",
 		    u->pc, s->icnt, machine_state.icnt);
 	    exit(-1);
 	  }
@@ -400,6 +419,8 @@ extern "C" {
 	}
 	u->op->retire(machine_state);
 	machine_state.log_insn(u->inst, u->pc, u->exec_parity);
+	machine_state.last_retire_cycle = get_curr_cycle();
+	machine_state.last_retire_pc = u->pc;
 	
 	if(u->branch_exception) {
 	  if(u->op->retired == false) {
@@ -433,16 +454,9 @@ extern "C" {
 	}
 	if(u->has_delay_slot) {
 	  /* wait for branch delay instr to allocate */
-	  int delay_cnt = 0;
 	  while(rob.empty()) {
-	    dprintf(2, "%llu : waiting for instruction in delay slot, pc %x, nuke %d, icnt %llu\n", 
-		    get_curr_cycle(), u->pc, machine_state.nuke, machine_state.icnt);
 	    exception_cycles++;
-	    delay_cnt++;
 	    gthread_yield();
-	    if(delay_cnt > 64) {
-	      exit(-1);
-	    }
 	  }
 
 	  while(not(rob.empty())) {
@@ -464,6 +478,8 @@ extern "C" {
 
 	    machine_state.log_insn(uu->inst, uu->pc, uu->exec_parity);
 	    uu->op->retire(machine_state);
+	    machine_state.last_retire_cycle = get_curr_cycle();
+	    machine_state.last_retire_pc = uu->pc;
 	    if(s->pc == uu->pc) {
 	      execMips(s);
 	    }

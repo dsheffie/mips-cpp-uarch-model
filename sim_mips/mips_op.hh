@@ -40,9 +40,9 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
 
   int32_t rob_idx = -1;
   /* result will get written to prf idx */
-  int64_t prf_idx = -1;
+  int64_t prf_idx = -1, aux_prf_idx=-1;
   /* previous prf writer (will return to freelist when this inst retires */
-  int64_t prev_prf_idx = -1;
+  int64_t prev_prf_idx = -1, aux_prev_prf_idx = -1;
   int64_t src0_prf = -1, src1_prf = -1, src2_prf = -1, src3_prf = -1;
   
   int64_t hi_prf_idx = -1, lo_prf_idx = -1;
@@ -75,7 +75,9 @@ struct sim_state {
   bool nuke = false;
   uint32_t delay_slot_npc = 0;
   uint32_t fetch_pc = 0;
-  uint32_t retire_pc = 0;
+
+  uint64_t last_retire_cycle = 0;
+  uint32_t last_retire_pc = 0;
   
   /* hi and lo in grf too */
   int32_t gpr_rat[34];
@@ -88,8 +90,11 @@ struct sim_state {
   int num_cpr1_prf_ = -1;
   int num_fcr1_prf_ = -1;
   
-  int32_t arch_grf[32] = {0};
-  int32_t arch_grf_last_pc[32] = {0};
+  int32_t arch_grf[34] = {0};
+  uint32_t arch_grf_last_pc[34] = {0};
+
+  uint32_t arch_cpr1[32] = {0};
+  uint32_t arch_cpr1_last_pc[32] = {0};
 
   int32_t *gpr_prf = nullptr;
   uint32_t *cpr0_prf = nullptr;
