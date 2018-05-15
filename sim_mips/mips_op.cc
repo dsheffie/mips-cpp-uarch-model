@@ -395,6 +395,10 @@ public:
 	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] |
 	    machine_state.gpr_prf[m->src1_prf];
 	  break;
+	case r_type::xor_:
+	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] ^
+	    machine_state.gpr_prf[m->src1_prf];
+	  break;
 	case r_type::slt:
 	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src1_prf] <
 	    machine_state.gpr_prf[m->src0_prf];
@@ -417,7 +421,7 @@ public:
 	  take_trap = machine_state.gpr_prf[m->src0_prf] == machine_state.gpr_prf[m->src1_prf];
 	  break;
 	default:
-	  dprintf(log_fd, "rtype wtf ((pc = %x)\n", m->pc);
+	  dprintf(2, "rtype wtf ((pc = %x)\n", m->pc);
 	  exit(-1);
 	}
     }
