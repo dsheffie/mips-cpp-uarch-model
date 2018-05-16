@@ -937,14 +937,18 @@ public:
   virtual bool allocate(sim_state &machine_state) {
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
-    int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
-    if(prf_id == -1)
+    m->prf_idx = machine_state.gpr_freevec.find_first_unset();
+    m->load_tbl_idx = machine_state.load_tbl_freevec.find_first_unset();
+
+    if(m->prf_idx == -1 or m->load_tbl_idx == -1) {
       return false;
-    machine_state.gpr_rat_sanity_check(prf_id);
-    machine_state.gpr_freevec.set_bit(prf_id);
-    machine_state.gpr_rat[get_dest()] = prf_id;
-    m->prf_idx = prf_id;
-    machine_state.gpr_valid.clear_bit(prf_id);
+    }
+    
+    machine_state.gpr_rat_sanity_check(m->prf_idx);
+    machine_state.gpr_freevec.set_bit(m->prf_idx);
+    machine_state.load_tbl_freevec.set_bit(m->load_tbl_idx);
+    machine_state.gpr_rat[get_dest()] = m->prf_idx;
+    machine_state.gpr_valid.clear_bit(m->prf_idx);
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
@@ -992,7 +996,8 @@ public:
 	exit(-1);
       }
 
-
+    machine_state.load_tbl[m->load_tbl_idx] = nullptr;
+    machine_state.load_tbl_freevec.clear_bit(m->load_tbl_idx);
     machine_state.gpr_valid.set_bit(m->prf_idx);
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
@@ -1010,6 +1015,7 @@ public:
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
+    machine_state.load_tbl_freevec.clear_bit(m->load_tbl_idx);
   }
 };
 

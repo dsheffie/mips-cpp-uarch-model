@@ -77,7 +77,13 @@ void sim_state::initialize(sparse_mem *mem) {
   cpr0_freevec.clear_and_resize(num_cpr0_prf);
   cpr1_freevec.clear_and_resize(num_cpr1_prf);
   fcr1_freevec.clear_and_resize(num_fcr1_prf);
-
+  
+  load_tbl_freevec.clear_and_resize(64);
+  load_tbl = new mips_meta_op*[64];
+  for(size_t i = 0; i < load_tbl_freevec.size(); i++) {
+    load_tbl[i] = nullptr;
+  }
+  
   gpr_valid.clear_and_resize(num_gpr_prf);
   cpr0_valid.clear_and_resize(num_cpr0_prf);
   cpr1_valid.clear_and_resize(num_cpr1_prf);
@@ -87,6 +93,7 @@ void sim_state::initialize(sparse_mem *mem) {
   decode_queue.resize(8);
   rob.resize(32);
 
+  
   alu_rs.resize(num_alu_ports);
   for(int i = 0; i < num_alu_ports; i++) {
     alu_rs.at(i).resize(num_alu_sched_entries);
@@ -448,6 +455,7 @@ extern "C" {
 	  break;
 	}
 	else if(u->load_exception) {
+	  dprintf(2, "got load exception at HOR\n");
 	  machine_state.nukes++;
 	  machine_state.load_nukes++;
 	  break;
@@ -496,8 +504,9 @@ extern "C" {
 	}
 	machine_state.nuke = true;
 	machine_state.fetch_pc = u->branch_exception ? u->correct_pc : u->pc;
-	delete u;
-
+	if(u->branch_exception) {
+	  delete u;
+	}
 	
 	int64_t i = rob.get_write_idx(), c = 0;
 	while(true) {
@@ -570,7 +579,10 @@ extern "C" {
 	machine_state.jmp_rs.clear();
 	machine_state.mem_rs.clear();
 	machine_state.system_rs.clear();
-
+	machine_state.load_tbl_freevec.clear();
+	for(size_t i = 0; i < machine_state.load_tbl_freevec.size(); i++) {
+	  machine_state.load_tbl[i] = nullptr;
+	}
 	machine_state.nuke = false;
 	gthread_yield();
       }

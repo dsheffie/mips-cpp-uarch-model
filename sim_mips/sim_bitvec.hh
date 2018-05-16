@@ -18,6 +18,12 @@ public:
   ~sim_bitvec() {
     delete [] arr;
   }
+  void clear() {
+    memset(arr, 0, sizeof(uint64_t)*n_words);
+  }
+  size_t size() const {
+    return static_cast<size_t>(n_bits);
+  }
   void clear_and_resize(uint64_t n_bits) {
     delete [] arr;
     this->n_bits = n_bits;
