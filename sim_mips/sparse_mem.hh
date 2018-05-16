@@ -44,6 +44,41 @@ public:
     }
     delete [] mem;
   }
+  bool equal(const sparse_mem &other) const {
+    if(other.npages != npages) {
+      dprintf(2, "npages (%zu) differs\n",npages);
+      return false;
+    }
+    for(size_t p = 0; p < npages; p++) {
+      if((mem[p]!=nullptr) and (other.mem[p]==nullptr)) {
+	bool all_zero = true;
+	for(size_t i = 0; i < pgsize; i++) {
+	  if(mem[p][i] != 0) {
+	    all_zero = false;
+	    break;
+	  }
+	}
+	if(all_zero)
+	  continue;
+	else
+	  return false;
+      }
+      else if(mem[p]==nullptr and other.mem[p]!=nullptr) {
+	return false;
+      }
+      else if(mem[p]==nullptr and other.mem[p]==nullptr) {
+	continue;
+      }
+      for(size_t i = 0; i < pgsize; i++) {
+	if(mem[p][i] != other.mem[p][i]) {
+	  dprintf(2,"address %x : %x vs %x\n",
+		  p*pgsize+i, mem[p][i], other.mem[p][i]);
+	  return false;
+	}
+      }
+    }
+    return true;
+  }
   uint8_t & at(uint64_t addr) {
     uint64_t paddr = addr / pgsize;
     uint64_t baddr = addr % pgsize;

@@ -166,7 +166,7 @@ void execMips(state_t *s) {
   
   sparse_mem &mem = s->mem;
   uint32_t inst = accessBigEndian(mem.get32(s->pc));
-  
+
   //std::cout << std::hex << s->pc << std::dec << " : "
   //<< getAsmString(inst, s->pc) << "\n";
   

@@ -80,8 +80,15 @@ void sim_state::initialize(sparse_mem *mem) {
   
   load_tbl_freevec.clear_and_resize(64);
   load_tbl = new mips_meta_op*[64];
+
+  store_tbl_freevec.clear_and_resize(64);
+  store_tbl = new mips_meta_op*[64];
+  
   for(size_t i = 0; i < load_tbl_freevec.size(); i++) {
     load_tbl[i] = nullptr;
+  }
+  for(size_t i = 0; i < store_tbl_freevec.size(); i++) {
+    store_tbl[i] = nullptr;
   }
   
   gpr_valid.clear_and_resize(num_gpr_prf);
@@ -218,11 +225,11 @@ extern "C" {
       while(not(decode_queue.empty()) and not(rob.full()) and
 	    (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
-	if(busted_alloc_cnt == 64) {
-	  dprintf(/* log_fd*/ 2, "@ %llu broken decode : (pc %x, insn %x) breaks allocation\n", 
-		  get_curr_cycle(), u->pc, u->inst);
-	  machine_state.terminate_sim = true;
-	}
+	//if(busted_alloc_cnt == 64) {
+	//dprintf(/* log_fd*/ 2, "@ %llu broken decode : (pc %x, insn %x) breaks allocation\n", 
+	//get_curr_cycle(), u->pc, u->inst);
+	//machine_state.terminate_sim = true;
+	//}
 	if(u->op == nullptr) {
 	  busted_alloc_cnt++;
 	  break;
@@ -399,9 +406,6 @@ extern "C" {
       while(not(rob.empty()) and (retire_amt < retire_bw)) {
 	
 	u = rob.peek();
-	//if(u->op->ready(machine_state)) {
-	//dprintf(log_fd, "head of rob could execute\n");
-	//}
 	
 	if(not(u->is_complete)) {
 	  u = nullptr;
@@ -411,7 +415,7 @@ extern "C" {
 	  u = nullptr;
 	  break;
 	}
-	if(s->pc == u->pc) {
+	if(false and (s->pc == u->pc) and not(u->load_exception)) {
 	  bool error = false;
 	  for(int i = 0; i < 32; i++) {
 	    if(s->gpr[i] != machine_state.arch_grf[i]) {
@@ -431,9 +435,11 @@ extern "C" {
 	      error = true;
 	    }
 	  }
+	  error |= (machine_state.mem->equal(s->mem)==false);
+	  
 	  if(error) {
-	    dprintf(2, "%x : UARCH and FUNC simulator mismatch after %llu func and %llu uarch insn!\n",
-		    u->pc, s->icnt, machine_state.icnt);
+	    dprintf(2, "%x : UARCH and FUNC simulator mismatch after %llu func and %llu uarch insn / %llu arch insn!\n",
+		    u->pc, s->icnt, machine_state.icnt, s->icnt);
 	    exit(-1);
 	  }
 	  execMips(s);
@@ -455,7 +461,7 @@ extern "C" {
 	  break;
 	}
 	else if(u->load_exception) {
-	  dprintf(2, "got load exception at HOR\n");
+	  dprintf(2, "got load exception at HOR for pc %x\n", u->pc);
 	  machine_state.nukes++;
 	  machine_state.load_nukes++;
 	  break;
@@ -471,11 +477,14 @@ extern "C" {
 	rob.pop();
       }
 
+
       if(u!=nullptr and (u->branch_exception or u->load_exception)) {
-	if(u->has_delay_slot and u->likely_squash) {
-	  dprintf(log_fd,"impossible to have both delay lot and likely squash!!!\n");
+	bool is_load_exception = u->load_exception;
+	if(u->has_delay_slot and u->load_exception) {
+	  dprintf(2,"impossible to have both delay slot with load exceptionh!!!\n");
 	  exit(-1);
 	}
+	bool delay_slot_exception = false;
 	if(u->has_delay_slot) {
 	  /* wait for branch delay instr to allocate */
 	  while(rob.empty()) {
@@ -487,23 +496,34 @@ extern "C" {
 		    uu->pc, uu->is_complete, get_curr_cycle());
 	    gthread_yield();
 	  }
-	  if(uu->branch_exception) {
-	    dprintf(log_fd, "branch exception in delay slot\n");
+	  if(uu->branch_exception or uu->load_exception) {
+	    dprintf(2, "exception in delay slot\n");
+	    delay_slot_exception = true;
 	    exit(-1);
 	  }
-	  machine_state.log_insn(uu->inst, uu->pc, uu->exec_parity);
-	  uu->op->retire(machine_state);
-	  machine_state.last_retire_cycle = get_curr_cycle();
-	  machine_state.last_retire_pc = uu->pc;
-	  insn_lifetime_map[uu->retire_cycle - uu->fetch_cycle]++;
-	  if(s->pc == uu->pc) {
-	    execMips(s);
+	  else {
+	    machine_state.log_insn(uu->inst, uu->pc, uu->exec_parity);
+	    uu->op->retire(machine_state);
+	    machine_state.last_retire_cycle = get_curr_cycle();
+	    machine_state.last_retire_pc = uu->pc;
+	    insn_lifetime_map[uu->retire_cycle - uu->fetch_cycle]++;
+	    if(s->pc == uu->pc) {
+	      execMips(s);
+	    }
+	    rob.pop();
+	    delete uu;
 	  }
-	  rob.pop();
-	  delete uu;
 	}
 	machine_state.nuke = true;
-	machine_state.fetch_pc = u->branch_exception ? u->correct_pc : u->pc;
+
+	if(delay_slot_exception) {
+	  dprintf(2, "DELAY SLOT EXCEPTION, RESTART @ %x\n", u->pc);
+	  machine_state.fetch_pc = u->pc;
+	  //exit(-1);
+	}
+	else {
+	  machine_state.fetch_pc = u->branch_exception ? u->correct_pc : u->pc;
+	}
 	if(u->branch_exception) {
 	  delete u;
 	}
@@ -512,8 +532,6 @@ extern "C" {
 	while(true) {
 	  auto uu = rob.at(i);
 	  if(uu) {
-	    dprintf(log_fd, "rob slot %d from %x has prf id %d, prev prf id %d\n",
-		    i, uu->pc, uu->prf_idx, uu->prev_prf_idx);
 	    uu->op->undo(machine_state);
 	    delete uu;
 	    rob.at(i) = nullptr;
@@ -580,8 +598,12 @@ extern "C" {
 	machine_state.mem_rs.clear();
 	machine_state.system_rs.clear();
 	machine_state.load_tbl_freevec.clear();
+	machine_state.store_tbl_freevec.clear();
 	for(size_t i = 0; i < machine_state.load_tbl_freevec.size(); i++) {
 	  machine_state.load_tbl[i] = nullptr;
+	}
+	for(size_t i = 0; i < machine_state.store_tbl_freevec.size(); i++) {
+	  machine_state.store_tbl[i] = nullptr;
 	}
 	machine_state.nuke = false;
 	gthread_yield();
@@ -711,13 +733,15 @@ int main(int argc, char *argv[]) {
 	    << " mispredicted jumps\n";
   
   std::cout << machine_state.nukes << " nukes\n";
+  std::cout << machine_state.branch_nukes << " branch nukes\n";
+  std::cout << machine_state.load_nukes << " load nukes\n";
   std::cout << "CHECK INSN CNT : "
 	    << s->icnt << "\n";
 
   if(get_curr_cycle() != 0) {
     double avg_latency = 0;
     for(auto &p : insn_lifetime_map) {
-      std::cout << p.first << " cycles : " << p.second << " insns\n";
+      //std::cout << p.first << " cycles : " << p.second << " insns\n";
       avg_latency += (p.first * p.second);
     }
     avg_latency /= get_curr_cycle();

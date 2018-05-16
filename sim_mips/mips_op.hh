@@ -46,7 +46,7 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   /* previous prf writer (will return to freelist when this inst retires */
   int64_t prev_prf_idx = -1, aux_prev_prf_idx = -1;
   int64_t src0_prf = -1, src1_prf = -1, src2_prf = -1, src3_prf = -1;
-  int64_t load_tbl_idx = -1;
+  int64_t load_tbl_idx = -1, store_tbl_idx = -1;
   int64_t hi_prf_idx = -1, lo_prf_idx = -1;
   int64_t prev_hi_prf_idx = -1, prev_lo_prf_idx = -1;
   
@@ -105,12 +105,14 @@ struct sim_state {
   uint32_t *fcr1_prf = nullptr;
 
   mips_meta_op **load_tbl = nullptr;
+  mips_meta_op **store_tbl = nullptr;
   
   sim_bitvec gpr_freevec;
   sim_bitvec cpr0_freevec;
   sim_bitvec cpr1_freevec;
   sim_bitvec fcr1_freevec;
   sim_bitvec load_tbl_freevec;
+  sim_bitvec store_tbl_freevec;
   
   sim_bitvec gpr_valid;
   sim_bitvec cpr0_valid;
@@ -202,6 +204,7 @@ struct sim_state {
     if(cpr1_prf) delete [] cpr1_prf;
     if(fcr1_prf) delete [] fcr1_prf;
     if(load_tbl) delete [] load_tbl;
+    if(store_tbl) delete [] store_tbl;
   }
 };
 

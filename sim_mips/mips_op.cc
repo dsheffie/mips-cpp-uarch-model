@@ -859,7 +859,7 @@ public:
 	m->has_delay_slot = take_br;
 	break;
       default:
-	dprintf(log_fd, "wtf @ %x\n", m->pc);
+	dprintf(2, "wtf @ %x\n", m->pc);
 	exit(-1);
       }
 
@@ -921,12 +921,16 @@ protected:
   load_type lt;
   int32_t imm = -1;
   uint32_t effective_address = ~0;
+  bool could_alias_store = false;
 public:
   load_op(sim_op op, load_type lt) :
     mips_op(op), i_(op->inst), lt(lt) {
     this->op_class = mips_op_type::mem;
     int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
     imm = static_cast<int32_t>(himm);
+  }
+  uint32_t getEA() const {
+    return effective_address;
   }
   virtual int get_src0() const {
     return i_.ii.rs;
@@ -935,15 +939,24 @@ public:
     return  i_.ii.rt;
   }
   virtual bool allocate(sim_state &machine_state) {
+#if 1
+    if(machine_state.store_tbl_freevec.popcount() > 1) {
+      return false;
+    }
+    if(machine_state.store_tbl_freevec.popcount()==1) {
+      could_alias_store = true;
+    }
+    
+#endif
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
     m->prf_idx = machine_state.gpr_freevec.find_first_unset();
     m->load_tbl_idx = machine_state.load_tbl_freevec.find_first_unset();
-
+    
     if(m->prf_idx == -1 or m->load_tbl_idx == -1) {
       return false;
     }
-    
+    machine_state.load_tbl[m->load_tbl_idx] = m;
     machine_state.gpr_rat_sanity_check(m->prf_idx);
     machine_state.gpr_freevec.set_bit(m->prf_idx);
     machine_state.load_tbl_freevec.set_bit(m->load_tbl_idx);
@@ -960,45 +973,52 @@ public:
   }
   virtual void execute(sim_state &machine_state) {
     effective_address = machine_state.gpr_prf[m->src0_prf] + imm;
+    if(could_alias_store) {
+      dprintf(2, "load @ %x to addr %x could conflict with inflight store\n",
+	      m->pc, effective_address);
+      m->load_exception = true;
+    }
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
+      sparse_mem & mem = *(machine_state.mem);
+      switch(lt)
+	{
+	case load_type::lbu:
+	  *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
+	    static_cast<uint32_t>(mem.at(effective_address));
+	  break;
+	case load_type::lh:
+	  machine_state.gpr_prf[m->prf_idx] = 
+	    accessBigEndian(*((int16_t*)(mem + effective_address)));
+	  break;
+	case load_type::lhu:
+	  *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
+	    static_cast<uint32_t>(accessBigEndian(*(uint16_t*)(mem + effective_address))); 
+	  break;
+	case load_type::lw:
+	  machine_state.gpr_prf[m->prf_idx] =
+	    accessBigEndian(*((int32_t*)(mem + effective_address))); 
+	  break;
+	default:
+	  exit(-1);
+	}
+      //dprintf(2, "%x : early load ea %x, cycle %llu\n",
+      //m->pc, effective_address, get_curr_cycle());
+      machine_state.gpr_valid.set_bit(m->prf_idx);
     }
   }
   virtual bool retire(sim_state &machine_state) {
-    //if(rand() % 32 == 0) {
-    //dprintf(2, "LOAD EXCEPTION @ %x!!\n", m->pc);
-    //m->load_exception = true;
-    //return false;
-    //}
-    sparse_mem & mem = *(machine_state.mem);
-    switch(lt)
-      {
-      case load_type::lbu:
-	*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
-	  static_cast<uint32_t>(mem.at(effective_address));
-	break;
-      case load_type::lh:
-	machine_state.gpr_prf[m->prf_idx] = 
-	  accessBigEndian(*((int16_t*)(mem + effective_address)));
-	break;
-      case load_type::lhu:
-	*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
-	  static_cast<uint32_t>(accessBigEndian(*(uint16_t*)(mem + effective_address))); 
-	break;
-      case load_type::lw:
-	machine_state.gpr_prf[m->prf_idx] =
-	  accessBigEndian(*((int32_t*)(mem + effective_address))); 
-	break;
-      default:
-	exit(-1);
-      }
+    if(m->load_exception) {
+      dprintf(2, "ATTEMPTING TO RETIRE LOAD EXCEPTION @ %x!!\n", m->pc);
+      asm("int3");
+      exit(-1);
+    }
 
     machine_state.load_tbl[m->load_tbl_idx] = nullptr;
     machine_state.load_tbl_freevec.clear_bit(m->load_tbl_idx);
-    machine_state.gpr_valid.set_bit(m->prf_idx);
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     retired = true;
@@ -1016,6 +1036,7 @@ public:
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
     machine_state.load_tbl_freevec.clear_bit(m->load_tbl_idx);
+    machine_state.load_tbl[m->load_tbl_idx] = nullptr;
   }
 };
 
@@ -1043,19 +1064,19 @@ public:
     return i_.ii.rs;
   }
   virtual bool allocate(sim_state &machine_state) {
-    if(get_src0() != -1) {
-      m->src0_prf = machine_state.gpr_rat[get_src0()];
+    m->src0_prf = machine_state.gpr_rat[get_src0()];
+    m->src1_prf = machine_state.gpr_rat[get_src1()];
+    m->store_tbl_idx = machine_state.store_tbl_freevec.find_first_unset();
+    if(m->store_tbl_idx==-1) {
+      return false;
     }
-    if(get_src1() != -1) {
-      m->src1_prf = machine_state.gpr_rat[get_src1()];
-    }
+    machine_state.store_tbl[m->store_tbl_idx] = m;
+    machine_state.store_tbl_freevec.set_bit(m->store_tbl_idx);
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
-    if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
-      return false;
-    }
-    if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+    if(not(machine_state.gpr_valid.get_bit(m->src0_prf)) or
+       not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
       return false;
     }
     return true;
@@ -1071,7 +1092,8 @@ public:
     }
   }
   virtual bool retire(sim_state &machine_state) {
-    dprintf(log_fd, "store at head of rob, ea %x, data %d\n", effective_address, store_data);
+    dprintf(2, "%x : store at head of rob, ea %x, data %d, cycle %llu\n",
+	    m->pc, effective_address, store_data, get_curr_cycle());
     sparse_mem & mem = *(machine_state.mem);
     switch(st)
       {
@@ -1079,7 +1101,8 @@ public:
 	mem.at(effective_address) = static_cast<int8_t>(store_data);
 	break;
       case store_type::sh:
-	*((int16_t*)(mem + effective_address)) = accessBigEndian(static_cast<int16_t>(store_data));
+	*((int16_t*)(mem + effective_address)) =
+	  accessBigEndian(static_cast<int16_t>(store_data));
 	break;
       case store_type::sw:
 	*((int32_t*)(mem + effective_address)) = accessBigEndian(store_data);
@@ -1089,10 +1112,41 @@ public:
       }
     retired = true;
     machine_state.icnt++;
+
+    bool load_violation = true;
+#if 0
+    for(size_t i = 0; i < machine_state.load_tbl_freevec.size(); i++ ){
+      if(machine_state.load_tbl[i]==nullptr) {
+	continue;
+      }
+      mips_meta_op *mmo = machine_state.load_tbl[i];
+      load_op *ld = reinterpret_cast<load_op*>(mmo->op);
+      if(ld == nullptr) {
+	dprintf(2, "borked out..\n");
+	exit(-1);
+      }
+      if(not(mmo->is_complete)) {
+	load_violation = true;
+      }
+      else if((effective_address>>6) == (ld->getEA())) {
+	load_violation = true;
+      }
+    }
+#endif
+    for(size_t i = 0; load_violation and (i < machine_state.load_tbl_freevec.size()); i++ ){
+      if(machine_state.load_tbl[i]!=nullptr) {
+	machine_state.load_tbl[i]->load_exception = true;
+      }
+    }
+    machine_state.store_tbl_freevec.clear_bit(m->store_tbl_idx);
+    machine_state.store_tbl[m->store_tbl_idx] = nullptr;
     m->retire_cycle = get_curr_cycle();
     return true;
   }
-  virtual void undo(sim_state &machine_state) {}
+  virtual void undo(sim_state &machine_state) {
+    machine_state.store_tbl_freevec.clear_bit(m->store_tbl_idx);
+    machine_state.store_tbl[m->load_tbl_idx] = nullptr;
+  }
 };
 
 
@@ -1744,13 +1798,10 @@ public:
     src_regs[3] = machine_state.gpr_prf[m->src3_prf];
     m->correct_pc = src_regs[3];
     m->complete_cycle = get_curr_cycle() + 1;
-    dprintf(log_fd, "monitor exception @ cycle %lu, complete = %d\n",
-	    get_curr_cycle(), m->is_complete);
     m->branch_exception = true;
   }
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
-      dprintf(log_fd, "**** monitor marked complete @ cycle %lu\n", get_curr_cycle());
       m->is_complete = true;
     }
   }
@@ -1793,8 +1844,8 @@ public:
     if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
       dprintf(log_fd, "mapping still exists!..%x\n", m->pc);      
     }
-    dprintf(log_fd, "==> execute monitor op with reason %u, return address %x\n",
-	    reason, src_regs[3]);
+    //dprintf(2, "==> execute monitor op with reason %u, return address %x\n",
+    //reason, src_regs[3]);
     retired = true;
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
