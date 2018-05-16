@@ -496,14 +496,10 @@ extern "C" {
 	    }
 	    sim_op uu = rob.peek_next_pop();
 	    while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
-	      dprintf(2, "uu = %p : waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
-		      uu, uu->pc, uu->is_complete, get_curr_cycle());
 	      gthread_yield();
 	    }
 	    if(uu->branch_exception or uu->load_exception) {
-	      dprintf(2, "exception in delay slot\n");
 	      delay_slot_exception = true;
-	      exit(-1);
 	    }
 	    else {
 	      u->op->retire(machine_state);
@@ -539,20 +535,18 @@ extern "C" {
 	if(delay_slot_exception) {
 	  dprintf(2, "DELAY SLOT EXCEPTION, RESTART @ %x\n", u->pc);
 	  machine_state.fetch_pc = u->pc;
-	  exit(-1);
 	}
 	else {
 	  machine_state.fetch_pc = u->branch_exception ? u->correct_pc : u->pc;
-	}
-	if(u->branch_exception) {
-	  delete u;
+	  if(u->branch_exception) {
+	    delete u;
+	  }
 	}
 	
 	int64_t i = rob.get_write_idx(), c = 0;
 	while(true) {
 	  auto uu = rob.at(i);
 	  if(uu) {
-	    dprintf(2, "uu=%p, uu->op=%p\n", uu, uu->op);
 	    uu->op->undo(machine_state);
 	    delete uu;
 	    rob.at(i) = nullptr;
