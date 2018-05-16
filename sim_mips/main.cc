@@ -489,12 +489,12 @@ extern "C" {
 	if(u->branch_exception) {
 	  if(u->has_delay_slot) {
 	    /* wait for branch delay instr to allocate */
-	    while(rob.at(rob.get_next_read()) == nullptr) {
+	    while(rob.peek_next_pop() == nullptr) {
 	      dprintf(2, "%x : waiting for instruction delay slot to alloc @ cycle %lld\n", 
 		      u->pc, get_curr_cycle());
 	      gthread_yield();
 	    }
-	    sim_op uu = rob.at(rob.get_next_read());
+	    sim_op uu = rob.peek_next_pop();
 	    while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
 	      dprintf(2, "uu = %p : waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
 		      uu, uu->pc, uu->is_complete, get_curr_cycle());

@@ -68,8 +68,9 @@ public:
     assert(!empty());
     return peek_();
   }
-  uint64_t get_next_read() const {
-    return (read_idx+1) & (len2-1);
+  T peek_next_pop() const {
+    uint64_t next_rd = (read_idx+1) & (len2-1);
+    return data[next_rd & (len-1)];
   }
   size_t size() const {
     return len;

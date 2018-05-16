@@ -1145,7 +1145,7 @@ public:
   }
   virtual void undo(sim_state &machine_state) {
     machine_state.store_tbl_freevec.clear_bit(m->store_tbl_idx);
-    machine_state.store_tbl[m->load_tbl_idx] = nullptr;
+    machine_state.store_tbl[m->store_tbl_idx] = nullptr;
   }
 };
 
