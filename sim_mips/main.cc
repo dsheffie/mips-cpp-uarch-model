@@ -453,13 +453,12 @@ extern "C" {
 	  break;
 	}
 
-	
 	stop_sim = u->op->stop_sim();
-	delete u;
-	u = nullptr;
 	if(stop_sim) {
 	  break;
 	}
+	delete u;
+	u = nullptr;
 	retire_amt++;
 	rob.pop();
       }
