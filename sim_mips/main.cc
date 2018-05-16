@@ -486,44 +486,52 @@ extern "C" {
 	  exit(-1);
 	}
 	bool delay_slot_exception = false;
-	if(u->has_delay_slot) {
-	  /* wait for branch delay instr to allocate */
-	  while(rob.at(rob.get_next_read()) == nullptr) {
-	    dprintf(2, "waiting for instruction delay slot to alloc @ cycle %lld\n", 
-		    get_curr_cycle());
-	    gthread_yield();
-	  }
-	  sim_op uu = rob.at(rob.get_next_read());
-	  while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
-	    dprintf(2, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
-		    uu->pc, uu->is_complete, get_curr_cycle());
-	    gthread_yield();
-	  }
-	  if(uu->branch_exception or uu->load_exception) {
-	    dprintf(2, "exception in delay slot\n");
-	    delay_slot_exception = true;
-	    exit(-1);
+	if(u->branch_exception) {
+	  if(u->has_delay_slot) {
+	    /* wait for branch delay instr to allocate */
+	    while(rob.at(rob.get_next_read()) == nullptr) {
+	      dprintf(2, "%x : waiting for instruction delay slot to alloc @ cycle %lld\n", 
+		      u->pc, get_curr_cycle());
+	      gthread_yield();
+	    }
+	    sim_op uu = rob.at(rob.get_next_read());
+	    while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
+	      dprintf(2, "uu = %p : waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
+		      uu, uu->pc, uu->is_complete, get_curr_cycle());
+	      gthread_yield();
+	    }
+	    if(uu->branch_exception or uu->load_exception) {
+	      dprintf(2, "exception in delay slot\n");
+	      delay_slot_exception = true;
+	      exit(-1);
+	    }
+	    else {
+	      u->op->retire(machine_state);
+	      machine_state.log_insn(u->inst, u->pc, u->exec_parity);
+	      insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
+	      machine_state.last_retire_cycle = get_curr_cycle();
+	      machine_state.last_retire_pc = u->pc;
+	      
+	      uu->op->retire(machine_state);
+	      machine_state.last_retire_cycle = get_curr_cycle();
+	      machine_state.last_retire_pc = uu->pc;
+	      insn_lifetime_map[uu->retire_cycle - uu->fetch_cycle]++;
+	      if(s->pc == uu->pc) {
+		execMips(s);
+	      }
+	      dprintf(2, "no exception, proceeding..\n");
+	      rob.pop();
+	      rob.pop();
+	      delete uu;
+	    }
 	  }
 	  else {
-	    machine_state.log_insn(uu->inst, uu->pc, uu->exec_parity);
-
 	    u->op->retire(machine_state);
 	    machine_state.log_insn(u->inst, u->pc, u->exec_parity);
 	    insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
 	    machine_state.last_retire_cycle = get_curr_cycle();
 	    machine_state.last_retire_pc = u->pc;
-	    
-	    uu->op->retire(machine_state);
-	    machine_state.last_retire_cycle = get_curr_cycle();
-	    machine_state.last_retire_pc = uu->pc;
-	    insn_lifetime_map[uu->retire_cycle - uu->fetch_cycle]++;
-	    if(s->pc == uu->pc) {
-	      execMips(s);
-	    }
-	    dprintf(2, "no exception, proceeding..\n");
 	    rob.pop();
-	    rob.pop();
-	    delete uu;
 	  }
 	}
 	machine_state.nuke = true;
