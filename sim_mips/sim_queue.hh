@@ -68,6 +68,9 @@ public:
     assert(!empty());
     return peek_();
   }
+  uint64_t get_next_read() const {
+    return (read_idx+1) & (len2-1);
+  }
   size_t size() const {
     return len;
   }

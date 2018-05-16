@@ -456,8 +456,8 @@ extern "C" {
 	if(u->branch_exception) {
 	  machine_state.nukes++;
 	  machine_state.branch_nukes++;
-	  retire_amt++;
-	  rob.pop();
+	  //retire_amt++;
+	  //rob.pop();
 	  break;
 	}
 	else if(u->load_exception) {
@@ -487,10 +487,10 @@ extern "C" {
 	bool delay_slot_exception = false;
 	if(u->has_delay_slot) {
 	  /* wait for branch delay instr to allocate */
-	  while(rob.empty()) {
+	  while(rob.at(rob.get_next_read()) == nullptr) {
 	    gthread_yield();
 	  }
-	  sim_op uu = rob.peek();
+	  sim_op uu = rob.at(rob.get_next_read());
 	  while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
 	    dprintf(log_fd, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
 		    uu->pc, uu->is_complete, get_curr_cycle());
@@ -511,6 +511,7 @@ extern "C" {
 	      execMips(s);
 	    }
 	    rob.pop();
+	    rob.pop();
 	    delete uu;
 	  }
 	}
@@ -519,7 +520,7 @@ extern "C" {
 	if(delay_slot_exception) {
 	  dprintf(2, "DELAY SLOT EXCEPTION, RESTART @ %x\n", u->pc);
 	  machine_state.fetch_pc = u->pc;
-	  //exit(-1);
+	  exit(-1);
 	}
 	else {
 	  machine_state.fetch_pc = u->branch_exception ? u->correct_pc : u->pc;
