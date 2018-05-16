@@ -403,6 +403,9 @@ extern "C" {
       int retire_amt = 0;
       sim_op u = nullptr;
       bool stop_sim = false;
+
+
+      
       while(not(rob.empty()) and (retire_amt < retire_bw)) {
 	
 	u = rob.peek();
@@ -445,19 +448,10 @@ extern "C" {
 	  execMips(s);
 	}
 
-	if(not(u->load_exception)) {
-	  u->op->retire(machine_state);
-	  machine_state.log_insn(u->inst, u->pc, u->exec_parity);
-	  insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
-	  machine_state.last_retire_cycle = get_curr_cycle();
-	  machine_state.last_retire_pc = u->pc;
-	}
 	
 	if(u->branch_exception) {
 	  machine_state.nukes++;
 	  machine_state.branch_nukes++;
-	  //retire_amt++;
-	  //rob.pop();
 	  break;
 	}
 	else if(u->load_exception) {
@@ -465,6 +459,13 @@ extern "C" {
 	  machine_state.nukes++;
 	  machine_state.load_nukes++;
 	  break;
+	}
+	else {
+	  u->op->retire(machine_state);
+	  machine_state.log_insn(u->inst, u->pc, u->exec_parity);
+	  insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
+	  machine_state.last_retire_cycle = get_curr_cycle();
+	  machine_state.last_retire_pc = u->pc;
 	}
 
 	stop_sim = u->op->stop_sim();
@@ -488,11 +489,13 @@ extern "C" {
 	if(u->has_delay_slot) {
 	  /* wait for branch delay instr to allocate */
 	  while(rob.at(rob.get_next_read()) == nullptr) {
+	    dprintf(2, "waiting for instruction delay slot to alloc @ cycle %lld\n", 
+		    get_curr_cycle());
 	    gthread_yield();
 	  }
 	  sim_op uu = rob.at(rob.get_next_read());
 	  while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
-	    dprintf(log_fd, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
+	    dprintf(2, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
 		    uu->pc, uu->is_complete, get_curr_cycle());
 	    gthread_yield();
 	  }
@@ -503,6 +506,13 @@ extern "C" {
 	  }
 	  else {
 	    machine_state.log_insn(uu->inst, uu->pc, uu->exec_parity);
+
+	    u->op->retire(machine_state);
+	    machine_state.log_insn(u->inst, u->pc, u->exec_parity);
+	    insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
+	    machine_state.last_retire_cycle = get_curr_cycle();
+	    machine_state.last_retire_pc = u->pc;
+	    
 	    uu->op->retire(machine_state);
 	    machine_state.last_retire_cycle = get_curr_cycle();
 	    machine_state.last_retire_pc = uu->pc;
@@ -510,6 +520,7 @@ extern "C" {
 	    if(s->pc == uu->pc) {
 	      execMips(s);
 	    }
+	    dprintf(2, "no exception, proceeding..\n");
 	    rob.pop();
 	    rob.pop();
 	    delete uu;
@@ -533,6 +544,7 @@ extern "C" {
 	while(true) {
 	  auto uu = rob.at(i);
 	  if(uu) {
+	    dprintf(2, "uu=%p, uu->op=%p\n", uu, uu->op);
 	    uu->op->undo(machine_state);
 	    delete uu;
 	    rob.at(i) = nullptr;
@@ -557,7 +569,7 @@ extern "C" {
 	  auto it = gpr_prf_debug.find(machine_state.gpr_rat[i]);
 	  gpr_prf_debug.insert(machine_state.gpr_rat[i]);
 	}
-	dprintf(log_fd,"found %zu register mappings\n",
+	dprintf(2,"found %zu register mappings\n",
 		gpr_prf_debug.size());
 	
 	if(gpr_prf_debug.size() != 34) {
@@ -608,6 +620,7 @@ extern "C" {
 	}
 	machine_state.nuke = false;
 	gthread_yield();
+	dprintf(2,"recovered from exception @ %llu\n",get_curr_cycle());
       }
       else {
 	gthread_yield();
