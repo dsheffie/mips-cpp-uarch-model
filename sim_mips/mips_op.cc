@@ -54,6 +54,7 @@ public:
     machine_state.cpr0_valid.clear_bit(m->prev_prf_idx);
     retired = true;
     machine_state.icnt++;
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -115,6 +116,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
     machine_state.arch_cpr1_last_pc[get_dest()] = m->pc;
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -179,6 +181,7 @@ public:
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     m->exec_parity = machine_state.gpr_parity();
     retired = true;
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -269,9 +272,7 @@ public:
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     m->exec_parity = machine_state.gpr_parity();
-    dprintf(log_fd, "lohi : writing %x into gpr %d, src reg %d, src prf %d\n", 
-	    machine_state.gpr_prf[m->prf_idx], get_dest(), 
-	    get_src0(), m->src0_prf);
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -456,6 +457,7 @@ public:
       dprintf(log_fd, "need to trap...\n");
       exit(-1);
     }
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -571,6 +573,7 @@ public:
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     m->exec_parity = machine_state.gpr_parity();
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -712,10 +715,10 @@ public:
     branch_prediction_map[m->pc] = 3;
     
     machine_state.mispredicted_jumps += m->branch_exception;
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     if(get_dest() != -1) {
       if(m->prev_prf_idx != -1) {
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
@@ -903,12 +906,10 @@ public:
       counter = std::max(0, counter);
       branch_prediction_map.at(m->pc) = counter;
     }
-
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
-      dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
-  }
+  virtual void undo(sim_state &machine_state) {}
 };
 
 
@@ -963,6 +964,11 @@ public:
     }
   }
   virtual bool retire(sim_state &machine_state) {
+    //if(rand() % 32 == 0) {
+    //dprintf(2, "LOAD EXCEPTION @ %x!!\n", m->pc);
+    //m->load_exception = true;
+    //return false;
+    //}
     sparse_mem & mem = *(machine_state.mem);
     switch(lt)
       {
@@ -986,25 +992,21 @@ public:
 	exit(-1);
       }
 
-    if(machine_state.gpr_rat_sanity_check(m->prev_prf_idx)) {
-      dprintf(log_fd, "mapping still exists!..%x\n", m->pc);      
-    }
+
     machine_state.gpr_valid.set_bit(m->prf_idx);
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
-    dprintf(log_fd, "LOAD @ %x complete to prf %d!, alloc'd @ %llu\n",
-	    m->pc, m->prf_idx, m->alloc_cycle);
     retired = true;
     machine_state.icnt++;
-
+    
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     m->exec_parity = machine_state.gpr_parity();
-      
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
+    //dprintf(2, "%s\n", __PRETTY_FUNCTION__);
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
@@ -1081,11 +1083,10 @@ public:
       }
     retired = true;
     machine_state.icnt++;
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
-    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
-  }
+  virtual void undo(sim_state &machine_state) {}
 };
 
 
@@ -1178,6 +1179,7 @@ public:
       machine_state.arch_cpr1[get_dest()+1] = machine_state.cpr1_prf[m->aux_prf_idx];
       machine_state.arch_cpr1_last_pc[get_dest()+1] = m->pc;
     }
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -1265,6 +1267,7 @@ public:
 	exit(-1);
       }
     retired = true;
+    m->retire_cycle = get_curr_cycle();
     machine_state.icnt++;
     return true;
   }
@@ -1333,6 +1336,7 @@ public:
     m->exec_parity = machine_state.gpr_parity();
     retired = true;
     machine_state.icnt++;
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -1398,6 +1402,7 @@ public:
     m->exec_parity = machine_state.gpr_parity();
     retired = true;
     machine_state.icnt++;
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -1565,6 +1570,7 @@ public:
     machine_state.arch_grf_last_pc[32] = m->pc;
     machine_state.arch_grf[33] = machine_state.gpr_prf[m->hi_prf_idx];
     machine_state.arch_grf_last_pc[33] = m->pc;
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -1627,6 +1633,7 @@ public:
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     m->exec_parity = machine_state.gpr_parity();
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -1659,6 +1666,7 @@ public:
   virtual bool retire(sim_state &machine_state) {
     retired = true;
     machine_state.icnt++;
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual bool stop_sim() const {
@@ -1786,10 +1794,10 @@ public:
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     m->exec_parity = machine_state.gpr_parity();
+    m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);

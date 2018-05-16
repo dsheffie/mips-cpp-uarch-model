@@ -35,6 +35,7 @@ bool enClockFuncts = false;
 static state_t *s =0;
 int buildArgcArgv(char *filename, char *sysArgs, char ***argv);
 
+static std::map<int64_t, uint64_t> insn_lifetime_map;
 
 /* sim parameters */
 static int fetch_bw = 8;
@@ -430,18 +431,28 @@ extern "C" {
 	  }
 	  execMips(s);
 	}
-	u->op->retire(machine_state);
-	machine_state.log_insn(u->inst, u->pc, u->exec_parity);
-	machine_state.last_retire_cycle = get_curr_cycle();
-	machine_state.last_retire_pc = u->pc;
+
+	if(not(u->load_exception)) {
+	  u->op->retire(machine_state);
+	  machine_state.log_insn(u->inst, u->pc, u->exec_parity);
+	  insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
+	  machine_state.last_retire_cycle = get_curr_cycle();
+	  machine_state.last_retire_pc = u->pc;
+	}
 	
 	if(u->branch_exception) {
 	  machine_state.nukes++;
+	  machine_state.branch_nukes++;
+	  retire_amt++;
+	  rob.pop();
+	  break;
+	}
+	else if(u->load_exception) {
+	  machine_state.nukes++;
+	  machine_state.load_nukes++;
 	  break;
 	}
 
-	retire_amt++;
-	rob.pop();
 	
 	stop_sim = u->op->stop_sim();
 	delete u;
@@ -449,12 +460,11 @@ extern "C" {
 	if(stop_sim) {
 	  break;
 	}
+	retire_amt++;
+	rob.pop();
       }
 
-      if(u!=nullptr and u->branch_exception) {
-	dprintf(log_fd, "%lu @ EXCEPTION @ %x, rob.full = %d, rob.empty() = %d, complete %d, delay %d\n",
-		get_curr_cycle(), u->pc, rob.full(), rob.empty(), u->is_complete, u->has_delay_slot);
-	rob.pop();
+      if(u!=nullptr and (u->branch_exception or u->load_exception)) {
 	if(u->has_delay_slot and u->likely_squash) {
 	  dprintf(log_fd,"impossible to have both delay lot and likely squash!!!\n");
 	  exit(-1);
@@ -464,33 +474,29 @@ extern "C" {
 	  while(rob.empty()) {
 	    gthread_yield();
 	  }
-
-	  while(not(rob.empty())) {
-	    auto uu = rob.peek();
-	    while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
-	      dprintf(log_fd, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
-		      uu->pc, uu->is_complete, get_curr_cycle());
-	      gthread_yield();
-	    }
-	    if(uu->branch_exception) {
-	      dprintf(log_fd, "branch exception in delay slot\n");
-	      exit(-1);
-	    }
-
-	    machine_state.log_insn(uu->inst, uu->pc, uu->exec_parity);
-	    uu->op->retire(machine_state);
-	    machine_state.last_retire_cycle = get_curr_cycle();
-	    machine_state.last_retire_pc = uu->pc;
-	    if(s->pc == uu->pc) {
-	      execMips(s);
-	    }
-	    rob.pop();
-	    delete uu;
-	    break;
+	  sim_op uu = rob.peek();
+	  while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
+	    dprintf(log_fd, "waiting for %x to complete in delay slot, complete %d cycle %lld\n", 
+		    uu->pc, uu->is_complete, get_curr_cycle());
+	    gthread_yield();
 	  }
+	  if(uu->branch_exception) {
+	    dprintf(log_fd, "branch exception in delay slot\n");
+	    exit(-1);
+	  }
+	  machine_state.log_insn(uu->inst, uu->pc, uu->exec_parity);
+	  uu->op->retire(machine_state);
+	  machine_state.last_retire_cycle = get_curr_cycle();
+	  machine_state.last_retire_pc = uu->pc;
+	  insn_lifetime_map[uu->retire_cycle - uu->fetch_cycle]++;
+	  if(s->pc == uu->pc) {
+	    execMips(s);
+	  }
+	  rob.pop();
+	  delete uu;
 	}
 	machine_state.nuke = true;
-	machine_state.fetch_pc = u->correct_pc;
+	machine_state.fetch_pc = u->branch_exception ? u->correct_pc : u->pc;
 	delete u;
 
 	
@@ -539,7 +545,7 @@ extern "C" {
 	  }
 	  exit(-1);
 	}
-	
+
 	for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
 	  auto f = machine_state.fetch_queue.at(i);
 	  if(f) {
@@ -697,6 +703,16 @@ int main(int argc, char *argv[]) {
   std::cout << "CHECK INSN CNT : "
 	    << s->icnt << "\n";
 
+  if(get_curr_cycle() != 0) {
+    double avg_latency = 0;
+    for(auto &p : insn_lifetime_map) {
+      std::cout << p.first << " cycles : " << p.second << " insns\n";
+      avg_latency += (p.first * p.second);
+    }
+    avg_latency /= get_curr_cycle();
+    std::cout << avg_latency << " cycles is the average instruction lifetime\n";
+  }
+  
   uint64_t total_branches_and_jumps = machine_state.n_branches + machine_state.n_jumps;
   uint64_t total_mispredicted = machine_state.mispredicted_branches + machine_state.mispredicted_jumps;
   double prediction_rate = static_cast<double>(total_branches_and_jumps - total_mispredicted) /

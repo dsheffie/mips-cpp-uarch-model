@@ -28,9 +28,11 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   int64_t decode_cycle = -1;
   int64_t alloc_cycle = -1;
   int64_t complete_cycle = -1;
+  int64_t retire_cycle = -1;
   /* finished execution */
   bool is_complete = false;
   bool branch_exception = false;
+  bool load_exception = false;
   bool is_branch_or_jump = false;
   bool has_delay_slot = false;
   bool likely_squash = false;
@@ -131,7 +133,7 @@ struct sim_state {
   uint64_t n_branches = 0, n_jumps = 0;
   uint64_t mispredicted_branches = 0;
   uint64_t mispredicted_jumps = 0;
-  uint64_t nukes = 0;
+  uint64_t nukes = 0, branch_nukes = 0, load_nukes = 0;
   
   bool log_execution = false;
   struct retire_entry {
