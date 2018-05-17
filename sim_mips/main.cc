@@ -364,6 +364,16 @@ extern "C" {
 	    exec_cnt++;
 	  }
 	}
+	for(auto it = mem_rs.begin(); it != mem_rs.end(); it++) {
+	  sim_op u = *it;
+	  if(u->op->ready(machine_state)) {
+	    mem_rs.erase(it);
+	    u->op->execute(machine_state);
+	    exec_cnt++;
+	    break;
+	  }
+	}
+#if 0
 	if(not(mem_rs.empty())) {
 	  if(mem_rs.peek()->op->ready(machine_state)) {
 	    sim_op u = mem_rs.pop();
@@ -371,6 +381,7 @@ extern "C" {
 	    exec_cnt++;
 	  }
 	}
+#endif
 	if(not(system_rs.empty())) {
 	  if(system_rs.peek()->op->ready(machine_state)) {
 	    sim_op u = system_rs.pop();
