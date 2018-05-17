@@ -163,7 +163,7 @@ void mkMonitorVectors(state_t *s) {
 
 void execMips(state_t *s) {
   if(s->brk) return;
-  
+  s->steps++;
   sparse_mem &mem = s->mem;
   uint32_t inst = accessBigEndian(mem.get32(s->pc));
 

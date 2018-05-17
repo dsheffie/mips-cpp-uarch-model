@@ -403,9 +403,7 @@ extern "C" {
       int retire_amt = 0;
       sim_op u = nullptr;
       bool stop_sim = false;
-
-
-      
+      bool exception = false;
       while(not(rob.empty()) and (retire_amt < retire_bw)) {
 	
 	u = rob.peek();
@@ -418,7 +416,46 @@ extern "C" {
 	  u = nullptr;
 	  break;
 	}
-	if(false and (s->pc == u->pc) and not(u->load_exception)) {
+
+	
+	if(u->branch_exception) {
+	  machine_state.nukes++;
+	  machine_state.branch_nukes++;
+	  exception = true;
+	  break;
+	}
+	else if(u->load_exception) {
+	  //dprintf(2, "got load exception at HOR for pc %x\n", u->pc);
+	  machine_state.nukes++;
+	  machine_state.load_nukes++;
+	  exception = true;
+	  break;
+	}
+
+	//std::cout << std::hex << u->pc << ":" << std::hex
+	//<< getAsmString(u->inst, u->pc) << "\n";
+	if(u->has_delay_slot) {
+	  while(rob.peek_next_pop() == nullptr) {
+	    gthread_yield();
+	  }
+	  sim_op uu = rob.peek_next_pop();
+	  while(not(uu->is_complete)) {
+	    gthread_yield();
+	  }
+	  if(uu->branch_exception or uu->load_exception) {
+	    machine_state.nukes++;
+	    if(uu->branch_exception) {
+	      machine_state.branch_nukes++;
+	    }
+	    else {
+	      machine_state.load_nukes++;
+	    }
+	    exception = true;
+	    break;
+	  }
+	}
+
+	if(s->pc == u->pc) {
 	  bool error = false;
 	  for(int i = 0; i < 32; i++) {
 	    if(s->gpr[i] != machine_state.arch_grf[i]) {
@@ -441,33 +478,23 @@ extern "C" {
 	  error |= (machine_state.mem->equal(s->mem)==false);
 	  
 	  if(error) {
-	    dprintf(2, "%x : UARCH and FUNC simulator mismatch after %llu func and %llu uarch insn / %llu arch insn!\n",
-		    u->pc, s->icnt, machine_state.icnt, s->icnt);
-	    exit(-1);
+	    dprintf(2, "u %x, a %x: UARCH and FUNC simulator mismatch after %llu func and %llu uarch insn / %llu arch insn!\n",
+		    u->pc, s->pc, s->icnt, machine_state.icnt, s->icnt);
+	    machine_state.terminate_sim = true;
+	    break;
 	  }
 	  execMips(s);
 	}
 
 	
-	if(u->branch_exception) {
-	  machine_state.nukes++;
-	  machine_state.branch_nukes++;
-	  break;
-	}
-	else if(u->load_exception) {
-	  dprintf(2, "got load exception at HOR for pc %x\n", u->pc);
-	  machine_state.nukes++;
-	  machine_state.load_nukes++;
-	  break;
-	}
-	else {
-	  u->op->retire(machine_state);
-	  machine_state.log_insn(u->inst, u->pc, u->exec_parity);
-	  insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
-	  machine_state.last_retire_cycle = get_curr_cycle();
-	  machine_state.last_retire_pc = u->pc;
-	}
+	u->op->retire(machine_state);
 
+	
+	machine_state.log_insn(u->inst, u->pc, u->exec_parity);
+	insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
+	machine_state.last_retire_cycle = get_curr_cycle();
+	machine_state.last_retire_pc = u->pc;
+	
 	stop_sim = u->op->stop_sim();
 	if(stop_sim) {
 	  break;
@@ -479,19 +506,14 @@ extern "C" {
       }
 
 
-      if(u!=nullptr and (u->branch_exception or u->load_exception)) {
+      if(u!=nullptr and exception) {
 	bool is_load_exception = u->load_exception;
-	if(u->has_delay_slot and u->load_exception) {
-	  dprintf(2,"impossible to have both delay slot with load exceptionh!!!\n");
-	  exit(-1);
-	}
+	uint32_t exc_pc = u->pc;
 	bool delay_slot_exception = false;
 	if(u->branch_exception) {
 	  if(u->has_delay_slot) {
 	    /* wait for branch delay instr to allocate */
 	    while(rob.peek_next_pop() == nullptr) {
-	      dprintf(2, "%x : waiting for instruction delay slot to alloc @ cycle %lld\n", 
-		      u->pc, get_curr_cycle());
 	      gthread_yield();
 	    }
 	    sim_op uu = rob.peek_next_pop();
@@ -507,15 +529,19 @@ extern "C" {
 	      insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
 	      machine_state.last_retire_cycle = get_curr_cycle();
 	      machine_state.last_retire_pc = u->pc;
+	      //std::cout << std::hex << u->pc << ":" << std::hex
+	      //<< getAsmString(u->inst, u->pc) << "\n";
 	      
 	      uu->op->retire(machine_state);
 	      machine_state.last_retire_cycle = get_curr_cycle();
 	      machine_state.last_retire_pc = uu->pc;
 	      insn_lifetime_map[uu->retire_cycle - uu->fetch_cycle]++;
-	      if(s->pc == uu->pc) {
+	      //std::cout << std::hex << uu->pc << ":" << std::hex
+	      //<< getAsmString(uu->inst, uu->pc) << "\n";
+
+	      if(s->pc == u->pc) {
 		execMips(s);
 	      }
-	      dprintf(2, "no exception, proceeding..\n");
 	      rob.pop();
 	      rob.pop();
 	      delete uu;
@@ -533,7 +559,6 @@ extern "C" {
 	machine_state.nuke = true;
 
 	if(delay_slot_exception) {
-	  dprintf(2, "DELAY SLOT EXCEPTION, RESTART @ %x\n", u->pc);
 	  machine_state.fetch_pc = u->pc;
 	}
 	else {
@@ -542,7 +567,6 @@ extern "C" {
 	    delete u;
 	  }
 	}
-	
 	int64_t i = rob.get_write_idx(), c = 0;
 	while(true) {
 	  auto uu = rob.at(i);
@@ -571,8 +595,6 @@ extern "C" {
 	  auto it = gpr_prf_debug.find(machine_state.gpr_rat[i]);
 	  gpr_prf_debug.insert(machine_state.gpr_rat[i]);
 	}
-	dprintf(2,"found %zu register mappings\n",
-		gpr_prf_debug.size());
 	
 	if(gpr_prf_debug.size() != 34) {
 	  
@@ -622,7 +644,6 @@ extern "C" {
 	}
 	machine_state.nuke = false;
 	gthread_yield();
-	dprintf(2,"recovered from exception @ %llu\n",get_curr_cycle());
       }
       else {
 	gthread_yield();

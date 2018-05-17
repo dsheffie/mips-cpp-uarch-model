@@ -853,6 +853,11 @@ public:
 	m->likely_squash = not(take_br);
 	m->has_delay_slot = take_br;
 	break;
+      case branch_type::bgtzl:
+	take_br = machine_state.gpr_prf[m->src0_prf] > 0;
+	m->likely_squash = not(take_br);
+	m->has_delay_slot = take_br;
+	break;
       case branch_type::bgezl:
 	take_br = machine_state.gpr_prf[m->src0_prf] >= 0;
 	m->likely_squash = not(take_br);
@@ -940,7 +945,7 @@ public:
   }
   virtual bool allocate(sim_state &machine_state) {
 #if 1
-    if(machine_state.store_tbl_freevec.popcount() > 1) {
+    if(machine_state.store_tbl_freevec.popcount()>1) {
       return false;
     }
     if(machine_state.store_tbl_freevec.popcount()==1) {
@@ -974,8 +979,8 @@ public:
   virtual void execute(sim_state &machine_state) {
     effective_address = machine_state.gpr_prf[m->src0_prf] + imm;
     if(could_alias_store) {
-      dprintf(2, "load @ %x to addr %x could conflict with inflight store\n",
-	      m->pc, effective_address);
+      //dprintf(2, "load @ %x to addr %x could conflict with inflight store\n",
+      //m->pc, effective_address);
       m->load_exception = true;
     }
     m->complete_cycle = get_curr_cycle() + 1;
@@ -1092,8 +1097,8 @@ public:
     }
   }
   virtual bool retire(sim_state &machine_state) {
-    dprintf(2, "%x : store at head of rob, ea %x, data %d, cycle %llu\n",
-	    m->pc, effective_address, store_data, get_curr_cycle());
+    //dprintf(2, "%x : store at head of rob, ea %x, data %d, cycle %llu\n",
+    //m->pc, effective_address, store_data, get_curr_cycle());
     sparse_mem & mem = *(machine_state.mem);
     switch(st)
       {
