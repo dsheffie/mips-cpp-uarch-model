@@ -49,7 +49,7 @@ static int num_cpr1_prf = 64;
 static int num_fcr1_prf = 16;
 
 static int num_fpu_ports = 1;
-static int num_alu_ports = 2;
+static int num_alu_ports = 1;
 
 static int num_alu_sched_entries = 16;
 static int num_fpu_sched_entries = 16;
@@ -507,6 +507,12 @@ extern "C" {
 
 
       if(u!=nullptr and exception) {
+	
+	if((retire_amt - retire_bw) < 2) {
+	  gthread_yield();
+	  retire_amt = 0;
+	}
+	
 	bool is_load_exception = u->load_exception;
 	uint32_t exc_pc = u->pc;
 	bool delay_slot_exception = false;
@@ -515,10 +521,12 @@ extern "C" {
 	    /* wait for branch delay instr to allocate */
 	    while(rob.peek_next_pop() == nullptr) {
 	      gthread_yield();
+	      retire_amt = 0;
 	    }
 	    sim_op uu = rob.peek_next_pop();
 	    while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
 	      gthread_yield();
+	      retire_amt = 0;
 	    }
 	    if(uu->branch_exception or uu->load_exception) {
 	      delay_slot_exception = true;
@@ -543,6 +551,7 @@ extern "C" {
 	      }
 	      rob.pop();
 	      rob.pop();
+	      retire_amt+=2;
 	      delete uu;
 	    }
 	  }
@@ -556,6 +565,7 @@ extern "C" {
 	      execMips(s);
 	    }
 	    rob.pop();
+	    retire_amt++;
 	  }
 	}
 	machine_state.nuke = true;
