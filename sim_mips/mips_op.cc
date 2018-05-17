@@ -926,7 +926,6 @@ protected:
   load_type lt;
   int32_t imm = -1;
   uint32_t effective_address = ~0;
-  bool could_alias_store = false;
 public:
   load_op(sim_op op, load_type lt) :
     mips_op(op), i_(op->inst), lt(lt) {
@@ -944,14 +943,10 @@ public:
     return  i_.ii.rt;
   }
   virtual bool allocate(sim_state &machine_state) {
-#if 1
+#if 0
     if(machine_state.store_tbl_freevec.popcount()>1) {
       return false;
     }
-    if(machine_state.store_tbl_freevec.popcount()==1) {
-      could_alias_store = true;
-    }
-    
 #endif
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
@@ -978,11 +973,6 @@ public:
   }
   virtual void execute(sim_state &machine_state) {
     effective_address = machine_state.gpr_prf[m->src0_prf] + imm;
-    if(could_alias_store) {
-      //dprintf(2, "load @ %x to addr %x could conflict with inflight store\n",
-      //m->pc, effective_address);
-      m->load_exception = true;
-    }
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
@@ -1118,8 +1108,8 @@ public:
     retired = true;
     machine_state.icnt++;
 
-    bool load_violation = true;
-#if 0
+    bool load_violation = false;
+#if 1
     for(size_t i = 0; i < machine_state.load_tbl_freevec.size(); i++ ){
       if(machine_state.load_tbl[i]==nullptr) {
 	continue;
@@ -1130,10 +1120,11 @@ public:
 	dprintf(2, "borked out..\n");
 	exit(-1);
       }
-      if(not(mmo->is_complete)) {
-	load_violation = true;
-      }
-      else if((effective_address>>6) == (ld->getEA())) {
+      //if(not(mmo->is_complete)) {
+      //load_violation = true;
+      //}
+      //else
+      if(mmo->is_complete and (effective_address>>6) == (ld->getEA()>>6)) {
 	load_violation = true;
       }
     }
