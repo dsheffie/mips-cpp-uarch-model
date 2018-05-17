@@ -475,7 +475,7 @@ extern "C" {
 	      error = true;
 	    }
 	  }
-	  error |= (machine_state.mem->equal(s->mem)==false);
+	  //error |= (machine_state.mem->equal(s->mem)==false);
 	  
 	  if(error) {
 	    dprintf(2, "u %x, a %x: UARCH and FUNC simulator mismatch after %llu func and %llu uarch insn / %llu arch insn!\n",
@@ -538,7 +538,6 @@ extern "C" {
 	      insn_lifetime_map[uu->retire_cycle - uu->fetch_cycle]++;
 	      //std::cout << std::hex << uu->pc << ":" << std::hex
 	      //<< getAsmString(uu->inst, uu->pc) << "\n";
-
 	      if(s->pc == u->pc) {
 		execMips(s);
 	      }
@@ -553,6 +552,9 @@ extern "C" {
 	    insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
 	    machine_state.last_retire_cycle = get_curr_cycle();
 	    machine_state.last_retire_pc = u->pc;
+	    if(s->pc == u->pc) {
+	      execMips(s);
+	    }
 	    rob.pop();
 	  }
 	}
