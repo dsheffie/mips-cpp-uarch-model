@@ -10,7 +10,7 @@ void start_gthreads();
 void gthread_yield();
 void gthread_terminate();
 
-class gthread : public std::enable_shared_from_this<gthread> {
+class alignas(64) gthread : public std::enable_shared_from_this<gthread> {
 private:
   typedef void (*callback_t)(void*);
   static const size_t stack_sz = 1<<24;
@@ -25,7 +25,7 @@ private:
   std::shared_ptr<gthread> next = nullptr;
   std::shared_ptr<gthread> prev = nullptr;
   uint64_t state[7] = {0};
-  uint8_t stack_alloc[stack_sz] = {0};
+  uint8_t stack_alloc[stack_sz] __attribute__((aligned(64))) = {0};
   int64_t get_id() const {
     return id;
   }
@@ -63,7 +63,7 @@ private:
       return next;
   }
   gthread(callback_t fptr, void *arg) : id(uuidcnt++), fptr(fptr),
-					arg(arg), stack_ptr(stack_alloc + stack_sz - 8) {}
+					arg(arg), stack_ptr(stack_alloc + stack_sz - 16) {}
 public:
   static void make_gthread(callback_t fptr, void *arg) {
     /* delegate ctor to helper class */
