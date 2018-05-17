@@ -51,10 +51,10 @@ static int num_fcr1_prf = 16;
 static int num_fpu_ports = 1;
 static int num_alu_ports = 1;
 
-static int num_alu_sched_entries = 4;
-static int num_fpu_sched_entries = 4;
-static int num_jmp_sched_entries = 4;
-static int num_mem_sched_entries = 4;
+static int num_alu_sched_entries = 16;
+static int num_fpu_sched_entries = 16;
+static int num_jmp_sched_entries = 16;
+static int num_mem_sched_entries = 16;
 static int num_system_sched_entries = 4;
 
 void sim_state::initialize(sparse_mem *mem) {
@@ -137,8 +137,8 @@ extern "C" {
       //dprintf(log_fd, "cycle %llu : icnt %llu\n", curr_cycle, machine_state.icnt);
       curr_cycle++;
       uint64_t delta = curr_cycle - machine_state.last_retire_cycle;
-      if(delta > 16) {
-	dprintf(2, "no retirement in 16 cycles, last pc = %x!\n",
+      if(delta > 128) {
+	dprintf(2, "no retirement in 128 cycles, last pc = %x!\n",
 		machine_state.last_retire_pc);
 	machine_state.terminate_sim = true;
       }
@@ -676,7 +676,7 @@ extern "C" {
 
 int main(int argc, char *argv[]) {
   bool bigEndianMips = true;
-#if 1
+#if 0
   sim_list<sim_op> dbg_list(4);
 
   int64_t idx = 1;

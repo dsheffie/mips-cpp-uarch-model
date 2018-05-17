@@ -47,14 +47,14 @@ private:
     //std::cout << "pool_idx = " << pool_idx << ", cnt = " << cnt << "\n";
     assert(pool_idx >= 0);
     entry * E = pool[pool_idx--];
-    std::cout << "alloc " << E << "\n";
+    //std::cout << "alloc " << E << "\n";
     memset(E, 0, sizeof(entry));
     E->data = v;
     return E;
   }
   void dealloc(entry* e) {
     //std::cout << "pool_idx = " << pool_idx << ", cnt = " << cnt << "\n";
-    std::cout << "dealloc " << e << "\n";
+    //std::cout << "dealloc " << e << "\n";
    
     assert(pool_idx < (num_entries-1));
     pool[++pool_idx] = e;
@@ -97,7 +97,7 @@ public:
     }
   }
   ~sim_list() {
-    std::cout << "num_entries = " << num_entries << "\n" ;
+    //std::cout << "num_entries = " << num_entries << "\n" ;
     for(size_t i = 0; i < num_entries; i++) {
       delete entries[i];
     }
@@ -108,7 +108,7 @@ public:
     return cnt==num_entries;
   }
   T & peek() const {
-    std::cout << "queue list " << this << " : peek (" << cnt << "), entry = " << tail << "\n";
+    //std::cout << "queue list " << this << " : peek (" << cnt << "), entry = " << tail << "\n";
     assert(cnt!=0);
     assert(tail);
     assert(tail->data);

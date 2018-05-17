@@ -129,7 +129,7 @@ struct sim_state {
   int num_alu_rs = -1;
   int num_fpu_rs = -1;
   
-  typedef sim_queue<sim_op> rs_type;
+  typedef sim_list<sim_op> rs_type;
   std::vector<rs_type> alu_rs;
   std::vector<rs_type> fpu_rs;
   rs_type jmp_rs;
