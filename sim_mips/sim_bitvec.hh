@@ -4,22 +4,23 @@
 #include <cstdlib>
 #include <cstring>
 
-class sim_bitvec {
+template <typename E>
+class sim_bitvec_template {
 private:
-  static const size_t bpw = 8*sizeof(uint64_t);
-  static const uint64_t all_ones = ~(0UL);
+  static const size_t bpw = 8*sizeof(E);
+  static const E all_ones = ~static_cast<E>(0);
   uint64_t n_bits = 0, n_words = 0;
-  uint64_t *arr = nullptr;
+  E *arr = nullptr;
 public:
-  sim_bitvec(uint64_t n_bits = 64) : n_bits(n_bits), n_words((n_bits + bpw - 1) / bpw) {
-    arr = new uint64_t[n_words];
-    memset(arr, 0, sizeof(uint64_t)*n_words);
+  sim_bitvec_template(uint64_t n_bits = 64) : n_bits(n_bits), n_words((n_bits + bpw - 1) / bpw) {
+    arr = new E[n_words];
+    memset(arr, 0, sizeof(E)*n_words);
   }
-  ~sim_bitvec() {
+  ~sim_bitvec_template() {
     delete [] arr;
   }
   void clear() {
-    memset(arr, 0, sizeof(uint64_t)*n_words);
+    memset(arr, 0, sizeof(E)*n_words);
   }
   size_t size() const {
     return static_cast<size_t>(n_bits);
@@ -28,8 +29,8 @@ public:
     delete [] arr;
     this->n_bits = n_bits;
     this->n_words = (n_bits + bpw - 1) / bpw;
-    arr = new uint64_t[n_words];
-    memset(arr, 0, sizeof(uint64_t)*n_words);
+    arr = new E[n_words];
+    memset(arr, 0, sizeof(E)*n_words);
   }
   bool get_bit(size_t idx) const {
     uint64_t w_idx = idx / bpw;
@@ -80,5 +81,7 @@ public:
     return -1;    
   }
 };
+
+typedef sim_bitvec_template<uint64_t> sim_bitvec;
 
 #endif

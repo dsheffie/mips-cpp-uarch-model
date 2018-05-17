@@ -78,8 +78,8 @@ void sim_state::initialize(sparse_mem *mem) {
   cpr1_freevec.clear_and_resize(num_cpr1_prf);
   fcr1_freevec.clear_and_resize(num_fcr1_prf);
   
-  load_tbl_freevec.clear_and_resize(64);
-  load_tbl = new mips_meta_op*[64];
+  load_tbl_freevec.clear_and_resize(8);
+  load_tbl = new mips_meta_op*[8];
 
   store_tbl_freevec.clear_and_resize(64);
   store_tbl = new mips_meta_op*[64];
