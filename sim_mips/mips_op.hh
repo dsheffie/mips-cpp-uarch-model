@@ -8,6 +8,7 @@
 #include "sparse_mem.hh"
 #include "sim_queue.hh"
 #include "sim_bitvec.hh"
+#include "sim_list.hh"
 #include "mips_encoding.hh"
 
 uint64_t get_curr_cycle();
@@ -127,11 +128,13 @@ struct sim_state {
   int last_fpu_rs = 0;
   int num_alu_rs = -1;
   int num_fpu_rs = -1;
-  std::vector<sim_queue<sim_op>> alu_rs;
-  std::vector<sim_queue<sim_op>> fpu_rs;
-  sim_queue<sim_op> jmp_rs;
-  sim_queue<sim_op> mem_rs;
-  sim_queue<sim_op> system_rs;
+  
+  typedef sim_queue<sim_op> rs_type;
+  std::vector<rs_type> alu_rs;
+  std::vector<rs_type> fpu_rs;
+  rs_type jmp_rs;
+  rs_type mem_rs;
+  rs_type system_rs;
 
   sparse_mem *mem = nullptr;
   uint64_t icnt = 0, maxicnt = ~(0UL);
