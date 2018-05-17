@@ -145,7 +145,7 @@ public:
   }
   class const_iterator : public std::iterator<std::forward_iterator_tag, sim_list> {
   protected:
-    friend class mylist;
+    friend class sim_list;
     entry *ptr;
     ssize_t dist;
     const_iterator(entry *ptr, ssize_t dist) : ptr(ptr), dist(dist) {};
@@ -173,7 +173,7 @@ public:
   
   class iterator : public const_iterator {
   private:
-    friend class mylist;
+    friend class sim_list;
     iterator(entry *ptr, ssize_t dist) : const_iterator(ptr,dist) {}
   public:
     iterator() : const_iterator() {}
@@ -182,37 +182,26 @@ public:
     }
   };
   const_iterator begin() const {
-    return const_iterator(head,0);
+    return const_iterator(tail,0);
   }
   const_iterator end() const {
     return const_iterator(nullptr,-1);
   }
   iterator begin() {
-    return iterator(head,0);
+    return iterator(tail,0);
   }
   iterator end() {
     return iterator(nullptr,-1);
-  }
-  iterator find(T v) {
-    entry *p = head;
-    ssize_t cnt = 0;
-    while(p) {
-      if(p->getData() == v)
-	return iterator(p,cnt);
-      p = p->next;
-      cnt++;
-    }
-    return end();
   }
   void erase(iterator it) {
     if(it == end())
       return;
     it.ptr->unlink();
     if(it.ptr == head) {
-      head = it.ptr->next;
+      head = it.ptr->prev;
     }
     if(it.ptr == tail) {
-      tail = it.ptr->prev;
+      tail = it.ptr->next;
     }
     dealloc(it.ptr);
     cnt--;

@@ -345,13 +345,15 @@ extern "C" {
     while(not(machine_state.terminate_sim)) {
       int exec_cnt = 0;
       if(not(machine_state.nuke)) {
-	//alu loop
+	//alu loop (OoO scheduler)
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
-	  if(not(alu_rs.at(i).empty()) ) {
-	    if(alu_rs.at(i).peek()->op->ready(machine_state)) {
-	      sim_op u = alu_rs.at(i).pop();
+	  for(auto it = alu_rs.at(i).begin(); it != alu_rs.at(i).end(); it++) {
+	    sim_op u = *it;
+	    if(u->op->ready(machine_state)) {
+	      alu_rs.at(i).erase(it);
 	      u->op->execute(machine_state);
 	      exec_cnt++;
+	      break;
 	    }
 	  }
 	}
@@ -683,9 +685,23 @@ int main(int argc, char *argv[]) {
   while(!dbg_list.full()) {
     dbg_list.push(reinterpret_cast<sim_op>(idx++));
   }
-  for(int i = 0; i < 2; i++) {
-    dbg_list.pop();
+
+  for(auto it = dbg_list.begin(); it != dbg_list.end(); it++) {
+    std::cout << *it << "\n";
   }
+  std::cout << "erasing something:\n";
+  while(!dbg_list.empty()) {
+    auto zit = dbg_list.begin();
+    dbg_list.erase(zit);
+  }
+  
+  for(auto it = dbg_list.begin(); it != dbg_list.end(); it++) {
+    std::cout << *it << "\n";
+  }
+  
+  //for(int i = 0; i < 2; i++) {
+  //dbg_list.pop();
+  //}
   while(!dbg_list.full()) {
     dbg_list.push(reinterpret_cast<sim_op>(idx++));
   }
