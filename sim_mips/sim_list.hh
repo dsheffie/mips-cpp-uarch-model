@@ -41,18 +41,21 @@ private:
   int64_t num_entries,cnt;
   entry *head, *tail;
   int64_t pool_idx;
-  entry **pool;
+  entry **pool, **entries;
   
   entry* alloc(T v) {
-    std::cout << "pool_idx = " << pool_idx << ", cnt = " << cnt << "\n";
+    //std::cout << "pool_idx = " << pool_idx << ", cnt = " << cnt << "\n";
     assert(pool_idx >= 0);
     entry * E = pool[pool_idx--];
+    std::cout << "alloc " << E << "\n";
     memset(E, 0, sizeof(entry));
     E->data = v;
     return E;
   }
-  void free(entry* e) {
-    std::cout << "pool_idx = " << pool_idx << ", cnt = " << cnt << "\n";
+  void dealloc(entry* e) {
+    //std::cout << "pool_idx = " << pool_idx << ", cnt = " << cnt << "\n";
+    std::cout << "dealloc " << e << "\n";
+   
     assert(pool_idx < (num_entries-1));
     pool[++pool_idx] = e;
   }
@@ -61,23 +64,26 @@ public:
   sim_list(size_t num_entries=16) :
     num_entries(num_entries), cnt(0), head(nullptr), tail(nullptr), pool_idx(num_entries-1) {
     pool = new entry*[num_entries];
+    entries = new entry*[num_entries];
     for(size_t i = 0; i < num_entries; i++) {
-      pool[i] = new entry();
+      entries[i] = pool[i] = new entry();
     }
   }
   void resize(size_t num_entries) {
-    for(size_t i = 0; i < num_entries; i++) {
-      delete pool[i];
+    for(size_t i = 0; i < this->num_entries; i++) {
+      delete entries[i];
     }
     delete [] pool;
+    delete [] entries;
     head = nullptr;
     tail = nullptr;
     cnt = 0;
     this->num_entries = num_entries;
     pool_idx = num_entries-1;
     pool = new entry*[num_entries];
+    entries = new entry*[num_entries];
     for(size_t i = 0; i < num_entries; i++) {
-      pool[i] = new entry();
+      entries[i] = pool[i] = new entry();
     }
   }
   void clear() {
@@ -86,14 +92,17 @@ public:
     cnt = 0;
     pool_idx = num_entries-1;
     for(size_t i = 0; i < num_entries; i++) {
+      pool[i] = entries[i];
       pool[i]->data = nullptr;
     }
   }
   ~sim_list() {
+    std::cout << "num_entries = " << num_entries << "\n" ;
     for(size_t i = 0; i < num_entries; i++) {
-      delete pool[i];
+      delete entries[i];
     }
     delete [] pool;
+    delete [] entries;
   }
   bool full() const {
     return cnt==num_entries;
@@ -109,7 +118,7 @@ public:
   void push(T v) {
     assert(v != nullptr);
     entry* e = alloc(v);
-    std::cout << "queue list " << this << " : push (" << cnt << "), entry = " << e << "\n";
+    //std::cout << "queue list " << " : push (" << cnt << "), entry = " << e << "\n";
     cnt++;
     if(head == nullptr && tail == nullptr) {
       head = tail = e;
@@ -118,15 +127,10 @@ public:
       e->set_from_head(head);
       head = e;
     }
-    std::cout << "head = " << head << ",tail = " << tail << "\n";
-    std::cout << "e->next = " << e->next << ",e->prev = " << e->prev << "\n";
-    for(entry *p = tail; p != nullptr; p=p->next) {
-      std::cout << "entry " << p << "\n";
-    }
   }
   /* pop from tail */
   T pop() {
-    std::cout << "queue list " << this << " : pop (" << cnt << "), entry = " << tail << "\n";
+    //std::cout << "queue list  : pop (" << cnt << "), entry = " << tail << "\n";
     assert(tail != nullptr);
     entry *ptr = tail;
     T v = ptr->data;
@@ -135,7 +139,7 @@ public:
     if(tail==nullptr) {
       head = nullptr;
     }
-    free(ptr);
+    dealloc(ptr);
     cnt--;
     return v;
   }
@@ -210,7 +214,7 @@ public:
     if(it.ptr == tail) {
       tail = it.ptr->prev;
     }
-    free(it.ptr);
+    dealloc(it.ptr);
     cnt--;
   }
   ssize_t distance(iterator it) {
