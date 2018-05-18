@@ -49,7 +49,7 @@ static int num_cpr1_prf = 64;
 static int num_fcr1_prf = 16;
 
 static int num_fpu_ports = 1;
-static int num_alu_ports = 1;
+static int num_alu_ports = 2;
 
 static int num_alu_sched_entries = 16;
 static int num_fpu_sched_entries = 16;
@@ -218,7 +218,6 @@ extern "C" {
   void allocate(void *arg) {
     auto &decode_queue = machine_state.decode_queue;
     auto &rob = machine_state.rob;
-    int busted_alloc_cnt = 0;
 
     while(not(machine_state.terminate_sim)) {
       int alloc_amt = 0;
@@ -231,7 +230,6 @@ extern "C" {
 	//machine_state.terminate_sim = true;
 	//}
 	if(u->op == nullptr) {
-	  busted_alloc_cnt++;
 	  break;
 	}
 	if(u->decode_cycle == curr_cycle) {
@@ -289,22 +287,13 @@ extern "C" {
 	}
 	
 	/* just yield... */
-	if(u->op == nullptr) {
-	  dprintf(log_fd, "stuck...\n");
-	  exit(-1);
-	  break;
-	}
+	assert(u->op != nullptr);
+
 	if(not(u->op->allocate(machine_state))) {
-	  busted_alloc_cnt++;
-	  dprintf(log_fd, "allocation failed...\n");
 	  break;
 	}
 
-	dprintf(log_fd, "@ %llu allocation for %x : prf_idx = %lld\n",
-		get_curr_cycle(), u->pc, u->prf_idx);
-
-	busted_alloc_cnt = 0;
-	
+#if 0
 	std::set<int32_t> gpr_prf_debug;
 	for(int i = 0; i < 32; i++) {
 	  //	  dprintf(log_fd, "gpr[%d] maps to prf %d\n", i, machine_state.gpr_rat[i]);
@@ -320,7 +309,7 @@ extern "C" {
 		  gpr_prf_debug.size(), u->pc);
 	  exit(-1);
 	}
-	
+#endif
 	
 	rs_queue->push(u);
 	decode_queue.pop();
@@ -329,8 +318,6 @@ extern "C" {
 	//dprintf(log_fd, "op at pc %x was allocated\n", u->pc);
 	alloc_amt++;
       }
-      dprintf(log_fd,"%d instr allocated, decode queue empty %d, rob full %d\n", 
-	      alloc_amt, decode_queue.empty(), rob.full());
       gthread_yield();
     }
     gthread_terminate();
@@ -390,7 +377,7 @@ extern "C" {
 	  }	
 	}
       }
-      dprintf(log_fd, "%d instructions began exec @ %llu\n", exec_cnt, get_curr_cycle());
+      //dprintf(log_fd, "%d instructions began exec @ %llu\n", exec_cnt, get_curr_cycle());
       gthread_yield();
     }
     gthread_terminate();
@@ -419,7 +406,6 @@ extern "C" {
       bool stop_sim = false;
       bool exception = false;
       while(not(rob.empty()) and (retire_amt < retire_bw)) {
-	
 	u = rob.peek();
 	
 	if(not(u->is_complete)) {
@@ -469,7 +455,7 @@ extern "C" {
 	  }
 	}
 
-	if(s->pc == u->pc) {
+	if(machine_state.use_interp_check and (s->pc == u->pc)) {
 	  bool error = false;
 	  for(int i = 0; i < 32; i++) {
 	    if(s->gpr[i] != machine_state.arch_grf[i]) {
@@ -502,7 +488,6 @@ extern "C" {
 
 	
 	u->op->retire(machine_state);
-
 	
 	machine_state.log_insn(u->inst, u->pc, u->exec_parity);
 	insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
@@ -560,7 +545,7 @@ extern "C" {
 	      insn_lifetime_map[uu->retire_cycle - uu->fetch_cycle]++;
 	      //std::cout << std::hex << uu->pc << ":" << std::hex
 	      //<< getAsmString(uu->inst, uu->pc) << "\n";
-	      if(s->pc == u->pc) {
+	      if(machine_state.use_interp_check and (s->pc == u->pc)) {
 		execMips(s);
 	      }
 	      rob.pop();
@@ -575,7 +560,7 @@ extern "C" {
 	    insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
 	    machine_state.last_retire_cycle = get_curr_cycle();
 	    machine_state.last_retire_pc = u->pc;
-	    if(s->pc == u->pc) {
+	    if(machine_state.use_interp_check and (s->pc == u->pc)) {
 	      execMips(s);
 	    }
 	    rob.pop();
@@ -784,7 +769,7 @@ int main(int argc, char *argv[]) {
   double now = timestamp();
   start_gthreads();
   now = timestamp() - now;
-
+#if 0
   uint32_t parity = 0;
   for(int i = 0; i < 32; i++) {
     parity ^= machine_state.arch_grf[i];
@@ -800,6 +785,7 @@ int main(int argc, char *argv[]) {
     std::cout << "reg " << getGPRName(i) << " writer pc : " 
 	      << std::hex << machine_state.arch_grf_last_pc[i] << std::dec << "\n"; 
   }
+#endif
   if(machine_state.log_execution) {
     std::ofstream os("log.txt", std::ios::out);
     for(auto &p : machine_state.retire_log) {

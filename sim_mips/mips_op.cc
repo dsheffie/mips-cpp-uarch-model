@@ -58,7 +58,6 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     if(m->prev_prf_idx != -1) {
       machine_state.cpr0_rat[get_dest()] = m->prev_prf_idx;
     }
@@ -185,7 +184,6 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     if(m->prev_prf_idx != -1) {
       machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     }
@@ -554,12 +552,10 @@ public:
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
-      dprintf(log_fd, "::%x arch reg %d -> prf %lld\n", m->pc, get_dest(), m->prf_idx);
       machine_state.gpr_valid.set_bit(m->prf_idx);
     }
   }
   virtual bool retire(sim_state &machine_state) {
-    dprintf(log_fd, "::%x %s %d\n", m->pc, __PRETTY_FUNCTION__, m->is_complete);
     if(m->is_complete == false) {
       exit(-1);
     }
@@ -577,7 +573,6 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     if(get_dest() > 0) {
       if(m->prev_prf_idx != -1) {
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
@@ -649,7 +644,6 @@ public:
       m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
       int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
       if(prf_id == -1) {
-	dprintf(log_fd, "%lu gprs in use..\n", machine_state.gpr_freevec.popcount());
 	return false;
       }
       machine_state.gpr_rat_sanity_check(prf_id);
@@ -786,27 +780,19 @@ public:
     return i_.ii.rt;
   }
   virtual bool allocate(sim_state &machine_state) {
-    dprintf(log_fd, "branch allocated\n");
     if(get_src0() != -1) {
       m->src0_prf = machine_state.gpr_rat[get_src0()];
-      dprintf(log_fd, "branch src0 arch reg %d, prf %d\n",
-	      get_src0(), m->src0_prf);
     }
     if(get_src1() != -1) {
       m->src1_prf = machine_state.gpr_rat[get_src1()];
-      dprintf(log_fd, "branch src1 arch reg %d, prf %d\n",
-	      get_src1(), m->src1_prf);
     }
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
-      dprintf(log_fd, "branch %x : src0 (prf %d) not ready, alloc'd @ %llu\n",
-	      m->pc, m->src0_prf,m->alloc_cycle );
       return false;
     }
     if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
-      dprintf(log_fd, "branch %x : src1 not ready\n", m->pc);
       return false;
     }
     return true;
@@ -966,7 +952,6 @@ public:
   }
   virtual bool ready(sim_state &machine_state) const {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
-      dprintf(log_fd, "load @ %x not ready\n", m->pc);
       return false;
     }
     return true;
@@ -1026,7 +1011,6 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    //dprintf(2, "%s\n", __PRETTY_FUNCTION__);
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
@@ -1087,8 +1071,6 @@ public:
     }
   }
   virtual bool retire(sim_state &machine_state) {
-    //dprintf(2, "%x : store at head of rob, ea %x, data %d, cycle %llu\n",
-    //m->pc, effective_address, store_data, get_curr_cycle());
     sparse_mem & mem = *(machine_state.mem);
     switch(st)
       {

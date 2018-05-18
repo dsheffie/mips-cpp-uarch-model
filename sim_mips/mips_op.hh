@@ -144,6 +144,7 @@ struct sim_state {
   uint64_t nukes = 0, branch_nukes = 0, load_nukes = 0;
   
   bool log_execution = false;
+  bool use_interp_check = false;
   struct retire_entry {
     uint32_t inst;
     uint32_t pc;
