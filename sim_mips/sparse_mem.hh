@@ -5,6 +5,10 @@
 #include <cassert>
 #include <cstring>
 #include <cstdint>
+#include <iostream>
+
+#include "sim_bitvec.hh"
+
 #include <unistd.h>
 
 class sparse_mem {
@@ -13,6 +17,7 @@ public:
 private:
   size_t npages = 0;
   uint8_t **mem = nullptr;
+  sim_bitvec_template<uint64_t> present_bitvec;
   bool is_zero(uint64_t p) const {
     for(uint64_t i = 0; i < pgsize; i++) {
       if(mem[p][i])
@@ -21,17 +26,20 @@ private:
     return true;
   }
 public:
-  sparse_mem(uint64_t nbytes) {
+  sparse_mem(uint64_t nbytes = 1UL<<32) {
     npages = (nbytes+pgsize-1) / pgsize;
+    present_bitvec.clear_and_resize(npages);
     mem = new uint8_t*[npages];
     memset(mem, 0, sizeof(uint8_t*)*npages);
   }
   sparse_mem(const sparse_mem &other) {
     npages = other.npages;
+    present_bitvec.clear_and_resize(npages);
     mem = new uint8_t*[npages];
     memset(mem, 0, sizeof(uint8_t*)*npages);
     for(size_t i = 0; i < npages; i++) {
       if(other.mem[i]) {
+	present_bitvec.set_bit(i);
 	int rc = posix_memalign(reinterpret_cast<void**>(&mem[i]), 4096, pgsize);
 	assert(rc==0);
 	memcpy(mem[i], other.mem[i], pgsize);
@@ -50,31 +58,21 @@ public:
     if(other.npages != npages) {
       return false;
     }
-    for(size_t p = 0; p < npages; p++) {
-      if((mem[p]!=nullptr) and (other.mem[p]==nullptr)) {
-	bool all_zero = true;
-	for(size_t i = 0; i < pgsize; i++) {
-	  if(mem[p][i] != 0) {
-	    all_zero = false;
-	    break;
-	  }
-	}
-	if(all_zero)
-	  continue;
-	else
-	  return false;
+
+    int64_t p0 = other.present_bitvec.find_first_set(0);
+    int64_t p1 = present_bitvec.find_first_set(0);
+    while(p0!=-1 and p1 !=-1) {
+      if(p0 != p1) {
+	std::cerr << "p0 = " << p0 << "\n";
+	std::cerr << "p1 = " << p1 << "\n";
+	exit(-1);
       }
-      else if(mem[p]==nullptr and other.mem[p]!=nullptr) {
+      int d = memcmp(mem[p1], other.mem[p0], pgsize);
+      if(d != 0) {
 	return false;
       }
-      else if(mem[p]==nullptr and other.mem[p]==nullptr) {
-	continue;
-      }
-      for(size_t i = 0; i < pgsize; i++) {
-	if(memcmp(&mem[p][i], &other.mem[p][i], pgsize)!=0) {
-	  return false;
-	}
-      }
+      p0 = other.present_bitvec.find_first_set(p0);
+      p1 = present_bitvec.find_first_set(p1);
     }
     return true;
   }
@@ -82,6 +80,7 @@ public:
     uint64_t paddr = addr / pgsize;
     uint64_t baddr = addr % pgsize;
     if(mem[paddr]==nullptr) {
+      present_bitvec.set_bit(paddr);
       int rc = posix_memalign(reinterpret_cast<void**>(&mem[paddr]), 4096, pgsize);
       assert(rc==0);
       memset(mem[paddr],0,pgsize);
@@ -92,6 +91,7 @@ public:
     uint64_t paddr = addr / pgsize;
     uint64_t baddr = addr % pgsize;
     if(mem[paddr]==nullptr) {
+      present_bitvec.set_bit(paddr);
       int rc = posix_memalign(reinterpret_cast<void**>(&mem[paddr]), 4096, pgsize);
       assert(rc==0);
       memset(mem[paddr],0,pgsize);
@@ -101,6 +101,7 @@ public:
   void prefault(uint64_t addr) {
     uint64_t paddr = addr / pgsize;
     if(mem[paddr]==nullptr) {
+      present_bitvec.set_bit(paddr);
       int rc = posix_memalign(reinterpret_cast<void**>(&mem[paddr]), 4096, pgsize);
       assert(rc==0);
       memset(mem[paddr],0,pgsize);

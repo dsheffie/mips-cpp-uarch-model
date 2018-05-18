@@ -484,11 +484,11 @@ extern "C" {
 	      error = true;
 	    }
 	  }
-	  if(u->is_store and false) {
+	  if(u->is_store) {
 	    error |= (machine_state.mem->equal(s->mem)==false);
 	  }
 	  if(error) {
-	    std::cerr << "bad insn : " << std::hex << u->pc << ":" << std::hex
+	    std::cerr << "bad insn : " << std::hex << u->pc << ":" << std::dec
 		      << getAsmString(u->inst, u->pc)
 		      << " after " << machine_state.icnt << " uarch isns and "
 		      << s->icnt << " arch isns\n";
@@ -686,39 +686,6 @@ extern "C" {
 
 int main(int argc, char *argv[]) {
   bool bigEndianMips = true;
-#if 0
-  sim_list<sim_op> dbg_list(4);
-
-  int64_t idx = 1;
-  while(!dbg_list.full()) {
-    dbg_list.push(reinterpret_cast<sim_op>(idx++));
-  }
-
-  for(auto it = dbg_list.begin(); it != dbg_list.end(); it++) {
-    std::cout << *it << "\n";
-  }
-  std::cout << "erasing something:\n";
-  while(!dbg_list.empty()) {
-    auto zit = dbg_list.begin();
-    dbg_list.erase(zit);
-  }
-  
-  for(auto it = dbg_list.begin(); it != dbg_list.end(); it++) {
-    std::cout << *it << "\n";
-  }
-  
-  //for(int i = 0; i < 2; i++) {
-  //dbg_list.pop();
-  //}
-  while(!dbg_list.full()) {
-    dbg_list.push(reinterpret_cast<sim_op>(idx++));
-  }
-  return 0;
-#endif
-  
-#ifdef MIPSEL
-  bigEndianMips = false;
-#endif  
   fprintf(stderr, "%s%s UARCH SIM: built %s %s%s\n",
 	  KGRN, bigEndianMips ? "MIPS" : "MIPSEL" ,
 	  __DATE__, __TIME__, KNRM);
@@ -767,6 +734,9 @@ int main(int argc, char *argv[]) {
   mkMonitorVectors(s);
 
   sparse_mem *u_arch_mem = new sparse_mem(*sm);
+
+  assert(u_arch_mem->equal(*sm));
+  
   machine_state.initialize(u_arch_mem);
   machine_state.maxicnt = maxicnt;
   machine_state.use_interp_check = true;
