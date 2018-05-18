@@ -39,8 +39,7 @@ public:
   }
   virtual void execute(sim_state &machine_state) {
     if(not(ready(machine_state))) {
-      dprintf(log_fd, "mistakes were made @ %d\n", __LINE__);
-      exit(-1);
+      die();
     }
     machine_state.cpr0_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf];
     m->complete_cycle = get_curr_cycle() + 1;
@@ -158,8 +157,7 @@ public:
   }
   virtual void execute(sim_state &machine_state) {
     if(not(ready(machine_state))) {
-      dprintf(log_fd, "mistakes were made @ %d\n", __LINE__);
-      exit(-1);
+      die();
     }
     machine_state.gpr_prf[m->prf_idx] = machine_state.cpr1_prf[m->src0_prf];
     m->complete_cycle = get_curr_cycle() + 1;
@@ -422,7 +420,7 @@ public:
 	  break;
 	default:
 	  dprintf(2, "rtype wtf ((pc = %x)\n", m->pc);
-	  exit(-1);
+	  die();
 	}
     }
     m->complete_cycle = get_curr_cycle() + 1;
@@ -449,13 +447,12 @@ public:
     machine_state.icnt++;
     if(take_trap) {
       dprintf(log_fd, "need to trap...\n");
-      exit(-1);
+      die();
     }
     m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    dprintf(log_fd, "%s", __PRETTY_FUNCTION__);
     if(get_dest() > 0) {
       if(m->prev_prf_idx != -1) {
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
@@ -534,7 +531,7 @@ public:
 	break;
       default:
 	dprintf(log_fd, "implement me %x\n", m->pc);
-	exit(-1);
+	die();
       }
     m->complete_cycle = get_curr_cycle() + 1;
   }
@@ -547,7 +544,7 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     if(m->is_complete == false) {
-      exit(-1);
+      die();
     }
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
@@ -834,7 +831,7 @@ public:
 	break;
       default:
 	dprintf(2, "wtf @ %x\n", m->pc);
-	exit(-1);
+	die();
       }
 
     if(take_br) {
@@ -968,7 +965,7 @@ public:
 	default:
 	  std::cout << std::hex << m->pc << std::dec << ":" <<
 	    getAsmString(m->pc, m->inst) << "\n";
-	  exit(-1);
+	  die();
 	}
       //dprintf(2, "%x : early load ea %x, cycle %llu\n",
       //m->pc, effective_address, get_curr_cycle());
@@ -979,7 +976,6 @@ public:
     if(m->load_exception) {
       dprintf(2, "ATTEMPTING TO RETIRE LOAD EXCEPTION @ %x!!\n", m->pc);
       asm("int3");
-      exit(-1);
     }
 
     machine_state.load_tbl[m->load_tbl_idx] = nullptr;
@@ -1071,7 +1067,7 @@ public:
 	*((int32_t*)(mem + effective_address)) = accessBigEndian(store_data);
 	break;
       default:
-	exit(-1);
+	die();
       }
     retired = true;
     machine_state.icnt++;
@@ -1086,7 +1082,7 @@ public:
       auto ld = reinterpret_cast<mips_load*>(mmo->op);
       if(ld == nullptr) {
 	dprintf(2, "borked out..\n");
-	exit(-1);
+	die();
       }
       //if(not(mmo->is_complete)) {
       //load_violation = true;
@@ -1182,7 +1178,7 @@ public:
 	}
 	default:
 	  std::cerr << "unimplemented.." << __PRETTY_FUNCTION__ << "\n";
-	  exit(-1);
+	  die();
 	}
     }
   }
@@ -1306,7 +1302,7 @@ public:
       }
 	break;
       default:
-	exit(-1);
+	die();
       }
 
     bool load_violation = false;
@@ -1318,7 +1314,7 @@ public:
       auto ld = reinterpret_cast<mips_load*>(mmo->op);
       if(ld == nullptr) {
 	dprintf(2, "borked out..\n");
-	exit(-1);
+	die();
       }
       if(mmo->is_complete and (effective_address>>6) == (ld->getEA()>>6)) {
 	load_violation = true;
@@ -1526,13 +1522,13 @@ public:
     m->lo_prf_idx = machine_state.gpr_freevec.find_first_unset();
     if(m->lo_prf_idx==-1) {
       dprintf(log_fd,"terminal allocation error @ %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
-      exit(-1);
+      die();
     }
     machine_state.gpr_freevec.set_bit(m->lo_prf_idx);
     m->hi_prf_idx = machine_state.gpr_freevec.find_first_unset();
     if(m->hi_prf_idx==-1) {
       dprintf(log_fd,"terminal allocation error @ %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
-      exit(-1);
+      die();
     }
     machine_state.gpr_freevec.set_bit(m->hi_prf_idx);
 
@@ -1603,7 +1599,7 @@ public:
 	
       default:
 	dprintf(2, "implement me @ %s\n", __PRETTY_FUNCTION__);
-	exit(-1);
+	die();
       }
     
     m->complete_cycle = get_curr_cycle() + latency;
@@ -1900,8 +1896,9 @@ public:
 	break;
 
       default:
-	dprintf(log_fd, "execute monitor op with reason %u\n", reason);
-	exit(-1);
+	std::cerr << "execute monitor op with reason "<< reason << "\n";
+	die();
+
       }
     /* not valid until after this instruction retires */
     machine_state.gpr_valid.set_bit(m->prf_idx);
@@ -1962,7 +1959,7 @@ static mips_op* decode_itype_insn(sim_op m_op) {
 	  return new branch_op(m_op,branch_op::branch_type::bgezl);
 	default:
 	  dprintf(log_fd, "unknown branch type @ %x\n", m_op->pc);
-	  exit(-1);
+	  die();
 	}
     case 0x04: /* beq */
       return new branch_op(m_op,branch_op::branch_type::beq);
@@ -2061,7 +2058,7 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
 #if 0
     case 0x0C: /* syscall */
       printf("syscall()\n");
-      exit(-1);
+      die();
       break;
 #endif
     case 0x0D: /* break */
@@ -2219,7 +2216,7 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
 	  //break;
 	default:
 	  printf("unhandled coproc1 instruction (%x) @ %08x\n", m_op->inst, m_op->pc);
-	  exit(-1);
+	  die();
 	  break;
 	}
     }
@@ -2322,18 +2319,18 @@ mips_meta_op::~mips_meta_op() {
 
 bool mips_op::allocate(sim_state &machine_state) {
   dprintf(log_fd, "allocate must be implemented\n");
-  exit(-1);
+  die();
   return false;
 }
 
 void mips_op::execute(sim_state &machine_state) {
   dprintf(log_fd, "execute must be implemented, pc %x\n", m->pc);
-  exit(-1);
+  die();
 }
 
 void mips_op::complete(sim_state &machine_state) {
   dprintf(log_fd, "complete must be implemented, pc %x\n", m->pc);
-  exit(-1);
+  die();
 }
 
 bool mips_op::retire(sim_state &machine_state) {
@@ -2348,5 +2345,5 @@ bool mips_op::ready(sim_state &machine_state) const {
 
 void mips_op::undo(sim_state &machine_state) {
   dprintf(log_fd, "implement %x for undo\n", m->pc);
-  exit(-1);
+  die();
 }
