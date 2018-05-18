@@ -80,23 +80,33 @@ public:
     }
     return -1;    
   }
-  int64_t find_first_set(uint64_t idx = 0) const {
+  int64_t find_first_set() const {
+    for(uint64_t w = 0; w < n_words; w++) {
+      if(arr[w] == 0)
+	continue;
+      uint64_t idx = bpw*w + (__builtin_ffsl(arr[w])-1);
+      return (idx < n_bits) ? idx : -1;
+    }
+    return -1;
+  }
+  
+  int64_t find_next_set(int64_t idx) const {
+    idx++;
     uint64_t w_idx = idx / bpw;
     uint64_t b_idx = idx % bpw;
     //check current word
-    if(arr[w_idx] != 0) {
-      uint32_t fs = __builtin_ffsl(arr[w_idx])-1;
-      if(fs > b_idx) {
-	return w_idx*bpw + fs;
-      }
+    E ww =  (arr[w_idx] >> b_idx) << b_idx;
+    if(ww != 0) {
+      return w_idx*bpw + (__builtin_ffsl(ww)-1);
     }
     for(uint64_t w = w_idx+1; w < n_words; w++) {
       if(arr[w] == 0)
 	continue;
       else {
 	uint64_t idx = bpw*w + (__builtin_ffsl(arr[w])-1);
-	if(idx < n_bits)
+	if(idx < n_bits) {
 	  return idx;
+	}
 	break;
       }
     }

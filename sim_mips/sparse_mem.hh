@@ -58,10 +58,26 @@ public:
     if(other.npages != npages) {
       return false;
     }
+    for(size_t i = 0; i < npages; i++) {
+      if(mem[i]) {
+	std::cerr << "first page is @ " << i << "\n";
+	break;
+      }
+    }
 
-    int64_t p0 = other.present_bitvec.find_first_set(0);
-    int64_t p1 = present_bitvec.find_first_set(0);
+    for(size_t i = 655393; i < npages; i++) {
+      if(mem[i]) {
+	std::cerr << "second page is @ " << i << "\n";
+	break;
+      }
+    }
+    
+    int64_t p0 = other.present_bitvec.find_first_set();
+    int64_t p1 = present_bitvec.find_first_set();
+      
     while(p0!=-1 and p1 !=-1) {
+      assert(other.mem[p0]);
+      assert(mem[p1]);
       if(p0 != p1) {
 	std::cerr << "p0 = " << p0 << "\n";
 	std::cerr << "p1 = " << p1 << "\n";
@@ -71,8 +87,8 @@ public:
       if(d != 0) {
 	return false;
       }
-      p0 = other.present_bitvec.find_first_set(p0);
-      p1 = present_bitvec.find_first_set(p1);
+      p0 = other.present_bitvec.find_next_set(p0);
+      p1 = present_bitvec.find_next_set(p1);
     }
     return true;
   }
