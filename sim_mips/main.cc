@@ -143,8 +143,8 @@ extern "C" {
 	machine_state.terminate_sim = true;
       }
       if(curr_cycle % (1UL<<18) == 0) {
-	dprintf(2, "heartbeat : %llu cycles, %ld instr retired!\n",
-		curr_cycle, machine_state.icnt);
+	std::cout << "heartbeat : " << curr_cycle << " cycles, "
+		  << machine_state.icnt << " insns retired\n";
       }
       //if(curr_cycle >= 256) {
       //machine_state.terminate_sim = true;
@@ -224,11 +224,6 @@ extern "C" {
       while(not(decode_queue.empty()) and not(rob.full()) and
 	    (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
-	//if(busted_alloc_cnt == 64) {
-	//dprintf(/* log_fd*/ 2, "@ %llu broken decode : (pc %x, insn %x) breaks allocation\n", 
-	//get_curr_cycle(), u->pc, u->inst);
-	//machine_state.terminate_sim = true;
-	//}
 	if(u->op == nullptr) {
 	  std::cout << "decode failed : " << std::hex << u->pc << ":" << std::dec
 		    << getAsmString(u->inst, u->pc) << "\n";
@@ -247,7 +242,6 @@ extern "C" {
 	    dprintf(log_fd, "want unknown for %x \n", u->pc);
 	    break;
 	  case mips_op_type::alu:
-	    //dprintf(log_fd, "want alu for %x \n", u->pc);
 	    for(int i = 0; i < machine_state.num_alu_rs; i++) {
 	      int p = (i + machine_state.last_alu_rs) % machine_state.num_alu_rs;
 	      if(not(machine_state.alu_rs.at(p).full())) {
@@ -271,14 +265,12 @@ extern "C" {
 
 	    break;
 	  case mips_op_type::jmp:
-	    //dprintf(log_fd, "want jmp for %x \n", u->pc);
 	    if(not(machine_state.jmp_rs.full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.jmp_rs);
 	    }
 	    break;
 	  case mips_op_type::mem:
-	    //dprintf(log_fd, "want mem rs for %x \n", u->pc);
 	    if(not(machine_state.mem_rs.full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.mem_rs);
@@ -293,7 +285,6 @@ extern "C" {
 	  }
 	
 	if(not(rs_available)) {
-	  //dprintf(log_fd, "no rs for alloc @ %x this cycle \n", u->pc);
 	  break;
 	}
 	
@@ -490,7 +481,7 @@ extern "C" {
 	      error = true;
 	    }
 	  }
-	  if(u->is_fp_store) {
+	  if(u->is_store and false) {
 	    error |= (machine_state.mem->equal(s->mem)==false);
 	  }
 	  if(error) {

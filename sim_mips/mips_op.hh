@@ -159,14 +159,6 @@ struct sim_state {
     }
   }
   
-  bool gpr_rat_sanity_check(int64_t prf_idx) const {
-    for(int i = 0; i < 32; i++) {
-      if(gpr_rat[i] == prf_idx) {
-	return true;
-      }
-    }
-    return false;
-  }
   
   void initialize_rat_mappings() {
     for(int i = 0; i < 32; i++) {

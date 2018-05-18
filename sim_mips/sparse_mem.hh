@@ -2,6 +2,7 @@
 #define __sparse_mem_hh__
 
 #include <cstdlib>
+#include <cassert>
 #include <cstring>
 #include <cstdint>
 #include <unistd.h>
@@ -31,7 +32,8 @@ public:
     memset(mem, 0, sizeof(uint8_t*)*npages);
     for(size_t i = 0; i < npages; i++) {
       if(other.mem[i]) {
-	mem[i] = new uint8_t[pgsize];
+	int rc = posix_memalign(reinterpret_cast<void**>(&mem[i]), 4096, pgsize);
+	assert(rc==0);
 	memcpy(mem[i], other.mem[i], pgsize);
       }
     }
@@ -39,7 +41,7 @@ public:
   ~sparse_mem() {
     for(size_t i = 0; i < npages; i++) {
       if(mem[i]) {
-	delete [] mem[i];
+	free(mem[i]);
       }
     }
     delete [] mem;
@@ -80,7 +82,8 @@ public:
     uint64_t paddr = addr / pgsize;
     uint64_t baddr = addr % pgsize;
     if(mem[paddr]==nullptr) {
-      mem[paddr] = new uint8_t[pgsize];
+      int rc = posix_memalign(reinterpret_cast<void**>(&mem[paddr]), 4096, pgsize);
+      assert(rc==0);
       memset(mem[paddr],0,pgsize);
     }
     return mem[paddr][baddr];
@@ -89,7 +92,8 @@ public:
     uint64_t paddr = addr / pgsize;
     uint64_t baddr = addr % pgsize;
     if(mem[paddr]==nullptr) {
-      mem[paddr] = new uint8_t[pgsize];
+      int rc = posix_memalign(reinterpret_cast<void**>(&mem[paddr]), 4096, pgsize);
+      assert(rc==0);
       memset(mem[paddr],0,pgsize);
     }
     return &mem[paddr][baddr];
@@ -97,7 +101,8 @@ public:
   void prefault(uint64_t addr) {
     uint64_t paddr = addr / pgsize;
     if(mem[paddr]==nullptr) {
-      mem[paddr] = new uint8_t[pgsize];
+      int rc = posix_memalign(reinterpret_cast<void**>(&mem[paddr]), 4096, pgsize);
+      assert(rc==0);
       memset(mem[paddr],0,pgsize);
     }
   }
