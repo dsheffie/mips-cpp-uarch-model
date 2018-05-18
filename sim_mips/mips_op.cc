@@ -1073,7 +1073,6 @@ public:
     machine_state.icnt++;
 
     bool load_violation = false;
-#if 1
     for(size_t i = 0; i < machine_state.load_tbl_freevec.size(); i++ ){
       if(machine_state.load_tbl[i]==nullptr) {
 	continue;
@@ -1081,18 +1080,23 @@ public:
       mips_meta_op *mmo = machine_state.load_tbl[i];
       auto ld = reinterpret_cast<mips_load*>(mmo->op);
       if(ld == nullptr) {
-	dprintf(2, "borked out..\n");
 	die();
       }
-      //if(not(mmo->is_complete)) {
-      //load_violation = true;
-      //}
-      //else
       if(mmo->is_complete and (effective_address>>6) == (ld->getEA()>>6)) {
 	load_violation = true;
       }
+
+      if(m->pc == 0x2c6c0 and mmo->pc == 0x2c6c4) {
+	std::cout << "get_curr_cycle = " << get_curr_cycle() << "\n";
+	std::cout << "load complete cycle = " << mmo->complete_cycle << "\n";
+	std::cout << "load complete = " << mmo->is_complete << "\n";
+	std::cout << "store address = " << std::hex << effective_address << std::dec << "\n";
+	std::cout << "load address = " << std::hex << ld->getEA() << std::dec << "\n";
+	std::cout << "store address = " << std::hex << (effective_address>>6) << std::dec << "\n";
+	std::cout << "load address = " << std::hex << (ld->getEA()>>6) << std::dec << "\n";
+	std::cout << "load violation = " << load_violation << "\n";
+      }
     }
-#endif
     for(size_t i = 0; load_violation and (i < machine_state.load_tbl_freevec.size()); i++ ){
       if(machine_state.load_tbl[i]!=nullptr) {
 	machine_state.load_tbl[i]->load_exception = true;
