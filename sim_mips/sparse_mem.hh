@@ -46,7 +46,6 @@ public:
   }
   bool equal(const sparse_mem &other) const {
     if(other.npages != npages) {
-      dprintf(2, "npages (%zu) differs\n",npages);
       return false;
     }
     for(size_t p = 0; p < npages; p++) {
@@ -71,8 +70,6 @@ public:
       }
       for(size_t i = 0; i < pgsize; i++) {
 	if(mem[p][i] != other.mem[p][i]) {
-	  dprintf(2,"address %x : %x vs %x\n",
-		  p*pgsize+i, mem[p][i], other.mem[p][i]);
 	  return false;
 	}
       }
