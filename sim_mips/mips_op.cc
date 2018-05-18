@@ -1040,6 +1040,7 @@ public:
     this->op_class = mips_op_type::mem;
     int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
     imm = static_cast<int32_t>(himm);
+    op->is_store = true;
   }
   virtual int get_src0() const {
     return i_.ii.rt;
@@ -1185,30 +1186,27 @@ public:
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
+      sparse_mem & mem = *(machine_state.mem);
+      union loader {
+	uint32_t u32[2];
+	uint64_t u64;
+	loader (uint64_t u64) : u64(u64) {}
+      };
+      switch(lt)
+	{
+	case load_type::ldc1: {
+	  loader ld(accessBigEndian(*((uint64_t*)(mem + effective_address))));
+	  machine_state.gpr_prf[m->prf_idx] = ld.u32[0];
+	  machine_state.gpr_prf[m->aux_prf_idx] = ld.u32[1];
+	  break;
+	}
+	default:
+	  std::cerr << "unimplemented.." << __PRETTY_FUNCTION__ << "\n";
+	  exit(-1);
+	}
     }
   }
   virtual bool retire(sim_state &machine_state) {
-    sparse_mem & mem = *(machine_state.mem);
-    union loader {
-      uint32_t u32[2];
-      uint64_t u64;
-      loader (uint64_t u64) : u64(u64) {}
-    };
-    static_assert(sizeof(loader)==8, "union-busted");
-    switch(lt)
-      {
-      case load_type::ldc1: {
-	loader u(accessBigEndian(*((uint64_t*)(mem + effective_address))));
-	*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = u.u32[0];
-	*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->aux_prf_idx]) = u.u32[1];
-	break;
-
-      }
-      default:
-	dprintf(2, "implement me %s\n", __PRETTY_FUNCTION__);
-	exit(-1);
-      }
-
     machine_state.load_tbl[m->load_tbl_idx] = nullptr;
     machine_state.load_tbl_freevec.clear_bit(m->load_tbl_idx);
     machine_state.cpr1_valid.set_bit(m->prf_idx);
@@ -1258,6 +1256,8 @@ public:
     this->op_class = mips_op_type::mem;
     int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
     imm = static_cast<int32_t>(himm);
+    op->is_store = true;
+    op->is_fp_store = true;
   }
   virtual int get_src0() const {
     return (m->inst >> 16) & 31; /* cpr1 reg */
@@ -1304,15 +1304,26 @@ public:
     }
   }
   virtual bool retire(sim_state &machine_state) {
+    union loader {
+      uint32_t u32[2];
+      uint64_t u64;
+      loader (uint64_t u64) : u64(u64) {}
+      loader (uint32_t u0, uint32_t u1) {
+	u32[0] = u0;
+	u32[1] = u1;
+      }
+    };
+      
     sparse_mem & mem = *(machine_state.mem);
     switch(st)
       {
       case store_type::swc1:
 	*((uint32_t*)(mem + effective_address)) = accessBigEndian(store_data[0]);
 	break;
-      case store_type::sdc1:
-	*((uint32_t*)(mem + effective_address)) = accessBigEndian(store_data[0]);
-	*((uint32_t*)(mem + effective_address + 4)) = accessBigEndian(store_data[1]);
+      case store_type::sdc1: {
+	loader ld(store_data[0], store_data[1]);
+	*reinterpret_cast<uint64_t*>(mem + effective_address) = ld.u64;
+      }
 	break;
       default:
 	exit(-1);

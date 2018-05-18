@@ -490,11 +490,14 @@ extern "C" {
 	      error = true;
 	    }
 	  }
-	  //error |= (machine_state.mem->equal(s->mem)==false);
-	  
+	  if(u->is_fp_store) {
+	    error |= (machine_state.mem->equal(s->mem)==false);
+	  }
 	  if(error) {
 	    dprintf(2, "u %x, a %x: UARCH and FUNC simulator mismatch after %llu func and %llu uarch insn / %llu arch insn!\n",
 		    u->pc, s->pc, s->icnt, machine_state.icnt, s->icnt);
+	    std::cerr << "bad insn : " << std::hex << u->pc << ":" << std::hex
+		      << getAsmString(u->inst, u->pc) << "\n";
 	    machine_state.terminate_sim = true;
 	    break;
 	  }
