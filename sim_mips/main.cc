@@ -230,6 +230,8 @@ extern "C" {
 	//machine_state.terminate_sim = true;
 	//}
 	if(u->op == nullptr) {
+	  std::cout << "decode failed : " << std::hex << u->pc << ":" << std::dec
+		    << getAsmString(u->inst, u->pc) << "\n";
 	  break;
 	}
 	if(u->decode_cycle == curr_cycle) {
@@ -257,7 +259,16 @@ extern "C" {
 	    }
 	    break;
 	  case mips_op_type::fp:
-	    dprintf(log_fd, "want fp for %x \n", u->pc);
+	    for(int i = 0; i < machine_state.num_fpu_rs; i++) {
+	      int p = (i + machine_state.last_alu_rs) % machine_state.num_fpu_rs;
+	      if(not(machine_state.fpu_rs.at(p).full())) {
+		machine_state.last_fpu_rs = p;
+		rs_available = true;
+		rs_queue = &(machine_state.fpu_rs.at(p));
+		break;
+	      }
+	    }
+
 	    break;
 	  case mips_op_type::jmp:
 	    //dprintf(log_fd, "want jmp for %x \n", u->pc);
@@ -360,15 +371,19 @@ extern "C" {
 	    break;
 	  }
 	}
-#if 0
-	if(not(mem_rs.empty())) {
-	  if(mem_rs.peek()->op->ready(machine_state)) {
-	    sim_op u = mem_rs.pop();
-	    u->op->execute(machine_state);
-	    exec_cnt++;
+	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
+	  for(auto it = fpu_rs.at(i).begin(); it != fpu_rs.at(i).end(); it++) {
+	    sim_op u = *it;
+	    if(u->op->ready(machine_state)) {
+	      fpu_rs.at(i).erase(it);
+	      u->op->execute(machine_state);
+	      exec_cnt++;
+	      break;
+	    }
 	  }
 	}
-#endif
+
+	
 	if(not(system_rs.empty())) {
 	  if(system_rs.peek()->op->ready(machine_state)) {
 	    sim_op u = system_rs.pop();
@@ -757,7 +772,8 @@ int main(int argc, char *argv[]) {
   sparse_mem *u_arch_mem = new sparse_mem(*sm);
   machine_state.initialize(u_arch_mem);
   machine_state.maxicnt = maxicnt;
-
+  machine_state.use_interp_check = true;
+  
   gthread::make_gthread(&cycle_count, nullptr);
   gthread::make_gthread(&fetch, nullptr);
   gthread::make_gthread(&decode, nullptr);
