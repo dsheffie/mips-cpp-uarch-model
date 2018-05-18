@@ -82,6 +82,9 @@ struct sim_state {
 
   uint64_t last_retire_cycle = 0;
   uint32_t last_retire_pc = 0;
+
+  uint32_t last_compare_pc = 0;
+  uint64_t last_compare_icnt = 0;
   
   /* hi and lo in grf too */
   int32_t gpr_rat[34];

@@ -484,7 +484,7 @@ extern "C" {
 	      error = true;
 	    }
 	  }
-	  if(u->is_store) {
+	  if(u->is_store and false) {
 	    error |= (machine_state.mem->equal(s->mem)==false);
 	  }
 	  if(error) {
@@ -492,8 +492,15 @@ extern "C" {
 		      << getAsmString(u->inst, u->pc)
 		      << " after " << machine_state.icnt << " uarch isns and "
 		      << s->icnt << " arch isns\n";
+	    std::cerr << "known good at pc " << std::hex << machine_state.last_compare_pc
+		      << std::dec << " after " << machine_state.last_compare_icnt
+		      << " isnsns\n";
 	    machine_state.terminate_sim = true;
 	    break;
+	  }
+	  else {
+	    machine_state.last_compare_pc = u->pc;
+	    machine_state.last_compare_icnt = machine_state.icnt;
 	  }
 	  execMips(s);
 	}
