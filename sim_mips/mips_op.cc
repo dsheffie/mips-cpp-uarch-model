@@ -1317,6 +1317,28 @@ public:
       default:
 	exit(-1);
       }
+
+    bool load_violation = false;
+    for(size_t i = 0; i < machine_state.load_tbl_freevec.size(); i++ ){
+      if(machine_state.load_tbl[i]==nullptr) {
+	continue;
+      }
+      mips_meta_op *mmo = machine_state.load_tbl[i];
+      auto ld = reinterpret_cast<mips_load*>(mmo->op);
+      if(ld == nullptr) {
+	dprintf(2, "borked out..\n");
+	exit(-1);
+      }
+      if(mmo->is_complete and (effective_address>>6) == (ld->getEA()>>6)) {
+	load_violation = true;
+      }
+    }
+    for(size_t i = 0; load_violation and (i < machine_state.load_tbl_freevec.size()); i++ ){
+      if(machine_state.load_tbl[i]!=nullptr) {
+	machine_state.load_tbl[i]->load_exception = true;
+      }
+    }
+    
     retired = true;
     m->retire_cycle = get_curr_cycle();
     machine_state.icnt++;
