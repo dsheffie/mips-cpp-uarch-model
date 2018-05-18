@@ -394,7 +394,10 @@ extern "C" {
       for(size_t i = 0; not(machine_state.nuke) and (i < rob.size()); i++) {
 	if((rob.at(i) != nullptr) and not(rob.at(i)->is_complete)) {
 	  if(rob.at(i)->op == nullptr) {
-	    dprintf(log_fd, "@ %llu : op @ %x is broken\n", get_curr_cycle(), rob.at(i)->pc);
+	    std::cerr << "@ cycle " <<  get_curr_cycle() << " "
+		      << std::hex << rob.at(i)->pc << std::dec << " "
+		      <<  getAsmString(rob.at(i)->inst, rob.at(i)->pc)
+		      << " breaks retirement\n";
 	    exit(-1);
 	  }
 	  rob.at(i)->op->complete(machine_state);
@@ -485,10 +488,10 @@ extern "C" {
 	    error |= (machine_state.mem->equal(s->mem)==false);
 	  }
 	  if(error) {
-	    dprintf(2, "u %x, a %x: UARCH and FUNC simulator mismatch after %llu func and %llu uarch insn / %llu arch insn!\n",
-		    u->pc, s->pc, s->icnt, machine_state.icnt, s->icnt);
 	    std::cerr << "bad insn : " << std::hex << u->pc << ":" << std::hex
-		      << getAsmString(u->inst, u->pc) << "\n";
+		      << getAsmString(u->inst, u->pc)
+		      << " after " << machine_state.icnt << " uarch isns and "
+		      << s->icnt << " arch isns\n";
 	    machine_state.terminate_sim = true;
 	    break;
 	  }

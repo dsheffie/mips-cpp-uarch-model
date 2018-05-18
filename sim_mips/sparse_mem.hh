@@ -71,7 +71,7 @@ public:
 	continue;
       }
       for(size_t i = 0; i < pgsize; i++) {
-	if(mem[p][i] != other.mem[p][i]) {
+	if(memcmp(&mem[p][i], &other.mem[p][i], pgsize)!=0) {
 	  return false;
 	}
       }
