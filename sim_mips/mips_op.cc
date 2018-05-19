@@ -7,15 +7,30 @@
 std::map<uint32_t, uint32_t> branch_target_map;
 std::map<uint32_t, int32_t> branch_prediction_map;
 
-union loader {
-  uint32_t u32[2];
-  uint64_t u64;
-  loader (uint64_t u64) : u64(u64) {}
-  loader (uint32_t u0, uint32_t u1) {
-    u32[0] = u0;
-    u32[1] = u1;
+template <typename T>
+struct load_thunk {
+  union thunk {
+    uint32_t u32[sizeof(T)/sizeof(uint32_t)];
+    T dt;
+  };
+  thunk t;
+  load_thunk (T dt) {
+    t.dt = dt;
+  }
+  load_thunk () {
+    for(size_t i = 0; i < (sizeof(T)/sizeof(uint32_t)); i++) {
+      t.u32[i] = 0;
+    }
+  }
+  T &DT() {
+    return t.dt;
+  }
+  uint32_t &operator[](size_t idx) {
+    assert(idx <  (sizeof(T)/sizeof(uint32_t)));
+    return t.u32[idx];
   }
 };
+
 
 class mtc0 : public mips_op {
 public:
@@ -1170,11 +1185,14 @@ public:
       switch(lt)
 	{
 	case load_type::ldc1: {
-	  loader ld(accessBigEndian(*((uint64_t*)(mem + effective_address))));
-	  machine_state.cpr1_prf[m->prf_idx] = ld.u32[0];
-	  machine_state.cpr1_prf[m->aux_prf_idx] = ld.u32[1];
+	  load_thunk<uint64_t> ld(accessBigEndian(*((uint64_t*)(mem + effective_address))));
+	  machine_state.cpr1_prf[m->prf_idx] = ld[0];
+	  machine_state.cpr1_prf[m->aux_prf_idx] = ld[1];
 	  break;
 	}
+	case load_type::lwc1:
+	  machine_state.cpr1_prf[m->prf_idx] = accessBigEndian(*((uint32_t*)(mem + effective_address)));
+	  break;
 	default:
 	  std::cerr << "unimplemented.." << __PRETTY_FUNCTION__ << "\n";
 	  die();
@@ -1288,8 +1306,10 @@ public:
 	*((uint32_t*)(mem + effective_address)) = accessBigEndian(store_data[0]);
 	break;
       case store_type::sdc1: {
-	loader ld(store_data[0], store_data[1]);
-	*reinterpret_cast<uint64_t*>(mem + effective_address) = accessBigEndian(ld.u64);
+	load_thunk<uint64_t> ld;
+	ld[0] = store_data[0];
+	ld[1] = store_data[1];
+	*reinterpret_cast<uint64_t*>(mem + effective_address) = accessBigEndian(ld.DT());
 	break;
       }
       default:
@@ -1681,6 +1701,188 @@ public:
   }
 };
 
+class fp_arith_op : public mips_op {
+public:
+  enum class fp_op_type {add, sub, mul, div, sqrt, abs, mov, neg, recip, rsqrt};
+protected:
+  uint32_t fmt;
+  fp_op_type fot;
+  bool allocate_double(sim_state &machine_state) {
+    m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
+    m->aux_prev_prf_idx = machine_state.cpr1_rat[get_dest()+1];
+    m->src0_prf = machine_state.cpr1_rat[get_src0()];
+    m->src1_prf = machine_state.cpr1_rat[get_src0()+1];
+    if(get_src1()) {
+      m->src2_prf = machine_state.cpr1_rat[get_src1()];
+      m->src3_prf = machine_state.cpr1_rat[get_src1()+1];
+    }
+    if(machine_state.cpr1_freevec.num_free() < 2)
+      return false;
+    m->prf_idx = machine_state.cpr1_freevec.find_first_unset();
+    machine_state.cpr1_freevec.set_bit(m->prf_idx);
+    m->aux_prf_idx = machine_state.cpr1_freevec.find_first_unset();
+    machine_state.cpr1_freevec.set_bit(m->aux_prf_idx);
+    
+    machine_state.cpr1_valid.clear_bit(m->prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
+
+    machine_state.cpr1_rat[get_dest()] = m->prf_idx;
+    machine_state.cpr1_rat[get_dest()+1] = m->aux_prf_idx;
+    return true;
+  }
+  bool allocate_float(sim_state &machine_state) {
+    m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
+    m->src0_prf = machine_state.cpr1_rat[get_src0()];
+    if(get_src1()) {
+      m->src1_prf = machine_state.cpr1_rat[get_src1()];
+    }
+    if(machine_state.cpr1_freevec.num_free() < 1)
+      return false;
+    m->prf_idx = machine_state.cpr1_freevec.find_first_unset();
+    machine_state.cpr1_freevec.set_bit(m->prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prf_idx);
+    machine_state.cpr1_rat[get_dest()] = m->prf_idx;
+    return true;
+  }
+  void execute_double(sim_state &machine_state) {
+    int latency = 1;
+    load_thunk<double> src0, src1, dest;
+    src0[0] = machine_state.cpr1_prf[m->src0_prf];
+    src0[1] = machine_state.cpr1_prf[m->src1_prf];
+    if(get_src1() != -1) {
+      src1[0] = machine_state.cpr1_prf[m->src2_prf];
+      src1[1] = machine_state.cpr1_prf[m->src3_prf];
+    }
+    switch(fot)
+      {
+      case fp_op_type::add:
+	dest.DT() = src0.DT()+src1.DT();
+	break;
+      case fp_op_type::mul:
+	dest.DT() = src0.DT()*src1.DT();
+	break;
+      default:
+	die();
+	break;
+      }
+    machine_state.cpr1_prf[m->prf_idx] = dest[0];
+    machine_state.cpr1_prf[m->aux_prf_idx] = dest[1];
+    m->complete_cycle = get_curr_cycle() + latency;
+  }
+  void execute_float(sim_state &machine_state) {
+    int latency = 1;
+    load_thunk<float> src0, src1, dest;
+    src0[0] = machine_state.cpr1_prf[m->src0_prf];
+    if(get_src1() != -1) {
+      src1[0] = machine_state.cpr1_prf[m->src1_prf];
+    }
+    switch(fot)
+      {
+      case fp_op_type::add:
+	dest.DT() = src0.DT()+src1.DT();
+	break;
+      default:
+	die();
+	break;
+      }
+    machine_state.cpr1_prf[m->prf_idx] = dest[0];
+    m->complete_cycle = get_curr_cycle() + latency;
+  }
+  
+public:
+  fp_arith_op(sim_op op, fp_op_type fot) :
+    mips_op(op), fmt((op->inst >> 21) & 31), fot(fot) {
+    this->op_class = mips_op_type::fp;
+  }
+  virtual int get_src0() const {
+    return (m->inst >> 11)&31;
+  }
+  virtual int get_src1() const {
+    switch(fot)
+      {
+      case fp_op_type::add:
+      case fp_op_type::sub:
+      case fp_op_type::mul:
+      case fp_op_type::div:
+	return (m->inst>>16)&31;
+      default:
+	break;
+      }
+    return -1;
+  }
+  virtual int get_dest() const {
+    return (m->inst >> 6)&31; 
+  }
+  virtual bool allocate(sim_state &machine_state) {
+    bool allocated = false;
+    if(fmt == FMT_D)
+      allocated = allocate_double(machine_state);
+    else
+      allocated = allocate_float(machine_state);
+
+    return allocated;
+
+  }
+  virtual void execute(sim_state &machine_state) {
+    if(fmt == FMT_D)
+      execute_double(machine_state);
+    else
+      execute_float(machine_state);
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    if(m->src0_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src0_prf))) {
+      return false;
+    }
+    if(m->src1_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src1_prf))) {
+      return false;
+    }
+    if(m->src2_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src2_prf))) {
+      return false;
+    }
+    if(m->src3_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src3_prf))) {
+      return false;
+    }
+    return true;
+  }
+
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      machine_state.cpr1_valid.set_bit(m->prf_idx);
+      if(m->aux_prf_idx != -1) {
+	machine_state.cpr1_valid.set_bit(m->aux_prf_idx);
+      }
+    }
+  }
+
+  virtual bool retire(sim_state &machine_state) {
+    machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
+    machine_state.icnt++;
+    machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
+    machine_state.arch_cpr1_last_pc[get_dest()] = m->pc;
+    m->retire_cycle = get_curr_cycle();
+    if(m->aux_prf_idx != -1) {
+      machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
+      machine_state.cpr1_valid.clear_bit(m->aux_prev_prf_idx);
+      machine_state.arch_cpr1[get_dest()+1] = machine_state.cpr1_prf[m->aux_prf_idx];
+    }
+    return true;
+  }
+
+  virtual void undo(sim_state &machine_state) {
+    machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.cpr1_freevec.clear_bit(m->prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prf_idx);
+    if(m->aux_prf_idx != -1) {
+      machine_state.cpr1_rat[get_dest()+1] = m->aux_prev_prf_idx;
+      machine_state.cpr1_freevec.clear_bit(m->aux_prf_idx);
+      machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
+    }
+  }
+
+  
+};
 
 class cvts_op : public mips_op {
 protected:
@@ -2157,31 +2359,23 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
     else {
       switch(lowop)
 	{
-#if 0
 	  case 0x0:
-	    do_fp_op<fpOperation::add>(inst, s);
-	    break;
+	    return new fp_arith_op(m_op, fp_arith_op::fp_op_type::add);
 	  case 0x1:
-	    do_fp_op<fpOperation::sub>(inst, s);
-	    break;
+	    return new fp_arith_op(m_op, fp_arith_op::fp_op_type::sub);
 	  case 0x2:
-	    do_fp_op<fpOperation::mul>(inst, s);
-	    break;
+	    return new fp_arith_op(m_op, fp_arith_op::fp_op_type::mul);
 	  case 0x3:
-	    do_fp_op<fpOperation::div>(inst, s);
-	    break;
+	    return new fp_arith_op(m_op, fp_arith_op::fp_op_type::div);
 	  case 0x4:
-	    do_fp_op<fpOperation::sqrt>(inst, s);
-	    break;
+	    return new fp_arith_op(m_op, fp_arith_op::fp_op_type::sqrt);
 	  case 0x5:
-	    do_fp_op<fpOperation::abs>(inst, s);
-	    break;
+	    return new fp_arith_op(m_op, fp_arith_op::fp_op_type::abs);
 	  case 0x6:
-	    do_fp_op<fpOperation::mov>(inst, s);
-	    break;
+	    return new fp_arith_op(m_op, fp_arith_op::fp_op_type::mov);
 	  case 0x7:
-	    do_fp_op<fpOperation::neg>(inst, s);
-	    break;
+	    return new fp_arith_op(m_op, fp_arith_op::fp_op_type::neg);
+#if 0
 	  case 0x9:
 	    _truncl(inst, s);
 	    break;
@@ -2197,13 +2391,11 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
 	  case 0x13:
 	    _fmovn(inst, s);
 	    break;
-	  case 0x15:
-	    do_fp_op<fpOperation::recip>(inst, s);
-	    break;
-	  case 0x16:
-	    do_fp_op<fpOperation::rsqrt>(inst, s);
-	    break;
 #endif
+	case 0x15:
+	  return new fp_arith_op(m_op, fp_arith_op::fp_op_type::recip);
+	case 0x16:
+	  return new fp_arith_op(m_op, fp_arith_op::fp_op_type::rsqrt);
 	case 0x20:
 	  return new cvts_op(m_op);
 	  //case 0x21:

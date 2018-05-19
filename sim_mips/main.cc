@@ -151,7 +151,7 @@ extern "C" {
 		machine_state.last_retire_pc);
 	machine_state.terminate_sim = true;
       }
-      if(curr_cycle % (1UL<<18) == 0) {
+      if(curr_cycle % (1UL<<20) == 0) {
 	std::cout << "heartbeat : " << curr_cycle << " cycles, "
 		  << machine_state.icnt << " insns retired\n";
       }
@@ -249,7 +249,7 @@ extern "C" {
 	  {
 	  case mips_op_type::unknown:
 	    dprintf(log_fd, "want unknown for %x \n", u->pc);
-	    break;
+	    die();
 	  case mips_op_type::alu:
 	    for(int i = 0; i < machine_state.num_alu_rs; i++) {
 	      int p = (i + machine_state.last_alu_rs) % machine_state.num_alu_rs;
@@ -390,6 +390,8 @@ extern "C" {
 	for(int i = 0; i < machine_state.num_load_rs; i++) {
 	  OOO_SCHED(load_rs.at(i));
 	}
+	/* not really out-of-order as stores are processed
+	 * at retirement */
 	OOO_SCHED(store_rs);
 	
 	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
