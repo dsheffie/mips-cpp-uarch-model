@@ -47,7 +47,7 @@ inline std::ostream &operator<<(std::ostream &out, mips_op_type ot) {
 
 class mips_op;
 
-struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
+struct mips_meta_op {
   uint32_t pc = 0;
   uint32_t inst = 0;
   uint32_t fetch_npc = 0;  
@@ -74,7 +74,7 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
   int64_t prf_idx = -1, aux_prf_idx=-1;
   /* previous prf writer (will return to freelist when this inst retires */
   int64_t prev_prf_idx = -1, aux_prev_prf_idx = -1;
-  int64_t src0_prf = -1, src1_prf = -1, src2_prf = -1, src3_prf = -1;
+  int64_t src0_prf = -1, src1_prf = -1, src2_prf = -1, src3_prf = -1, src4_prf = -1;
   int64_t load_tbl_idx = -1, store_tbl_idx = -1;
   int64_t hi_prf_idx = -1, lo_prf_idx = -1;
   int64_t prev_hi_prf_idx = -1, prev_lo_prf_idx = -1;
@@ -87,9 +87,6 @@ struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
 
   }
   ~mips_meta_op();
-  std::shared_ptr<mips_meta_op> getptr() {
-    return shared_from_this();
-  }
 };
 
 typedef mips_meta_op* sim_op;

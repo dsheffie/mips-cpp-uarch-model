@@ -37,6 +37,9 @@ public:
     uint64_t b_idx = idx % bpw;
     return (arr[w_idx] >> b_idx)&0x1;
   }
+  bool operator[](size_t idx) const {
+    return get_bit(idx);
+  }
   void set_bit(size_t idx) {
     assert(idx < n_bits);
     uint64_t w_idx = idx / bpw;
