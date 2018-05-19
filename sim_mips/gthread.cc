@@ -9,8 +9,8 @@ extern "C" {
   void switch_and_start_gthread_asm(uint64_t*,uint8_t*,void*,void*);
 };
 
-std::shared_ptr<gthread> gthread::head = nullptr;
-static std::shared_ptr<gthread> curr_thread = nullptr;
+gthread::gthread_ptr gthread::head = nullptr;
+static gthread::gthread_ptr curr_thread = nullptr;
 
 int64_t gthread::uuidcnt = 0;
 
@@ -27,9 +27,9 @@ void start_gthreads()  {
 
 void gthread_yield() {
   //save current state
-  std::shared_ptr<gthread> curr = curr_thread;
+  gthread::gthread_ptr curr = curr_thread;
   curr->status = gthread::thread_status::ready;
-  std::shared_ptr<gthread> next = curr->get_next();
+  gthread::gthread_ptr next = curr->get_next();
   assert(next);
   bool need_init = (next->status == gthread::thread_status::uninitialized);
   curr_thread = next;
@@ -48,8 +48,8 @@ void gthread_yield() {
 }
 
 void gthread_terminate() {
-  std::shared_ptr<gthread> curr = curr_thread;
-  std::shared_ptr<gthread> next = curr->get_next();
+  gthread::gthread_ptr curr = curr_thread;
+  gthread::gthread_ptr next = curr->get_next();
   curr->remove_from_list();
   if(gthread::head==nullptr) {
     stop_gthread_asm();
