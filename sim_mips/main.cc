@@ -372,6 +372,17 @@ extern "C" {
 	    }							\
 	  }							\
       }
+	
+#define INORDER_SCHED(RS) {				\
+	  if(not(RS.empty())) {				\
+	    if(RS.peek()->op->ready(machine_state)) {	\
+	      sim_op u = RS.pop();			\
+	      u->op->execute(machine_state);		\
+	      exec_cnt++;				\
+	    }						\
+	  }						\
+      }
+	
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
 	  OOO_SCHED(alu_rs.at(i));
 	}
@@ -384,15 +395,11 @@ extern "C" {
 	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
 	  OOO_SCHED(fpu_rs.at(i));
 	}
-	
-	if(not(system_rs.empty())) {
-	  if(system_rs.peek()->op->ready(machine_state)) {
-	    sim_op u = system_rs.pop();
-	    u->op->execute(machine_state);
-	    exec_cnt++;
-	  }	
-	}
+
+	INORDER_SCHED(system_rs);
+
 #undef OOO_SCHED
+#undef INORDER_SCHED
       }
       gthread_yield();
     }
