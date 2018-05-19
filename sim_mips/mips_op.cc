@@ -984,6 +984,7 @@ public:
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     retired = true;
     machine_state.icnt++;
+
     
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
@@ -999,7 +1000,6 @@ public:
     machine_state.load_tbl[m->load_tbl_idx] = nullptr;
   }
 };
-
 
 class store_op : public mips_op {
 public:
@@ -1085,23 +1085,13 @@ public:
       if(mmo->is_complete and (effective_address>>6) == (ld->getEA()>>6)) {
 	load_violation = true;
       }
-
-      if(m->pc == 0x2c6c0 and mmo->pc == 0x2c6c4) {
-	std::cout << "get_curr_cycle = " << get_curr_cycle() << "\n";
-	std::cout << "load complete cycle = " << mmo->complete_cycle << "\n";
-	std::cout << "load complete = " << mmo->is_complete << "\n";
-	std::cout << "store address = " << std::hex << effective_address << std::dec << "\n";
-	std::cout << "load address = " << std::hex << ld->getEA() << std::dec << "\n";
-	std::cout << "store address = " << std::hex << (effective_address>>6) << std::dec << "\n";
-	std::cout << "load address = " << std::hex << (ld->getEA()>>6) << std::dec << "\n";
-	std::cout << "load violation = " << load_violation << "\n";
-      }
     }
     for(size_t i = 0; load_violation and (i < machine_state.load_tbl_freevec.size()); i++ ){
       if(machine_state.load_tbl[i]!=nullptr) {
 	machine_state.load_tbl[i]->load_exception = true;
       }
     }
+    
     machine_state.store_tbl_freevec.clear_bit(m->store_tbl_idx);
     machine_state.store_tbl[m->store_tbl_idx] = nullptr;
     m->retire_cycle = get_curr_cycle();
@@ -1176,8 +1166,8 @@ public:
 	{
 	case load_type::ldc1: {
 	  loader ld(accessBigEndian(*((uint64_t*)(mem + effective_address))));
-	  machine_state.gpr_prf[m->prf_idx] = ld.u32[0];
-	  machine_state.gpr_prf[m->aux_prf_idx] = ld.u32[1];
+	  machine_state.cpr1_prf[m->prf_idx] = ld.u32[0];
+	  machine_state.cpr1_prf[m->aux_prf_idx] = ld.u32[1];
 	  break;
 	}
 	default:
@@ -1302,9 +1292,9 @@ public:
 	break;
       case store_type::sdc1: {
 	loader ld(store_data[0], store_data[1]);
-	*reinterpret_cast<uint64_t*>(mem + effective_address) = ld.u64;
-      }
+	*reinterpret_cast<uint64_t*>(mem + effective_address) = accessBigEndian(ld.u64);
 	break;
+      }
       default:
 	die();
       }
@@ -1317,10 +1307,9 @@ public:
       mips_meta_op *mmo = machine_state.load_tbl[i];
       auto ld = reinterpret_cast<mips_load*>(mmo->op);
       if(ld == nullptr) {
-	dprintf(2, "borked out..\n");
 	die();
       }
-      if(mmo->is_complete and (effective_address>>6) == (ld->getEA()>>6)) {
+      if(mmo->is_complete and ((effective_address>>3) == (ld->getEA()>>3))) {
 	load_violation = true;
       }
     }

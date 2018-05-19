@@ -58,19 +58,6 @@ public:
     if(other.npages != npages) {
       return false;
     }
-    for(size_t i = 0; i < npages; i++) {
-      if(mem[i]) {
-	std::cerr << "first page is @ " << i << "\n";
-	break;
-      }
-    }
-
-    for(size_t i = 655393; i < npages; i++) {
-      if(mem[i]) {
-	std::cerr << "second page is @ " << i << "\n";
-	break;
-      }
-    }
     
     int64_t p0 = other.present_bitvec.find_first_set();
     int64_t p1 = present_bitvec.find_first_set();

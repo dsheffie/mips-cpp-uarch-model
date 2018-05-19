@@ -56,6 +56,7 @@ struct state_t {
   uint64_t icnt;
   uint8_t brk;
   int steps;
+  int call_site;
   int32_t gpr[32];
   uint32_t cpr0[32];
   uint32_t cpr1[32];

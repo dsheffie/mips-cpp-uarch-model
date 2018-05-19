@@ -54,7 +54,7 @@ static int num_alu_ports = 2;
 static int num_alu_sched_entries = 16;
 static int num_fpu_sched_entries = 16;
 static int num_jmp_sched_entries = 16;
-static int num_mem_sched_entries = 16;
+static int num_mem_sched_entries = 4;
 static int num_system_sched_entries = 4;
 
 void sim_state::initialize(sparse_mem *mem) {
@@ -465,6 +465,7 @@ extern "C" {
 	}
 
 	if(machine_state.use_interp_check and (s->pc == u->pc)) {
+	  assert(not(exception));
 	  bool error = false;
 	  for(int i = 0; i < 32; i++) {
 	    if(s->gpr[i] != machine_state.arch_grf[i]) {
@@ -495,6 +496,7 @@ extern "C" {
 	    std::cerr << "known good at pc " << std::hex << machine_state.last_compare_pc
 		      << std::dec << " after " << machine_state.last_compare_icnt
 		      << " isnsns\n";
+	    std::cerr << "execMips call site = " << s->call_site << "\n";
 	    machine_state.terminate_sim = true;
 	    break;
 	  }
@@ -502,6 +504,7 @@ extern "C" {
 	    machine_state.last_compare_pc = u->pc;
 	    machine_state.last_compare_icnt = machine_state.icnt;
 	  }
+	  s->call_site = __LINE__;
 	  execMips(s);
 	}
 
@@ -565,6 +568,7 @@ extern "C" {
 	      //std::cout << std::hex << uu->pc << ":" << std::hex
 	      //<< getAsmString(uu->inst, uu->pc) << "\n";
 	      if(machine_state.use_interp_check and (s->pc == u->pc)) {
+		s->call_site = __LINE__;
 		execMips(s);
 	      }
 	      rob.pop();
@@ -580,6 +584,7 @@ extern "C" {
 	    machine_state.last_retire_cycle = get_curr_cycle();
 	    machine_state.last_retire_pc = u->pc;
 	    if(machine_state.use_interp_check and (s->pc == u->pc)) {
+	      s->call_site = __LINE__;
 	      execMips(s);
 	    }
 	    rob.pop();
