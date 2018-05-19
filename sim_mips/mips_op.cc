@@ -733,7 +733,8 @@ public:
 
 class branch_op : public mips_op {
 public:
-  enum class branch_type {beq, bne, blez, bgtz, beql, bnel, blezl, bgtzl, bgez, bgezl, bltz, bltzl};
+  enum class branch_type {beq, bne, blez, bgtz, beql, bnel, blezl, bgtzl, bgez, bgezl, bltz, bltzl,
+			  bc1f, bc1t, bc1fl, bc1tl};
 protected:
   itype i_;
   branch_type bt;
@@ -748,11 +749,38 @@ protected:
       case branch_type::bgtzl:
       case branch_type::bgezl:
       case branch_type::bltzl:
+      case branch_type::bc1fl:
+      case branch_type::bc1tl:
 	return true;
       default:
 	break;
       }
     return false;
+  }
+  bool is_fp_branch() const {
+    switch(bt)
+      {
+      case branch_type::bc1f:
+      case branch_type::bc1t:
+      case branch_type::bc1fl:
+      case branch_type::bc1tl:
+	return true;
+      default:
+	break;
+      }
+    return false;
+  }
+  bool gpr_ready(sim_state &machine_state) const {
+    if(m->src0_prf != -1 and not(machine_state.gpr_valid[m->src0_prf])) {
+      return false;
+    }
+    if(m->src1_prf != -1 and not(machine_state.gpr_valid[m->src1_prf])) {
+      return false;
+    }
+    return true;
+  }
+  bool fp_ready(sim_state &machine_state) const {
+    return machine_state.fcr1_valid[m->src0_prf];
   }
 public:
   branch_op(sim_op op, branch_type bt) :
@@ -765,6 +793,9 @@ public:
     op->is_branch_or_jump = true;
   }
   virtual int get_src0() const {
+    if(is_fp_branch()) {
+      return CP1_CR25;
+    }
     return i_.ii.rs;
   }
   virtual int get_src1() const {
@@ -778,6 +809,10 @@ public:
       case branch_type::bgezl:
       case branch_type::bltz:
       case branch_type::bltzl:
+      case branch_type::bc1f:
+      case branch_type::bc1t:
+      case branch_type::bc1fl:
+      case branch_type::bc1tl:
 	return -1;
       default:
 	break;
@@ -785,22 +820,24 @@ public:
     return i_.ii.rt;
   }
   virtual bool allocate(sim_state &machine_state) {
-    if(get_src0() != -1) {
-      m->src0_prf = machine_state.gpr_rat[get_src0()];
+    if(is_fp_branch()) {
+      m->src0_prf = machine_state.fcr1_rat[CP1_CR25];
     }
-    if(get_src1() != -1) {
-      m->src1_prf = machine_state.gpr_rat[get_src1()];
+    else {
+      if(get_src0() != -1) {
+	m->src0_prf = machine_state.gpr_rat[get_src0()];
+      }
+      if(get_src1() != -1) {
+	m->src1_prf = machine_state.gpr_rat[get_src1()];
+      }
     }
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
-    if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
-      return false;
+    if(is_fp_branch()) {
+      return fp_ready(machine_state);
     }
-    if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
-      return false;
-    }
-    return true;
+    return gpr_ready(machine_state);
   }
   virtual void execute(sim_state &machine_state) {
     switch(bt)
@@ -2563,23 +2600,17 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
   opcode &= 0x3;
 
   if(fmt == 0x8) {
-#if 0
     switch(nd_tf)
       {
-	case 0x0:
-	  _bc1f(inst, s);
-	  break;
-	case 0x1:
-	  _bc1t(inst, s);
-	  break;
-	case 0x2:
-	  _bc1fl(inst, s);
-	  break;
-	case 0x3:
-	  _bc1tl(inst, s);
-	  break;
-	}
-#endif
+      case 0x0:
+	return new branch_op(m_op, branch_op::branch_type::bc1f);
+      case 0x1:
+	return new branch_op(m_op, branch_op::branch_type::bc1t);
+      case 0x2:
+	  return new branch_op(m_op, branch_op::branch_type::bc1fl);
+      case 0x3:
+	return new branch_op(m_op, branch_op::branch_type::bc1tl);
+      }
     return nullptr;
   }
   else if((lowbits == 0) && ((functField==0x0) || (functField==0x4))) {
