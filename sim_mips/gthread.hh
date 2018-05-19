@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <memory>
+#include <list>
 
 void start_gthreads();
 void gthread_yield();
@@ -18,6 +18,7 @@ private:
   static const size_t stack_sz = 1<<24;
   enum class thread_status {uninitialized,ready,run};
   static gthread_ptr head;
+  static std::list<gthread_ptr> threads;
   static int64_t uuidcnt;
   int64_t id = -1;
   callback_t fptr = nullptr;
@@ -70,7 +71,14 @@ public:
   static void make_gthread(callback_t fptr, void *arg) {
     /* delegate ctor to helper class */
     auto t = new gthread(fptr, arg);
+    gthread::threads.push_back(t);
     t->insert_into_list();
+  }
+  static void free_threads() {
+    for(gthread_ptr thr : gthread::threads) {
+      delete thr;
+    }
+    gthread::threads.clear();
   }
   friend void start_gthreads();
   friend void gthread_yield();

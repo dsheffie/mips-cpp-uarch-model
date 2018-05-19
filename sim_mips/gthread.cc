@@ -12,6 +12,8 @@ extern "C" {
 gthread::gthread_ptr gthread::head = nullptr;
 static gthread::gthread_ptr curr_thread = nullptr;
 
+std::list<gthread::gthread_ptr> gthread::threads;
+
 int64_t gthread::uuidcnt = 0;
 
 void start_gthreads()  {

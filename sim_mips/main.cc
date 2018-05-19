@@ -886,6 +886,7 @@ int main(int argc, char *argv[]) {
     delete [] sysArgv;
   }
 
+  gthread::free_threads();
   return 0;
 }
 
