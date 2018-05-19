@@ -55,7 +55,10 @@ static int num_load_ports = 2;
 static int num_alu_sched_entries = 16;
 static int num_fpu_sched_entries = 16;
 static int num_jmp_sched_entries = 16;
-static int num_mem_sched_entries = 4;
+
+static int num_load_sched_entries = 32;
+static int num_store_sched_entries = 32;
+
 static int num_system_sched_entries = 4;
 
 void sim_state::initialize(sparse_mem *mem) {
@@ -117,10 +120,10 @@ void sim_state::initialize(sparse_mem *mem) {
 
   load_rs.resize(num_load_ports);
   for(int i = 0; i < num_load_ports; i++) {
-    load_rs.at(i).resize(num_mem_sched_entries);
+    load_rs.at(i).resize(num_load_sched_entries);
   }
   jmp_rs.resize(num_jmp_sched_entries);
-  store_rs.resize(num_mem_sched_entries);
+  store_rs.resize(num_store_sched_entries);
   system_rs.resize(num_system_sched_entries);
   
   initialize_rat_mappings();
@@ -301,6 +304,9 @@ extern "C" {
 	  }
 	
 	if(not(rs_available)) {
+	  //std::cout << "can't allocate due to lack of "
+	  //	    << u->op->get_op_class()
+	  //	    << " resources\n";
 	  break;
 	}
 	
@@ -337,7 +343,7 @@ extern "C" {
 	alloc_amt++;
       }
 
-      std::cout << "alloc amt " << alloc_amt << "\n";
+      //std::cout << "alloc amt " << alloc_amt << "\n";
 
       gthread_yield();
     }
@@ -355,58 +361,29 @@ extern "C" {
       int exec_cnt = 0;
       if(not(machine_state.nuke)) {
 	//alu loop (OoO scheduler)
+#define OOO_SCHED(RS) {						\
+	  for(auto it = RS.begin(); it != RS.end(); it++) {	\
+	    sim_op u = *it;					\
+	    if(u->op->ready(machine_state)) {			\
+	      RS.erase(it);					\
+	      u->op->execute(machine_state);			\
+	      exec_cnt++;					\
+	      break;						\
+	    }							\
+	  }							\
+      }
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
-	  for(auto it = alu_rs.at(i).begin(); it != alu_rs.at(i).end(); it++) {
-	    sim_op u = *it;
-	    if(u->op->ready(machine_state)) {
-	      alu_rs.at(i).erase(it);
-	      u->op->execute(machine_state);
-	      exec_cnt++;
-	      break;
-	    }
-	  }
+	  OOO_SCHED(alu_rs.at(i));
 	}
-	if(not(jmp_rs.empty())) {
-	  if(jmp_rs.peek()->op->ready(machine_state)) {
-	    sim_op u = jmp_rs.pop();
-	    u->op->execute(machine_state);
-	    exec_cnt++;
-	  }
+	OOO_SCHED(jmp_rs);
+	for(int i = 0; i < machine_state.num_load_rs; i++) {
+	  OOO_SCHED(load_rs.at(i));
 	}
-	for(int i = 0; i < machine_state.num_alu_rs; i++) {
-	  for(auto it = load_rs.at(i).begin(); it != load_rs.at(i).end(); it++) {
-	    sim_op u = *it;
-	    if(u->op->ready(machine_state)) {
-	      load_rs.at(i).erase(it);
-	      u->op->execute(machine_state);
-	      exec_cnt++;
-	      break;
-	    }
-	  }
-	}
-	for(auto it = store_rs.begin(); it != store_rs.end(); it++) {
-	  sim_op u = *it;
-	  if(u->op->ready(machine_state)) {
-	    store_rs.erase(it);
-	    u->op->execute(machine_state);
-	    exec_cnt++;
-	    break;
-	  }
-	}
-
-
+	OOO_SCHED(store_rs);
+	
 	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
-	  for(auto it = fpu_rs.at(i).begin(); it != fpu_rs.at(i).end(); it++) {
-	    sim_op u = *it;
-	    if(u->op->ready(machine_state)) {
-	      fpu_rs.at(i).erase(it);
-	      u->op->execute(machine_state);
-	      exec_cnt++;
-	      break;
-	    }
-	  }
+	  OOO_SCHED(fpu_rs.at(i));
 	}
-
 	
 	if(not(system_rs.empty())) {
 	  if(system_rs.peek()->op->ready(machine_state)) {
@@ -415,8 +392,8 @@ extern "C" {
 	    exec_cnt++;
 	  }	
 	}
+#undef OOO_SCHED
       }
-      //dprintf(log_fd, "%d instructions began exec @ %llu\n", exec_cnt, get_curr_cycle());
       gthread_yield();
     }
     gthread_terminate();
@@ -788,14 +765,15 @@ int main(int argc, char *argv[]) {
   machine_state.initialize(u_arch_mem);
   machine_state.maxicnt = maxicnt;
   machine_state.use_interp_check = true;
-  
-  gthread::make_gthread(&cycle_count, nullptr);
-  gthread::make_gthread(&fetch, nullptr);
-  gthread::make_gthread(&decode, nullptr);
-  gthread::make_gthread(&allocate, nullptr);
-  gthread::make_gthread(&execute, nullptr);
-  gthread::make_gthread(&complete, nullptr);
+
   gthread::make_gthread(&retire, nullptr);
+  gthread::make_gthread(&complete, nullptr);
+  gthread::make_gthread(&execute, nullptr);
+  gthread::make_gthread(&allocate, nullptr);
+  gthread::make_gthread(&decode, nullptr);
+  gthread::make_gthread(&fetch, nullptr);
+  gthread::make_gthread(&cycle_count, nullptr);
+
 
   double now = timestamp();
   start_gthreads();

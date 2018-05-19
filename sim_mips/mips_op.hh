@@ -17,6 +17,34 @@ extern int log_fd;
 
 enum class mips_op_type { unknown, alu, fp, jmp, load, store, system };
 
+inline std::ostream &operator<<(std::ostream &out, mips_op_type ot) {
+  switch(ot)
+    {
+    case mips_op_type::unknown:
+      out << "unknown";
+      break;
+    case mips_op_type::alu:
+      out << "alu";
+      break;
+    case mips_op_type::fp:
+      out << "fp";
+      break;
+    case mips_op_type::jmp:
+      out << "jmp";
+      break;
+    case mips_op_type::load:
+      out << "load";
+      break;
+    case mips_op_type::store:
+      out << "store";
+      break;
+    case mips_op_type::system:
+      out << "system";
+      break;
+    }
+  return out;
+}
+
 class mips_op;
 
 struct mips_meta_op : std::enable_shared_from_this<mips_meta_op> {
