@@ -1345,20 +1345,7 @@ static void _monitorBody(uint32_t inst, state_t *s) {
 
       break;
     case 33:
-      if(enClockFuncts) {
-	gettimeofday(&tp, nullptr);
-	tp32.tv_sec = accessBigEndian((uint32_t)tp.tv_sec);
-	tp32.tv_usec = accessBigEndian((uint32_t)tp.tv_usec);
-      } else {
-	memcpy(&tp32, &myTimeVal, sizeof(tp32));
-	myTimeVal.tv_usec++;
-	if(myTimeVal.tv_usec == (1<<20))
-	  {
-	    myTimeVal.tv_usec = 0;
-	    myTimeVal.tv_sec++;
-	  }
-      }
-      *((timeval32_t*)(s->mem + (uint32_t)s->gpr[R_a0] + 0)) = tp32;
+      *((uint64_t*)(s->mem + (uint32_t)s->gpr[R_a0] + 0)) = 0;
       s->gpr[R_v0] = 0;
       break;
     case 34:

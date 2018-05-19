@@ -15,7 +15,7 @@ uint64_t get_curr_cycle();
 
 extern int log_fd;
 
-enum class mips_op_type { unknown, alu, fp, jmp, mem, system };
+enum class mips_op_type { unknown, alu, fp, jmp, load, store, system };
 
 class mips_op;
 
@@ -129,14 +129,17 @@ struct sim_state {
 
   int last_alu_rs = 0;
   int last_fpu_rs = 0;
+  int last_load_rs = 0;
   int num_alu_rs = -1;
   int num_fpu_rs = -1;
+  int num_load_rs = -1;
   
   typedef sim_list<sim_op> rs_type;
   std::vector<rs_type> alu_rs;
   std::vector<rs_type> fpu_rs;
   rs_type jmp_rs;
-  rs_type mem_rs;
+  std::vector<rs_type> load_rs;
+  rs_type store_rs;
   rs_type system_rs;
 
   sparse_mem *mem = nullptr;

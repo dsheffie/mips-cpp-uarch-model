@@ -38,8 +38,8 @@ int buildArgcArgv(char *filename, char *sysArgs, char ***argv);
 static std::map<int64_t, uint64_t> insn_lifetime_map;
 
 /* sim parameters */
-static int fetch_bw = 8;
-static int alloc_bw = 8;
+static int fetch_bw = 32;
+static int alloc_bw = 16;
 static int decode_bw = 16;
 static int retire_bw = 8;
 
@@ -50,6 +50,7 @@ static int num_fcr1_prf = 16;
 
 static int num_fpu_ports = 1;
 static int num_alu_ports = 2;
+static int num_load_ports = 2;
 
 static int num_alu_sched_entries = 16;
 static int num_fpu_sched_entries = 16;
@@ -100,21 +101,26 @@ void sim_state::initialize(sparse_mem *mem) {
   decode_queue.resize(8);
   rob.resize(32);
 
+  num_alu_rs = num_alu_ports;
+  num_fpu_rs = num_fpu_ports;
+  num_load_rs = num_load_ports;
   
   alu_rs.resize(num_alu_ports);
   for(int i = 0; i < num_alu_ports; i++) {
     alu_rs.at(i).resize(num_alu_sched_entries);
   }
-  fpu_rs.resize(num_fpu_ports);
 
-  num_alu_rs = num_alu_ports;
-  num_fpu_rs = num_fpu_ports;
-  
+  fpu_rs.resize(num_fpu_ports);
   for(int i = 0; i < num_fpu_ports; i++) {
     fpu_rs.at(i).resize(num_fpu_sched_entries);
   }
+
+  load_rs.resize(num_load_ports);
+  for(int i = 0; i < num_load_ports; i++) {
+    load_rs.at(i).resize(num_mem_sched_entries);
+  }
   jmp_rs.resize(num_jmp_sched_entries);
-  mem_rs.resize(num_mem_sched_entries);
+  store_rs.resize(num_mem_sched_entries);
   system_rs.resize(num_system_sched_entries);
   
   initialize_rat_mappings();
@@ -270,10 +276,20 @@ extern "C" {
 	      rs_queue = &(machine_state.jmp_rs);
 	    }
 	    break;
-	  case mips_op_type::mem:
-	    if(not(machine_state.mem_rs.full())) {
+	  case mips_op_type::load:
+	    for(int i = 0; i < machine_state.num_load_rs; i++) {
+	      int p = (i + machine_state.last_load_rs) % machine_state.num_load_rs;
+	      if(not(machine_state.load_rs.at(p).full())) {
+		machine_state.last_load_rs = p;
+		rs_available = true;
+		rs_queue = &(machine_state.load_rs.at(p));
+		break;
+	      }
+	    }
+	  case mips_op_type::store:
+	    if(not(machine_state.store_rs.full())) {
 	      rs_available = true;
-	      rs_queue = &(machine_state.mem_rs);
+	      rs_queue = &(machine_state.store_rs);
 	    }
 	    break;
 	  case mips_op_type::system:
@@ -320,6 +336,9 @@ extern "C" {
 	//dprintf(log_fd, "op at pc %x was allocated\n", u->pc);
 	alloc_amt++;
       }
+
+      std::cout << "alloc amt " << alloc_amt << "\n";
+
       gthread_yield();
     }
     gthread_terminate();
@@ -329,7 +348,8 @@ extern "C" {
     auto & alu_rs = machine_state.alu_rs;
     auto & fpu_rs = machine_state.fpu_rs;
     auto & jmp_rs = machine_state.jmp_rs;
-    auto & mem_rs = machine_state.mem_rs;
+    auto & load_rs = machine_state.load_rs;
+    auto & store_rs = machine_state.store_rs;
     auto & system_rs = machine_state.system_rs;
     while(not(machine_state.terminate_sim)) {
       int exec_cnt = 0;
@@ -353,15 +373,28 @@ extern "C" {
 	    exec_cnt++;
 	  }
 	}
-	for(auto it = mem_rs.begin(); it != mem_rs.end(); it++) {
+	for(int i = 0; i < machine_state.num_alu_rs; i++) {
+	  for(auto it = load_rs.at(i).begin(); it != load_rs.at(i).end(); it++) {
+	    sim_op u = *it;
+	    if(u->op->ready(machine_state)) {
+	      load_rs.at(i).erase(it);
+	      u->op->execute(machine_state);
+	      exec_cnt++;
+	      break;
+	    }
+	  }
+	}
+	for(auto it = store_rs.begin(); it != store_rs.end(); it++) {
 	  sim_op u = *it;
 	  if(u->op->ready(machine_state)) {
-	    mem_rs.erase(it);
+	    store_rs.erase(it);
 	    u->op->execute(machine_state);
 	    exec_cnt++;
 	    break;
 	  }
 	}
+
+
 	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
 	  for(auto it = fpu_rs.at(i).begin(); it != fpu_rs.at(i).end(); it++) {
 	    sim_op u = *it;
@@ -666,8 +699,11 @@ extern "C" {
 	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
 	  machine_state.fpu_rs.at(i).clear();
 	}
+	for(int i = 0; i < machine_state.num_load_rs; i++) {
+	  machine_state.load_rs.at(i).clear();
+	}
 	machine_state.jmp_rs.clear();
-	machine_state.mem_rs.clear();
+	machine_state.store_rs.clear();
 	machine_state.system_rs.clear();
 	machine_state.load_tbl_freevec.clear();
 	machine_state.store_tbl_freevec.clear();

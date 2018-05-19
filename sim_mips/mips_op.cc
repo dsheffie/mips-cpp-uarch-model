@@ -7,6 +7,16 @@
 std::map<uint32_t, uint32_t> branch_target_map;
 std::map<uint32_t, int32_t> branch_prediction_map;
 
+union loader {
+  uint32_t u32[2];
+  uint64_t u64;
+  loader (uint64_t u64) : u64(u64) {}
+  loader (uint32_t u0, uint32_t u1) {
+    u32[0] = u0;
+    u32[1] = u1;
+  }
+};
+
 class mtc0 : public mips_op {
 public:
   mtc0(sim_op op) : mips_op(op) {
@@ -894,7 +904,7 @@ protected:
   uint32_t effective_address = ~0;
 public:
   mips_load(sim_op op) : mips_op(op), i_(op->inst), lt(load_type::bogus) {
-    this->op_class = mips_op_type::mem;
+    this->op_class = mips_op_type::load;
     int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
     imm = static_cast<int32_t>(himm);
   }
@@ -1013,7 +1023,7 @@ protected:
 public:
   store_op(sim_op op, store_type st) :
     mips_op(op), i_(op->inst), st(st) {
-    this->op_class = mips_op_type::mem;
+    this->op_class = mips_op_type::store;
     int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
     imm = static_cast<int32_t>(himm);
     op->is_store = true;
@@ -1157,11 +1167,6 @@ public:
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       sparse_mem & mem = *(machine_state.mem);
-      union loader {
-	uint32_t u32[2];
-	uint64_t u64;
-	loader (uint64_t u64) : u64(u64) {}
-      };
       switch(lt)
 	{
 	case load_type::ldc1: {
@@ -1223,7 +1228,7 @@ protected:
 public:
   fp_store_op(sim_op op, store_type st) :
     mips_op(op), i_(op->inst), st(st) {
-    this->op_class = mips_op_type::mem;
+    this->op_class = mips_op_type::store;
     int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
     imm = static_cast<int32_t>(himm);
     op->is_store = true;
@@ -1274,15 +1279,7 @@ public:
     }
   }
   virtual bool retire(sim_state &machine_state) {
-    union loader {
-      uint32_t u32[2];
-      uint64_t u64;
-      loader (uint64_t u64) : u64(u64) {}
-      loader (uint32_t u0, uint32_t u1) {
-	u32[0] = u0;
-	u32[1] = u1;
-      }
-    };
+
       
     sparse_mem & mem = *(machine_state.mem);
     switch(st)
@@ -1879,7 +1876,12 @@ public:
 	if(src_regs[0] > 2) {
 	  machine_state.gpr_prf[m->prf_idx] = close(src_regs[0]);
 	}
+	break;	
+      case 33: {
+	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 0)) = 0;
+	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 4)) = 0;
 	break;
+      }
       case 55:
 	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 0)) = accessBigEndian(K1SIZE);
 	/* No Icache */
