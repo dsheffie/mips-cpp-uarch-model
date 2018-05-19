@@ -10,9 +10,9 @@ void start_gthreads();
 void gthread_yield();
 void gthread_terminate();
 
-class alignas(64) gthread : public std::enable_shared_from_this<gthread> {
+class alignas(64) gthread {
  public:
-  typedef std::shared_ptr<gthread> gthread_ptr;
+  typedef gthread* gthread_ptr;
 private:
   typedef void (*callback_t)(void*);
   static const size_t stack_sz = 1<<24;
@@ -38,7 +38,7 @@ private:
     if(prev) {
       prev->next = next;
     }
-    if(head == shared_from_this()) {
+    if(head == this) {
       head = next;
     }
   }
@@ -47,14 +47,14 @@ private:
   }
   void insert_into_list() {
     if(head==nullptr) {
-      head = shared_from_this();
+      head = this;
     }
     else {
       gthread_ptr ptr = head;
       while(ptr->next != nullptr) {
 	ptr = ptr->next;
       }
-      ptr->next = shared_from_this();
+      ptr->next = this;
       prev = ptr;
     }
   }
@@ -69,11 +69,7 @@ private:
 public:
   static void make_gthread(callback_t fptr, void *arg) {
     /* delegate ctor to helper class */
-    class gthread_ctor : public gthread {
-    public:
-      gthread_ctor(callback_t fptr, void *arg) : gthread(fptr, arg) {}
-    };
-    auto t = std::make_shared<gthread_ctor>(fptr, arg);
+    auto t = new gthread(fptr, arg);
     t->insert_into_list();
   }
   friend void start_gthreads();

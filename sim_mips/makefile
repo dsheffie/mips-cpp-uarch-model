@@ -3,7 +3,7 @@ UNAME_S = $(shell uname -s)
 OBJ = main.o loadelf.o parseMips.o helper.o profileMips.o gthread.o mips_op.o
 
 ifeq ($(UNAME_S),Linux)
-	CXX = clang++-4.0 -march=native
+	CXX = g++ -march=native
 	OBJ += gthread_asm.o
 	EXTRA_LD = -ldl -lffi -lbfd -lunwind
 endif
