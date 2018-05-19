@@ -1828,10 +1828,18 @@ protected:
       case fp_op_type::add:
 	dest.DT() = src0.DT()+src1.DT();
 	break;
+      case fp_op_type::sub:
+	dest.DT() = src0.DT()-src1.DT();
+	break;
       case fp_op_type::mul:
 	dest.DT() = src0.DT()*src1.DT();
 	break;
+      case fp_op_type::mov:
+	dest.DT() = src0.DT();
+	break;
       default:
+	std::cout << std::hex << m->pc << std::dec << ":" <<
+	  getAsmString(m->pc, m->inst) << "\n";
 	die();
 	break;
       }
