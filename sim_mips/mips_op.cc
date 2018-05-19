@@ -1704,18 +1704,62 @@ public:
 class fp_cmp : public mips_op {
 protected:
   uint32_t fmt;
+  template <typename T>
+  struct fp_cmp_functor {
+    uint32_t compare(int cond, const T &x, const T &y) const {
+      switch(cond)
+	{
+	case COND_UN:
+	  return (x == y);
+	case COND_EQ:
+	  return (x == y);
+	case COND_LT:
+	  return (x < y);	  
+	case COND_LE:
+	  return (x <= y);
+	default:
+	  die();
+	  break;
+	}
+      return false;
+    }
+  };
+  uint32_t setCC(uint32_t old_cr, uint32_t v, uint32_t cc) const {
+    uint32_t m0 = 1U<<cc;
+    uint32_t m1 = ~m0;
+    uint32_t m2 = ~(v-1);
+    return (old_cr & m1) | ((1U<<cc) & m2);
+  }
+  void execute_double(sim_state &machine_state) {
+    load_thunk<double> src0, src1;
+    fp_cmp_functor<double> cmp;
+    src0[0] = machine_state.cpr1_prf[m->src0_prf];
+    src0[1] = machine_state.cpr1_prf[m->src2_prf];
+    src1[0] = machine_state.cpr1_prf[m->src1_prf];
+    src1[1] = machine_state.cpr1_prf[m->src3_prf];
+    uint32_t v = cmp.compare(m->inst & 15, src0.DT(), src1.DT());
+    machine_state.fcr1_prf[m->prf_idx] =
+      setCC(machine_state.fcr1_prf[m->src4_prf], v, (m->inst >> 8) & 7);
+  }
+  void execute_float(sim_state &machine_state) {
+    load_thunk<float> src0, src1;
+    fp_cmp_functor<float> cmp;
+    src0[0] = machine_state.cpr1_prf[m->src0_prf];
+    src1[0] = machine_state.cpr1_prf[m->src1_prf];
+    cmp.compare(m->inst & 15, src0.DT(), src1.DT());
+    uint32_t v = machine_state.fcr1_prf[m->src4_prf];
+    machine_state.fcr1_prf[m->prf_idx] =
+      setCC(machine_state.fcr1_prf[m->src4_prf], v, (m->inst >> 8) & 7);
+  }
 public:
   fp_cmp(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {
     this->op_class = mips_op_type::fp; 
   }
-  virtual int get_dest() const {
-    return (m->inst >> 8) & 7;
-  }
   virtual int get_src0() const {
-    return (m->inst >> 11) & 31;
+    return (m->inst >> 11) & 31; /* fs */
   }
   virtual int get_src1() const {
-    return (m->inst >> 16) & 31;
+    return (m->inst >> 16) & 31; /* ft */
   }
   virtual bool allocate(sim_state &machine_state) {
     m->prf_idx = machine_state.fcr1_freevec.find_first_unset();
@@ -1723,7 +1767,7 @@ public:
       return false;
     m->src0_prf = machine_state.cpr1_rat[get_src0()];
     m->src1_prf = machine_state.cpr1_rat[get_src1()];
-    m->src4_prf = machine_state.fcr1_rat[get_dest()];
+    m->src4_prf = machine_state.fcr1_rat[CP1_CR25];
     if(fmt == FMT_D) {
       m->src2_prf = machine_state.cpr1_rat[get_src0()+1];
       m->src3_prf = machine_state.cpr1_rat[get_src1()+1];
@@ -1732,7 +1776,7 @@ public:
     
     machine_state.fcr1_freevec.set_bit(m->prf_idx);
     machine_state.fcr1_valid.clear_bit(m->prf_idx);
-    machine_state.fcr1_rat[get_dest()] = m->prf_idx;
+    machine_state.fcr1_rat[CP1_CR25] = m->prf_idx;
 
     return true;
   }
@@ -1755,6 +1799,20 @@ public:
       machine_state.fcr1_valid.set_bit(m->prf_idx);
     }
   }
+  virtual void execute(sim_state &machine_state) {
+    switch(fmt)
+      {
+      case FMT_S:
+	execute_float(machine_state);
+	break;
+      case FMT_D:
+	execute_double(machine_state);
+	break;
+      default:
+	die();
+      }
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
   virtual bool retire(sim_state &machine_state) {
     machine_state.fcr1_freevec.clear_bit(m->prev_prf_idx);
     machine_state.fcr1_valid.clear_bit(m->prev_prf_idx);
@@ -1764,7 +1822,7 @@ public:
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    machine_state.fcr1_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.fcr1_rat[CP1_CR25] = m->prev_prf_idx;
     machine_state.fcr1_freevec.clear_bit(m->prf_idx);
     machine_state.fcr1_valid.clear_bit(m->prf_idx);
   }
@@ -2081,16 +2139,26 @@ public:
     return machine_state.cpr1_valid.get_bit(m->src0_prf);
   }
   virtual void execute(sim_state &machine_state) {
+    load_thunk<double> dest;
     switch(fmt)
       {
-      case FMT_S:
-	die();
-	break;
-      case FMT_W:
-	die();
+      case FMT_S: {
+	load_thunk<float> src0;
+	src0[0] = machine_state.cpr1_prf[m->src0_prf];
+	dest.DT() = static_cast<double>(src0.DT());
 	break;
       }
-    
+      case FMT_W: {
+	load_thunk<int32_t> src0;
+	src0[0] = machine_state.cpr1_prf[m->src0_prf];
+	dest.DT() = static_cast<double>(src0.DT());
+	break;
+      }
+      default:
+	die();
+      }
+    machine_state.cpr1_prf[m->prf_idx] = dest[0];
+    machine_state.cpr1_prf[m->aux_prf_idx] = dest[1];
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
