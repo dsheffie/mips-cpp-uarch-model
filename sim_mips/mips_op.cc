@@ -782,6 +782,9 @@ protected:
   bool fp_ready(sim_state &machine_state) const {
     return machine_state.fcr1_valid[m->src0_prf];
   }
+  bool getConditionCode(uint32_t cr, uint32_t cc) {
+    return ((cr & (1U<<cc)) >> cc) & 0x1;
+  }
 public:
   branch_op(sim_op op, branch_type bt) :
     mips_op(op), bt(bt), i_(op->inst), take_br(false) {
@@ -890,6 +893,14 @@ public:
 	take_br = machine_state.gpr_prf[m->src0_prf] >= 0;
 	m->likely_squash = not(take_br);
 	m->has_delay_slot = take_br;
+	break;
+      case branch_type::bc1t:
+	take_br = getConditionCode(machine_state.fcr1_prf[m->src0_prf], (m->inst >> 18)&7);
+	m->has_delay_slot = true;
+	break;
+      case branch_type::bc1f:
+	take_br = not(getConditionCode(machine_state.fcr1_prf[m->src0_prf], (m->inst >> 18)&7));
+	m->has_delay_slot = true;
 	break;
       default:
 	dprintf(2, "wtf @ %x\n", m->pc);
