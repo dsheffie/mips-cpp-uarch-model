@@ -1799,18 +1799,20 @@ public:
     return (m->inst >> 16) & 31; /* ft */
   }
   virtual bool allocate(sim_state &machine_state) {
-    m->prf_idx = machine_state.fcr1_freevec.find_first_unset();
-    if(m->prf_idx==-1)
-      return false;
     m->src0_prf = machine_state.cpr1_rat[get_src0()];
     m->src1_prf = machine_state.cpr1_rat[get_src1()];
     m->src4_prf = machine_state.fcr1_rat[CP1_CR25];
+    
     if(fmt == FMT_D) {
       m->src2_prf = machine_state.cpr1_rat[get_src0()+1];
       m->src3_prf = machine_state.cpr1_rat[get_src1()+1];
     }
-    m->prev_prf_idx = machine_state.fcr1_rat[get_dest()];
     
+    m->prev_prf_idx = m->src4_prf;
+    m->prf_idx = machine_state.fcr1_freevec.find_first_unset();
+    if(m->prf_idx==-1)
+      return false;
+        
     machine_state.fcr1_freevec.set_bit(m->prf_idx);
     machine_state.fcr1_valid.clear_bit(m->prf_idx);
     machine_state.fcr1_rat[CP1_CR25] = m->prf_idx;
@@ -1818,16 +1820,22 @@ public:
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
-    if(not(machine_state.cpr1_valid[m->src0_prf]))
+    if(not(machine_state.cpr1_valid[m->src0_prf])) {
       return false;
-    if(not(machine_state.cpr1_valid[m->src1_prf]))
+    }
+    if(not(machine_state.cpr1_valid[m->src1_prf])) {
       return false;
-    if(not(machine_state.fcr1_valid[m->src4_prf]))
+    }
+    if(not(machine_state.fcr1_valid[m->src4_prf])) {
       return false;
-    if(m->src2_prf != -1 and not(machine_state.cpr1_valid[m->src2_prf]))
+    }
+    if(m->src2_prf != -1 and not(machine_state.cpr1_valid[m->src2_prf])) {
       return false;
-    if(m->src3_prf != -1 and not(machine_state.cpr1_valid[m->src3_prf]))
+    }
+    if(m->src3_prf != -1 and not(machine_state.cpr1_valid[m->src3_prf])) {
+      std::cout << __LINE__ << "\n";
       return false;
+    }
     return true;
   }
   virtual void complete(sim_state &machine_state) {
@@ -2068,11 +2076,38 @@ public:
   
 };
 
-class cvts_op : public mips_op {
+class cvts_truncw_op : public mips_op {
+public:
+  enum class op_type {cvts, truncw};
 protected:
   uint32_t fmt;
+  op_type ot;
+  void execute_cvts(sim_state &machine_state) {
+    switch(fmt)
+      {
+      case FMT_D:
+	die();
+	break;
+      case FMT_W:
+	*reinterpret_cast<float*>(&machine_state.cpr1_prf[m->prf_idx]) =
+	  static_cast<float>(*reinterpret_cast<int32_t*>(&machine_state.cpr1_prf[m->src0_prf]));
+	break;
+      }
+  }
+  void execute_truncw(sim_state &machine_state) {
+    switch(fmt)
+      {
+      case FMT_D:
+	die();
+	break;
+      case FMT_S:
+	*reinterpret_cast<int32_t*>(&machine_state.cpr1_prf[m->prf_idx]) =
+	  static_cast<int32_t>(*reinterpret_cast<float*>(&machine_state.cpr1_prf[m->src0_prf]));
+	break;
+      }
+  }
 public:
-  cvts_op(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {
+  cvts_truncw_op(sim_op op, op_type ot) : mips_op(op), fmt((op->inst >> 21) & 31), ot(ot) {
     this->op_class = mips_op_type::fp;
   }
   virtual int get_src0() const {
@@ -2103,17 +2138,17 @@ public:
     return true;
   }
   virtual void execute(sim_state &machine_state) {
-    switch(fmt)
+    switch(ot)
       {
-      case FMT_D:
+      case op_type::cvts:
+	execute_cvts(machine_state);
+	break;
+      case op_type::truncw:
+	execute_truncw(machine_state);
+	break;
+      default:
 	die();
-	break;
-      case FMT_W:
-	*reinterpret_cast<float*>(&machine_state.cpr1_prf[m->prf_idx]) =
-	  static_cast<float>(*reinterpret_cast<int32_t*>(&machine_state.cpr1_prf[m->src0_prf]));
-	break;
       }
-    
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
@@ -2648,9 +2683,10 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
 	  case 0x9:
 	    _truncl(inst, s);
 	    break;
+#endif
 	  case 0xd:
-	    _truncw(inst, s);
-	    break;
+	    return new cvts_truncw_op(m_op, cvts_truncw_op::op_type::truncw);
+#if 0
 	  case 0x11:
 	    _fmovc(inst, s);
 	    break;
@@ -2666,7 +2702,7 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
 	case 0x16:
 	  return new fp_arith_op(m_op, fp_arith_op::fp_op_type::rsqrt);
 	case 0x20:
-	  return new cvts_op(m_op);
+	  return new cvts_truncw_op(m_op, cvts_truncw_op::op_type::cvts);
 	case 0x21:
 	  return new cvtd_op(m_op);
 	default:

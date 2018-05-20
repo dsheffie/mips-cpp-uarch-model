@@ -380,27 +380,39 @@ extern "C" {
       int exec_cnt = 0;
       if(not(machine_state.nuke)) {
 	//alu loop (OoO scheduler)
-#define OOO_SCHED(RS) {						\
-	  for(auto it = RS.begin(); it != RS.end(); it++) {	\
-	    sim_op u = *it;					\
-	    if(u->op->ready(machine_state)) {			\
-	      RS.erase(it);					\
-	      u->op->execute(machine_state);			\
-	      exec_cnt++;					\
-	      break;						\
-	    }							\
-	  }							\
-      }
+#define OOO_SCHED(RS) {							\
+	  for(auto it = RS.begin(); it != RS.end(); it++) {		\
+	    sim_op u = *it;						\
+	    if((u->ready_cycle==-1) and u->op->ready(machine_state)) {	\
+	      u->ready_cycle = get_curr_cycle();			\
+	    }								\
+	  }								\
+	  for(auto it = RS.begin(); it != RS.end(); it++) {		\
+	    sim_op u = *it;						\
+	    if(u->op->ready(machine_state)) {				\
+	      RS.erase(it);						\
+	      u->op->execute(machine_state);				\
+	      exec_cnt++;						\
+	      break;							\
+	    }								\
+	  }								\
+	}
 	
-#define INORDER_SCHED(RS) {				\
-	  if(not(RS.empty())) {				\
-	    if(RS.peek()->op->ready(machine_state)) {	\
-	      sim_op u = RS.pop();			\
-	      u->op->execute(machine_state);		\
-	      exec_cnt++;				\
-	    }						\
-	  }						\
-      }
+#define INORDER_SCHED(RS) {						\
+	  for(auto it = RS.begin(); it != RS.end(); it++) {		\
+	    sim_op u = *it;						\
+	    if((u->ready_cycle==-1) and u->op->ready(machine_state)) {	\
+	      u->ready_cycle = get_curr_cycle();			\
+	    }								\
+	  }								\
+	  if(not(RS.empty())) {						\
+	    if(RS.peek()->op->ready(machine_state)) {			\
+	      sim_op u = RS.pop();					\
+	      u->op->execute(machine_state);				\
+	      exec_cnt++;						\
+	    }								\
+	  }								\
+	}
 	
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
 	  OOO_SCHED(alu_rs.at(i));
@@ -468,6 +480,7 @@ extern "C" {
 	if(not(u->is_complete)) {
 	  if(stuck_cnt > 32) {
 	    std::cerr << "pc : stuck at head of rob " << std::hex << u->pc << std::dec << "\n";
+	    std::cout << "ready at cycle " << u->ready_cycle << "\n";
 	    
 	  }
 	  stuck_cnt++;
@@ -846,6 +859,12 @@ int main(int argc, char *argv[]) {
     std::cout << "reg " << getGPRName(i) << " writer pc : " 
 	      << std::hex << machine_state.arch_grf_last_pc[i] << std::dec << "\n"; 
   }
+  
+  for(int i = 0; i < 32; i++) {
+    std::cout << "reg $f" << i << " writer pc : " 
+	      << std::hex << machine_state.arch_cpr1_last_pc[i] << std::dec << "\n"; 
+  }
+  
 #endif
   if(machine_state.log_execution) {
     std::ofstream os("log.txt", std::ios::out);
