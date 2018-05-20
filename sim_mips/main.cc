@@ -428,15 +428,30 @@ extern "C" {
   }
   void retire(void *arg) {
     auto &rob = machine_state.rob;
+    int stuck_cnt = 0, empty_cnt = 0;
     while(not(machine_state.terminate_sim)) {
       int retire_amt = 0;
       sim_op u = nullptr;
       bool stop_sim = false;
       bool exception = false;
+
+      
+      if(rob.empty()) {
+	empty_cnt++;
+	if(empty_cnt > 64) {
+	  std::cerr << "empty ROB for 64 cycles at " << get_curr_cycle() << "\n";
+	}
+      }
+      
       while(not(rob.empty()) and (retire_amt < retire_bw)) {
 	u = rob.peek();
-	
+	empty_cnt = 0;
 	if(not(u->is_complete)) {
+	  if(stuck_cnt > 32) {
+	    std::cerr << "pc : stuck at head of rob " << std::hex << u->pc << std::dec << "\n";
+	    
+	  }
+	  stuck_cnt++;
 	  u = nullptr;
 	  break;
 	}
@@ -529,6 +544,7 @@ extern "C" {
 
 	
 	u->op->retire(machine_state);
+	stuck_cnt = 0;
 	
 	machine_state.log_insn(u->inst, u->pc, u->exec_parity);
 	insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
@@ -611,7 +627,7 @@ extern "C" {
 	  }
 	}
 	machine_state.nuke = true;
-
+	stuck_cnt = 0;
 	if(delay_slot_exception) {
 	  machine_state.fetch_pc = u->pc;
 	}
@@ -787,7 +803,7 @@ int main(int argc, char *argv[]) {
   double now = timestamp();
   start_gthreads();
   now = timestamp() - now;
-#if 0
+#if 1
   uint32_t parity = 0;
   for(int i = 0; i < 32; i++) {
     parity ^= machine_state.arch_grf[i];

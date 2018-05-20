@@ -1909,6 +1909,42 @@ protected:
     machine_state.cpr1_rat[get_dest()] = m->prf_idx;
     return true;
   }
+  template <typename T>
+  struct fp_executor {
+    load_thunk<T> operator()(fp_op_type fot,
+			     int &latency,
+			     load_thunk<T> &src0,
+			     load_thunk<T> &src1) const {
+      load_thunk<T> dest;
+      switch(fot)
+	{
+	case fp_op_type::add:
+	  dest.DT() = src0.DT()+src1.DT();
+	  latency = 2;
+	  break;
+	case fp_op_type::sub:
+	  dest.DT() = src0.DT()-src1.DT();
+	  latency = 2;
+	  break;
+	case fp_op_type::mul:
+	  dest.DT() = src0.DT()*src1.DT();
+	  latency = 3;
+	  break;
+	case fp_op_type::div:
+	  dest.DT() = src0.DT()/src1.DT();
+	  latency = 32;
+	  break;
+	case fp_op_type::mov:
+	  dest.DT() = src0.DT();
+	  latency = 1;
+	  break;
+	default:
+	  die();
+	  break;
+	}
+      return dest;
+    }
+  };
   void execute_double(sim_state &machine_state) {
     int latency = 1;
     load_thunk<double> src0, src1, dest;
@@ -1918,26 +1954,8 @@ protected:
       src1[0] = machine_state.cpr1_prf[m->src2_prf];
       src1[1] = machine_state.cpr1_prf[m->src3_prf];
     }
-    switch(fot)
-      {
-      case fp_op_type::add:
-	dest.DT() = src0.DT()+src1.DT();
-	break;
-      case fp_op_type::sub:
-	dest.DT() = src0.DT()-src1.DT();
-	break;
-      case fp_op_type::mul:
-	dest.DT() = src0.DT()*src1.DT();
-	break;
-      case fp_op_type::mov:
-	dest.DT() = src0.DT();
-	break;
-      default:
-	std::cout << std::hex << m->pc << std::dec << ":" <<
-	  getAsmString(m->pc, m->inst) << "\n";
-	die();
-	break;
-      }
+    fp_executor<double> exec;
+    dest = exec(fot, latency, src0, src1);
     machine_state.cpr1_prf[m->prf_idx] = dest[0];
     machine_state.cpr1_prf[m->aux_prf_idx] = dest[1];
     m->complete_cycle = get_curr_cycle() + latency;
@@ -1949,24 +1967,8 @@ protected:
     if(get_src1() != -1) {
       src1[0] = machine_state.cpr1_prf[m->src1_prf];
     }
-    switch(fot)
-      {
-      case fp_op_type::add:
-	dest.DT() = src0.DT()+src1.DT();
-	break;
-      case fp_op_type::sub:
-	dest.DT() = src0.DT()-src1.DT();
-	break;
-      case fp_op_type::mul:
-	dest.DT() = src0.DT()*src1.DT();
-	break;
-
-      default:
-	std::cout << std::hex << m->pc << std::dec << ":" <<
-	  getAsmString(m->pc, m->inst) << "\n";
-	die();
-	break;
-      }
+    fp_executor<float> exec;
+    dest = exec(fot, latency, src0, src1);
     machine_state.cpr1_prf[m->prf_idx] = dest[0];
     m->complete_cycle = get_curr_cycle() + latency;
   }
@@ -1977,7 +1979,7 @@ public:
     this->op_class = mips_op_type::fp;
   }
   virtual int get_src0() const {
-    return (m->inst >> 11)&31;
+    return (m->inst >> 11)&31; /* fs */
   }
   virtual int get_src1() const {
     switch(fot)
@@ -1986,7 +1988,7 @@ public:
       case fp_op_type::sub:
       case fp_op_type::mul:
       case fp_op_type::div:
-	return (m->inst>>16)&31;
+	return (m->inst>>16)&31; /* ft */
       default:
 	break;
       }
@@ -2607,7 +2609,7 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
       case 0x1:
 	return new branch_op(m_op, branch_op::branch_type::bc1t);
       case 0x2:
-	  return new branch_op(m_op, branch_op::branch_type::bc1fl);
+	return new branch_op(m_op, branch_op::branch_type::bc1fl);
       case 0x3:
 	return new branch_op(m_op, branch_op::branch_type::bc1tl);
       }
