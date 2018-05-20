@@ -99,6 +99,8 @@ protected:
   };
 };
 
+struct state_t;
+
 struct sim_state {
   bool terminate_sim = false;
   bool nuke = false;
@@ -224,6 +226,7 @@ struct sim_state {
   }
   
   void initialize(sparse_mem *mem);
+  void copy_state(const state_t *s);
 
   ~sim_state() {
     if(gpr_prf) delete [] gpr_prf;

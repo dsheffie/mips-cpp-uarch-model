@@ -130,6 +130,27 @@ void sim_state::initialize(sparse_mem *mem) {
 }
 
 
+void sim_state::copy_state(const state_t *s) {
+  fetch_pc = s->pc;
+  for(int i = 0; i < 32; i++) {
+    gpr_prf[gpr_rat[i]] = s->gpr[i];
+    arch_grf[i] = s->gpr[i];
+  }
+  gpr_prf[gpr_rat[32]] = s->lo;
+  gpr_prf[gpr_rat[33]] = s->hi;
+  for(int i = 0; i < 32; i++) {
+    cpr0_prf[cpr0_rat[i]] = s->cpr0[i];
+  }
+  for(int i = 0; i < 32; i++) {
+    cpr1_prf[cpr1_rat[i]] = s->cpr1[i];
+    arch_cpr1[i] = s->cpr1[i];
+  }
+  for(int i = 0; i < 5; i++) {
+    fcr1_prf[fcr1_rat[i]] = s->fcr1[i];
+  }
+  icnt = s->icnt;
+}
+
 static sim_state machine_state;
 static uint64_t curr_cycle = 0;
 
@@ -164,9 +185,7 @@ extern "C" {
   }
   
   void fetch(void *arg) {
-    machine_state.fetch_pc = s->pc;
     auto &fetch_queue = machine_state.fetch_queue;
-
     while(not(machine_state.terminate_sim)) {
       int fetch_amt = 0;
       for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
@@ -783,6 +802,13 @@ int main(int argc, char *argv[]) {
   load_elf(filename, s);
   mkMonitorVectors(s);
 
+  while(s->icnt < (1UL<<28)) {
+    execMips(s);
+    //if((s->icnt % 8192) == 0)
+    //std::cout << s->icnt << "\n";
+  }
+  std::cout << "fast-forwarded over " << s->icnt << " insns\n";
+  
   sparse_mem *u_arch_mem = new sparse_mem(*sm);
 
   assert(u_arch_mem->equal(*sm));
@@ -790,7 +816,8 @@ int main(int argc, char *argv[]) {
   machine_state.initialize(u_arch_mem);
   machine_state.maxicnt = maxicnt;
   machine_state.use_interp_check = true;
-
+  machine_state.copy_state(s);
+  
   gthread::make_gthread(&retire, nullptr);
   gthread::make_gthread(&complete, nullptr);
   gthread::make_gthread(&execute, nullptr);
