@@ -49,7 +49,7 @@ static int num_cpr1_prf = 64;
 static int num_fcr1_prf = 16;
 
 static int num_fpu_ports = 1;
-static int num_alu_ports = 2;
+static int num_alu_ports = 4;
 static int num_load_ports = 2;
 
 static int num_alu_sched_entries = 16;
@@ -173,8 +173,10 @@ extern "C" {
 	machine_state.terminate_sim = true;
       }
       if(curr_cycle % (1UL<<20) == 0) {
+	double ipc = static_cast<double>(machine_state.icnt) / curr_cycle;
 	std::cout << "heartbeat : " << curr_cycle << " cycles, "
-		  << machine_state.icnt << " insns retired\n";
+		  << machine_state.icnt << " insns retired,"
+		  << ipc << " ipc\n";
       }
       //if(curr_cycle >= 256) {
       //machine_state.terminate_sim = true;
@@ -246,9 +248,15 @@ extern "C" {
   void allocate(void *arg) {
     auto &decode_queue = machine_state.decode_queue;
     auto &rob = machine_state.rob;
-
+    sim_bitvec_template<uint8_t> alu_alloc(machine_state.num_alu_rs);
+    sim_bitvec_template<uint8_t> fpu_alloc(machine_state.num_fpu_rs);
+    sim_bitvec_template<uint8_t> load_alloc(machine_state.num_load_rs);
     while(not(machine_state.terminate_sim)) {
       int alloc_amt = 0;
+      std::map<mips_op_type, int> alloc_histo;
+      alu_alloc.clear();
+      fpu_alloc.clear();
+      load_alloc.clear();
       while(not(decode_queue.empty()) and not(rob.full()) and
 	    (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
@@ -269,55 +277,58 @@ extern "C" {
 	  case mips_op_type::unknown:
 	    dprintf(log_fd, "want unknown for %x \n", u->pc);
 	    die();
-	  case mips_op_type::alu:
-	    for(int i = 0; i < machine_state.num_alu_rs; i++) {
-	      int p = (i + machine_state.last_alu_rs) % machine_state.num_alu_rs;
-	      if(not(machine_state.alu_rs.at(p).full())) {
+	  case mips_op_type::alu: {
+	    int64_t p = alu_alloc.find_first_unset();
+	    if(p!=-1 and not(machine_state.alu_rs.at(p).full())) {
 		machine_state.last_alu_rs = p;
 		rs_available = true;
 		rs_queue = &(machine_state.alu_rs.at(p));
-		break;
-	      }
+		alu_alloc.set_bit(p);
+		alloc_histo[u->op->get_op_class()]++;
 	    }
+	  }
 	    break;
-	  case mips_op_type::fp:
-	    for(int i = 0; i < machine_state.num_fpu_rs; i++) {
-	      int p = (i + machine_state.last_alu_rs) % machine_state.num_fpu_rs;
-	      if(not(machine_state.fpu_rs.at(p).full())) {
-		machine_state.last_fpu_rs = p;
-		rs_available = true;
-		rs_queue = &(machine_state.fpu_rs.at(p));
-		break;
-	      }
+	  case mips_op_type::fp: {
+	    int64_t p = fpu_alloc.find_first_unset();
+	    if(p!=-1 and not(machine_state.fpu_rs.at(p).full())) {
+	      machine_state.last_fpu_rs = p;
+	      rs_available = true;
+	      rs_queue = &(machine_state.fpu_rs.at(p));
+	      fpu_alloc.set_bit(p);
+	      alloc_histo[u->op->get_op_class()]++;
 	    }
-
+	  }
 	    break;
 	  case mips_op_type::jmp:
 	    if(not(machine_state.jmp_rs.full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.jmp_rs);
+	      alloc_histo[u->op->get_op_class()]++;
 	    }
 	    break;
-	  case mips_op_type::load:
-	    for(int i = 0; i < machine_state.num_load_rs; i++) {
-	      int p = (i + machine_state.last_load_rs) % machine_state.num_load_rs;
-	      if(not(machine_state.load_rs.at(p).full())) {
+	  case mips_op_type::load: {
+	    int64_t p = load_alloc.find_first_unset();
+	    if(p!=1 and not(machine_state.load_rs.at(p).full())) {
 		machine_state.last_load_rs = p;
 		rs_available = true;
 		rs_queue = &(machine_state.load_rs.at(p));
-		break;
-	      }
+		load_alloc.set_bit(p);
+		alloc_histo[u->op->get_op_class()]++;
 	    }
+	    break;
+	  }
 	  case mips_op_type::store:
 	    if(not(machine_state.store_rs.full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.store_rs);
+	      alloc_histo[u->op->get_op_class()]++;
 	    }
 	    break;
 	  case mips_op_type::system:
 	    if(not(machine_state.system_rs.full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.system_rs);
+	      alloc_histo[u->op->get_op_class()]++;
 	    }
 	    break;
 	  }
@@ -362,7 +373,13 @@ extern "C" {
 	alloc_amt++;
       }
 
-      //std::cout << "alloc amt " << alloc_amt << "\n";
+      if(false and get_curr_cycle()%8192 == 0 and alloc_amt != 0) {
+	std::cout << "alloc amt " << alloc_amt << "\n";
+	for(auto &ap : alloc_histo) {
+	  std::cout << "\talloc'd " << ap.second << " of " << ap.first << "\n";
+	}
+      }
+
 
       gthread_yield();
     }
@@ -675,9 +692,7 @@ extern "C" {
 	  auto uu = rob.at(i);
 	  if(uu) {
 	    uu->op->undo(machine_state);
-#ifdef DEALLOC_ENTRIRES
 	    delete uu;
-#endif
 	    rob.at(i) = nullptr;
 	  }
 	  
