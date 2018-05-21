@@ -7,6 +7,8 @@
 std::map<uint32_t, uint32_t> branch_target_map;
 std::map<uint32_t, int32_t> branch_prediction_map;
 
+std::map<uint32_t, uint32_t> load_alias_map;
+
 template <typename T>
 struct load_thunk {
   union thunk {
@@ -1007,6 +1009,21 @@ public:
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
+#if 1
+    auto it = load_alias_map.find(m->pc);
+    if(it != load_alias_map.end()) {
+      //std::cout << "potential conflict!\n";
+      for(size_t i = 0, s = machine_state.store_tbl_freevec.size(); i < s; i++) {
+	if(machine_state.store_tbl[i] != nullptr) {
+	  auto st = machine_state.store_tbl[i];
+	  if(st->pc == it->second and (st->alloc_cycle < m->alloc_cycle)) {
+	    //std::cout << "stalled due to inflight store\n";
+	    return false;
+	  }
+	}
+      }
+    }
+#endif
     return true;
   }
   virtual void execute(sim_state &machine_state) {
@@ -1161,8 +1178,10 @@ public:
       }
       if(mmo->is_complete and (effective_address>>6) == (ld->getEA()>>6)) {
 	load_violation = true;
+	load_alias_map[mmo->pc] = m->pc;
       }
     }
+    //std::cout << "load / store exception, store pc = " << std::hex << m->pc << std::dec << "\n";
     for(size_t i = 0; load_violation and (i < machine_state.load_tbl_freevec.size()); i++ ){
       if(machine_state.load_tbl[i]!=nullptr) {
 	machine_state.load_tbl[i]->load_exception = true;
