@@ -268,7 +268,7 @@ extern "C" {
 	if(u->decode_cycle == curr_cycle) {
 	  break;
 	}
-	
+	bool jmp_avail = true, store_avail = true, system_avail = true;
 	sim_state::rs_type *rs_queue = nullptr;
 	bool rs_available = false;
 
@@ -300,10 +300,11 @@ extern "C" {
 	  }
 	    break;
 	  case mips_op_type::jmp:
-	    if(not(machine_state.jmp_rs.full())) {
+	    if(jmp_avail and not(machine_state.jmp_rs.full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.jmp_rs);
 	      alloc_histo[u->op->get_op_class()]++;
+	      jmp_avail = false;
 	    }
 	    break;
 	  case mips_op_type::load: {
@@ -318,17 +319,19 @@ extern "C" {
 	    break;
 	  }
 	  case mips_op_type::store:
-	    if(not(machine_state.store_rs.full())) {
+	    if(store_avail and not(machine_state.store_rs.full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.store_rs);
 	      alloc_histo[u->op->get_op_class()]++;
+	      store_avail = false;
 	    }
 	    break;
 	  case mips_op_type::system:
-	    if(not(machine_state.system_rs.full())) {
+	    if(system_avail and not(machine_state.system_rs.full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.system_rs);
 	      alloc_histo[u->op->get_op_class()]++;
+	      system_avail = false;
 	    }
 	    break;
 	  }
