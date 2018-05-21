@@ -672,7 +672,6 @@ extern "C" {
 	int64_t i = rob.get_write_idx(), c = 0;
 	bool seen_full = false;
 	while(true) {
-	  std::cout << "\tundo rob id = " << i << "\n";
 	  auto uu = rob.at(i);
 	  if(uu) {
 	    uu->op->undo(machine_state);
@@ -829,12 +828,12 @@ int main(int argc, char *argv[]) {
   load_elf(filename, s);
   mkMonitorVectors(s);
 
-  while(s->icnt < (1UL<<28)) {
-    execMips(s);
-    //if((s->icnt % 8192) == 0)
-    //std::cout << s->icnt << "\n";
-  }
-  std::cout << "fast-forwarded over " << s->icnt << " insns\n";
+  //while(s->icnt < (1UL<<28)) {
+   //execMips(s);
+  //if((s->icnt % 8192) == 0)
+  //std::cout << s->icnt << "\n";
+  //}
+  //std::cout << "fast-forwarded over " << s->icnt << " insns\n";
   
   sparse_mem *u_arch_mem = new sparse_mem(*sm);
 
@@ -857,7 +856,7 @@ int main(int argc, char *argv[]) {
   double now = timestamp();
   start_gthreads();
   now = timestamp() - now;
-#if 1
+#if 0
   uint32_t parity = 0;
   for(int i = 0; i < 32; i++) {
     parity ^= machine_state.arch_grf[i];

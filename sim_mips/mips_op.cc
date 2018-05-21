@@ -1019,6 +1019,10 @@ public:
       sparse_mem & mem = *(machine_state.mem);
       switch(lt)
 	{
+	case load_type::lb:
+	  machine_state.gpr_prf[m->prf_idx] = 
+	    accessBigEndian(*((int8_t*)(mem + effective_address)));
+	  break;
 	case load_type::lbu:
 	  *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
 	    static_cast<uint32_t>(mem.at(effective_address));
@@ -1718,7 +1722,6 @@ public:
     machine_state.gpr_freevec.set_bit(m->prf_idx);
     machine_state.gpr_rat[get_dest()] = m->prf_idx;
     machine_state.gpr_valid.clear_bit(m->prf_idx);
-    std::cout << std::hex << m->pc << std::dec << ": " << m->prf_idx << "\n";
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
@@ -2579,6 +2582,8 @@ static mips_op* decode_itype_insn(sim_op m_op) {
       return new branch_op(m_op,branch_op::branch_type::bnel);
     case 0x17:
       return new branch_op(m_op,branch_op::branch_type::bgtzl);
+    case 0x20:
+      return new load_op(m_op, load_op::load_type::lb);
     case 0x21: /* lh */
       return new load_op(m_op, load_op::load_type::lh);
     case 0x23: /* lw */
