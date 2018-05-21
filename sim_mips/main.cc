@@ -670,16 +670,30 @@ extern "C" {
 	  }
 	}
 	int64_t i = rob.get_write_idx(), c = 0;
+	bool seen_full = false;
 	while(true) {
+	  std::cout << "\tundo rob id = " << i << "\n";
 	  auto uu = rob.at(i);
 	  if(uu) {
 	    uu->op->undo(machine_state);
+#ifdef DEALLOC_ENTRIRES
 	    delete uu;
+#endif
 	    rob.at(i) = nullptr;
 	  }
 	  
 	  if(i == rob.get_read_idx()) {
-	    break;
+	    if(rob.full()) {
+	      if(seen_full) {
+		break;
+	      }
+	      else {
+		seen_full = true;
+	      }
+	    }
+	    else {
+	      break;
+	    }
 	  }
 	  i--;
 	  if(i < 0) {

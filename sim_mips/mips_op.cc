@@ -1694,6 +1694,73 @@ public:
 };
 
 
+class se_op : public mips_op {
+public:
+  enum class se_type {seb, seh};
+protected:
+  se_type st;
+public:
+  se_op(sim_op op, se_type st) : mips_op(op), st(st) {
+    this->op_class = mips_op_type::system;
+  }
+  virtual int get_src0() const {
+    return (m->inst >> 16) & 31;
+  }
+  virtual int get_dest() const {
+    return (m->inst >> 11) & 31; 
+  }
+  virtual bool allocate(sim_state &machine_state) {
+    m->src0_prf = machine_state.gpr_rat[get_src0()];
+    m->prf_idx = machine_state.gpr_freevec.find_first_unset();
+    if(m->prf_idx == -1)
+      return false;
+    m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
+    machine_state.gpr_freevec.set_bit(m->prf_idx);
+    machine_state.gpr_rat[get_dest()] = m->prf_idx;
+    machine_state.gpr_valid.clear_bit(m->prf_idx);
+    std::cout << std::hex << m->pc << std::dec << ": " << m->prf_idx << "\n";
+    return true;
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    return machine_state.gpr_valid.get_bit(m->src0_prf);
+  }
+  virtual void execute(sim_state &machine_state) {
+    switch(st)
+      {
+      case se_type::seb:
+	machine_state.gpr_prf[m->prf_idx] = static_cast<int32_t>(static_cast<int8_t>(machine_state.gpr_prf[m->src0_prf])); 
+	break;
+      case se_type::seh:
+	machine_state.gpr_prf[m->prf_idx] = static_cast<int32_t>(static_cast<int16_t>(machine_state.gpr_prf[m->src0_prf])); 
+	break;
+      default:
+	die();
+      }
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      machine_state.gpr_valid.set_bit(m->prf_idx);
+    }
+  }
+  virtual bool retire(sim_state &machine_state) {
+    machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+    machine_state.icnt++;
+    machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+    machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+    m->exec_parity = machine_state.gpr_parity();
+    m->retire_cycle = get_curr_cycle();
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {
+    machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.gpr_freevec.clear_bit(m->prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prf_idx);
+  }
+};
+
 class ext_op : public mips_op {
 public:
   ext_op(sim_op op) : mips_op(op) {
@@ -2746,6 +2813,7 @@ static mips_op* decode_special2_insn(sim_op m_op) {
   return nullptr;
 }
 
+
 static mips_op* decode_special3_insn(sim_op m_op) {
   uint32_t funct = m_op->inst & 63;
   uint32_t op = (m_op->inst>>6) & 31;
@@ -2753,12 +2821,24 @@ static mips_op* decode_special3_insn(sim_op m_op) {
     {
     case 0x0:
       return new ext_op(m_op);
+    case 0x20:
+      switch(op)
+	{
+	case 0x10:
+	  return new se_op(m_op, se_op::se_type::seb);
+	case 0x18:
+	  return new se_op(m_op, se_op::se_type::seh);
+	default:
+	  die();
+	}
     default:
       break;
     }
   
   return nullptr;
 }
+
+
 
 
 
