@@ -897,6 +897,12 @@ public:
 	m->likely_squash = not(take_br);
 	m->has_delay_slot = take_br;
 	break;
+      case branch_type::blezl:
+	take_br = machine_state.gpr_prf[m->src0_prf] <= 0;
+	m->has_delay_slot = true;
+	m->has_delay_slot = take_br;
+	break;
+
       case branch_type::bc1t:
 	take_br = getConditionCode(machine_state.fcr1_prf[m->src0_prf], (m->inst >> 18)&7);
 	m->has_delay_slot = true;
