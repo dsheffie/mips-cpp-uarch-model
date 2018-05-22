@@ -187,9 +187,9 @@ extern "C" {
   void allocate(void *arg) {
     auto &decode_queue = machine_state.decode_queue;
     auto &rob = machine_state.rob;
-    sim_bitvec_template<uint8_t> alu_alloc(machine_state.num_alu_rs);
-    sim_bitvec_template<uint8_t> fpu_alloc(machine_state.num_fpu_rs);
-    sim_bitvec_template<uint8_t> load_alloc(machine_state.num_load_rs);
+    auto &alu_alloc = machine_state.alu_alloc;
+    auto &fpu_alloc = machine_state.fpu_alloc;
+    auto &load_alloc = machine_state.load_alloc;
     while(not(machine_state.terminate_sim)) {
       int alloc_amt = 0;
       std::map<mips_op_type, int> alloc_histo;
@@ -823,7 +823,10 @@ void sim_state::initialize(sparse_mem *mem) {
   jmp_rs.resize(num_jmp_sched_entries);
   store_rs.resize(num_store_sched_entries);
   system_rs.resize(num_system_sched_entries);
-  
+
+  alu_alloc.clear_and_resize(num_alu_rs);
+  fpu_alloc.clear_and_resize(num_fpu_rs);
+  load_alloc.clear_and_resize(num_load_rs);
   initialize_rat_mappings();
 }
 

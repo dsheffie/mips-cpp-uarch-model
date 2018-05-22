@@ -155,6 +155,10 @@ struct sim_state {
   sim_queue<sim_op> decode_queue;
   sim_queue<sim_op> rob;
 
+  sim_bitvec alu_alloc;
+  sim_bitvec fpu_alloc;
+  sim_bitvec load_alloc;
+  
   int last_alu_rs = 0;
   int last_fpu_rs = 0;
   int last_load_rs = 0;
