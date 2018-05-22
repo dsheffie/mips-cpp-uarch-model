@@ -41,9 +41,9 @@ static int num_gpr_prf = 128;
 static int num_cpr0_prf = 64;
 static int num_cpr1_prf = 64;
 static int num_fcr1_prf = 16;
-static int num_fpu_ports = 2;
-static int num_alu_ports = 2;
-static int num_load_ports = 2;
+static int num_fpu_ports = 1;
+static int num_alu_ports = 1;
+static int num_load_ports = 1;
 
 static int num_alu_sched_entries = 64;
 static int num_fpu_sched_entries = 64;
@@ -219,7 +219,6 @@ extern "C" {
 	  case mips_op_type::alu: {
 	    int64_t p = alu_alloc.find_first_unset();
 	    if(p!=-1 and not(machine_state.alu_rs.at(p).full())) {
-		machine_state.last_alu_rs = p;
 		rs_available = true;
 		rs_queue = &(machine_state.alu_rs.at(p));
 		alu_alloc.set_bit(p);
@@ -230,7 +229,6 @@ extern "C" {
 	  case mips_op_type::fp: {
 	    int64_t p = fpu_alloc.find_first_unset();
 	    if(p!=-1 and not(machine_state.fpu_rs.at(p).full())) {
-	      machine_state.last_fpu_rs = p;
 	      rs_available = true;
 	      rs_queue = &(machine_state.fpu_rs.at(p));
 	      fpu_alloc.set_bit(p);
@@ -248,8 +246,7 @@ extern "C" {
 	    break;
 	  case mips_op_type::load: {
 	    int64_t p = load_alloc.find_first_unset();
-	    if(p!=1 and not(machine_state.load_rs.at(p).full())) {
-		machine_state.last_load_rs = p;
+	    if(p!=-1 and not(machine_state.load_rs.at(p).full())) {
 		rs_available = true;
 		rs_queue = &(machine_state.load_rs.at(p));
 		load_alloc.set_bit(p);
@@ -512,7 +509,7 @@ extern "C" {
 	      error = true;
 	    }
 	  }
-	  if(u->is_store and false) {
+	  if(u->is_store or true) {
 	    error |= (machine_state.mem->equal(s->mem)==false);
 	  }
 	  if(error) {

@@ -1016,6 +1016,18 @@ public:
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
+    
+    //serialize
+#if 0
+    for(size_t i = 0, s = machine_state.store_tbl_freevec.size(); i < s; i++) {
+      if(machine_state.store_tbl[i] != nullptr) {
+	if((machine_state.store_tbl[i]->alloc_cycle < m->alloc_cycle)) {
+	  return false;
+	}
+      }
+    }
+#endif
+    
 #if 1
     auto it = load_alias_map.find(m->pc);
     if(it != load_alias_map.end()) {

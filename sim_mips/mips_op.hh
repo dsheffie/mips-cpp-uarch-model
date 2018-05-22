@@ -159,9 +159,6 @@ struct sim_state {
   sim_bitvec fpu_alloc;
   sim_bitvec load_alloc;
   
-  int last_alu_rs = 0;
-  int last_fpu_rs = 0;
-  int last_load_rs = 0;
   int num_alu_rs = -1;
   int num_fpu_rs = -1;
   int num_load_rs = -1;

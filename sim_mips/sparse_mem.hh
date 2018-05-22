@@ -65,17 +65,40 @@ public:
     while(p0!=-1 and p1 !=-1) {
       assert(other.mem[p0]);
       assert(mem[p1]);
-      if(p0 != p1) {
-	std::cerr << "p0 = " << p0 << "\n";
-	std::cerr << "p1 = " << p1 << "\n";
-	exit(-1);
+      //std::cerr << "p0 = " << p0 << ",p1 = " << p1 << "\n";
+
+      if(p0==p1) {
+	int d = memcmp(mem[p1], other.mem[p0], pgsize);
+	if(d != 0) {
+	  std::cout << "page " << p1 << " mismatch!\n";
+	  for(int i = 0; i < pgsize; i++) {
+	    if(other.mem[p0][i] != mem[p1][i]) {
+	      std::cout << "byte " << i << " differs : "
+			<< std::hex
+			<< static_cast<uint32_t>(other.mem[p0][i]) << ","
+		        << static_cast<uint32_t>(mem[p1][i])
+			<< std::dec << "\n";
+	    }
+	  }
+	  return false;
+	}
+	p0 = other.present_bitvec.find_next_set(p0);
+	p1 = present_bitvec.find_next_set(p1);
       }
-      int d = memcmp(mem[p1], other.mem[p0], pgsize);
-      if(d != 0) {
-	return false;
+      else if(p0 < p1) {
+	if(!other.is_zero(p0)) {
+	  std::cout << "p0 present page " << p0 << " mismatch!\n";
+	  return false;
+	}
+	p0 = other.present_bitvec.find_next_set(p0);
       }
-      p0 = other.present_bitvec.find_next_set(p0);
-      p1 = present_bitvec.find_next_set(p1);
+      else {
+	if(!is_zero(p1)) {
+	  std::cout << "p1 present page " << p1 << " mismatch!\n";
+	  return false;
+	}
+	p1 = present_bitvec.find_next_set(p1);
+      }
     }
     return true;
   }
