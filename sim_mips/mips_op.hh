@@ -72,13 +72,13 @@ struct mips_meta_op {
 
   int32_t rob_idx = -1;
   /* result will get written to prf idx */
-  int64_t prf_idx = -1, aux_prf_idx=-1;
+  int32_t prf_idx = -1, aux_prf_idx=-1;
   /* previous prf writer (will return to freelist when this inst retires */
-  int64_t prev_prf_idx = -1, aux_prev_prf_idx = -1;
-  int64_t src0_prf = -1, src1_prf = -1, src2_prf = -1, src3_prf = -1, src4_prf = -1;
-  int64_t load_tbl_idx = -1, store_tbl_idx = -1;
-  int64_t hi_prf_idx = -1, lo_prf_idx = -1;
-  int64_t prev_hi_prf_idx = -1, prev_lo_prf_idx = -1;
+  int32_t prev_prf_idx = -1, aux_prev_prf_idx = -1;
+  int32_t src0_prf = -1, src1_prf = -1, src2_prf = -1, src3_prf = -1, src4_prf = -1;
+  int32_t load_tbl_idx = -1, store_tbl_idx = -1;
+  int32_t hi_prf_idx = -1, lo_prf_idx = -1;
+  int32_t prev_hi_prf_idx = -1, prev_lo_prf_idx = -1;
   
   mips_op* op = nullptr;
 
