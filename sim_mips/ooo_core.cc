@@ -29,25 +29,27 @@
 
 /* sim parameters */
 static int rob_size = 64;
-static int fetchq_size = 32;
-static int decodeq_size = 32;
+static int fetchq_size = 64;
+static int decodeq_size = 64;
 
-static int fetch_bw = 32;
+static int fetch_bw = 16;
 static int alloc_bw = 16;
 static int decode_bw = 16;
-static int retire_bw = 8;
+static int retire_bw = 16;
+
 static int num_gpr_prf = 128;
 static int num_cpr0_prf = 64;
 static int num_cpr1_prf = 64;
 static int num_fcr1_prf = 16;
-static int num_fpu_ports = 1;
-static int num_alu_ports = 4;
+static int num_fpu_ports = 2;
+static int num_alu_ports = 2;
 static int num_load_ports = 2;
-static int num_alu_sched_entries = 16;
-static int num_fpu_sched_entries = 16;
-static int num_jmp_sched_entries = 16;
-static int num_load_sched_entries = 32;
-static int num_store_sched_entries = 32;
+
+static int num_alu_sched_entries = 64;
+static int num_fpu_sched_entries = 64;
+static int num_jmp_sched_entries = 64;
+static int num_load_sched_entries = 64;
+static int num_store_sched_entries = 64;
 static int num_system_sched_entries = 4;
 
 static sim_state machine_state;
@@ -274,9 +276,11 @@ extern "C" {
 	  }
 	
 	if(not(rs_available)) {
-	  //std::cout << "can't allocate due to lack of "
-	  //	    << u->op->get_op_class()
-	  //	    << " resources\n";
+#if 0
+	  std::cout << "can't allocate due to lack of "
+	  	    << u->op->get_op_class()
+		    << " resources\n";
+#endif
 	  break;
 	}
 	

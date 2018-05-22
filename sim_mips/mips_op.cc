@@ -1,3 +1,4 @@
+#include "globals.hh"
 #include "mips_op.hh"
 #include "helper.hh"
 #include "parseMips.hh"
@@ -1786,7 +1787,7 @@ public:
 class ext_op : public mips_op {
 public:
   ext_op(sim_op op) : mips_op(op) {
-    this->op_class = mips_op_type::system;
+    this->op_class = mips_op_type::alu;
   }
   virtual int get_src0() const {
     return (m->inst >> 21) & 31;
@@ -1813,6 +1814,84 @@ public:
     uint32_t size = ((m->inst >> 11) & 31) + 1;
     machine_state.gpr_prf[m->prf_idx] = (machine_state.gpr_prf[m->src0_prf] >> pos) &
       ((1<<size)-1);
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      machine_state.gpr_valid.set_bit(m->prf_idx);
+    }
+  }
+  virtual bool retire(sim_state &machine_state) {
+    machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+    machine_state.icnt++;
+    machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+    machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+    m->exec_parity = machine_state.gpr_parity();
+    m->retire_cycle = get_curr_cycle();
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {
+    machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.gpr_freevec.clear_bit(m->prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prf_idx);
+  }
+};
+
+
+class movci_op : public mips_op {
+protected:
+  bool getConditionCode(uint32_t cr, uint32_t cc) {
+    return ((cr & (1U<<cc)) >> cc) & 0x1;
+  }
+public:
+  movci_op(sim_op op) : mips_op(op) {
+    this->op_class = mips_op_type::alu;
+  }
+  virtual int get_dest() const {
+    return (m->inst >> 11) & 31; 
+  }
+  virtual int get_src0() const {
+    return (m->inst >> 11) & 31; /* previous value of dest */
+  }
+  virtual int get_src1() const {
+    return (m->inst >> 21) & 31; /* other register */
+  }
+  virtual bool allocate(sim_state &machine_state) {
+    m->src0_prf = machine_state.gpr_rat[get_src0()];
+    m->src1_prf = machine_state.gpr_rat[get_src1()];
+    m->src2_prf = machine_state.fcr1_rat[CP1_CR25];
+    m->prf_idx = machine_state.gpr_freevec.find_first_unset();
+    if(m->prf_idx == -1)
+      return false;
+    m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
+    machine_state.gpr_freevec.set_bit(m->prf_idx);
+    machine_state.gpr_rat[get_dest()] = m->prf_idx;
+    machine_state.gpr_valid.clear_bit(m->prf_idx);
+    return true;
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    if(not(machine_state.gpr_valid.get_bit(m->src0_prf)))
+      return false;
+    if(not(machine_state.gpr_valid.get_bit(m->src1_prf)))
+      return false;
+    if(not(machine_state.fcr1_valid.get_bit(m->src2_prf)))
+      return false;
+    return true;
+  }
+  virtual void execute(sim_state &machine_state) {
+    uint32_t cc = (m->inst >> 18) & 7;
+    uint32_t tf = (m->inst>>16) & 1;
+    int32_t r = 0;
+    bool z = getConditionCode(machine_state.fcr1_prf[m->src2_prf], cc);
+    if(tf==0) {
+      r = z ? machine_state.gpr_prf[m->src0_prf] : machine_state.gpr_prf[m->src1_prf];
+    }
+    else {
+      r = z ? machine_state.gpr_prf[m->src1_prf] : machine_state.gpr_prf[m->src0_prf];
+    }
+    machine_state.gpr_prf[m->prf_idx] = r;
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
@@ -2503,6 +2582,15 @@ public:
 	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 4)) = 0;
 	break;
       }
+      case 35: {
+	for(int i = 0; i < std::min(20, sysArgc); i++) {
+	  uint32_t arrayAddr = static_cast<uint32_t>(src_regs[0])+4*i;
+	  uint32_t ptr = accessBigEndian(*((uint32_t*)(mem + arrayAddr)));
+	  strcpy((char*)(mem + ptr), sysArgv[i]);
+	}
+	machine_state.gpr_prf[m->prf_idx] = sysArgc;
+
+      }
       case 55:
 	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 0)) = accessBigEndian(K1SIZE);
 	/* No Icache */
@@ -2648,11 +2736,8 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
     {
     case 0x00: /*sll*/
       return new rtype_const_shift_alu_op(m_op, rtype_alu_op::r_type::sll);
-#if 0
     case 0x01: /* movci */
-      _movci(inst,s);
-      break;
-#endif
+      return new movci_op(m_op);
     case 0x02: /* srl */
       return new rtype_const_shift_alu_op(m_op, rtype_alu_op::r_type::srl);
     case 0x03: /* sra */
