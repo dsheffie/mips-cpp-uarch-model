@@ -28,6 +28,10 @@
 #include "mips_op.hh"
 
 /* sim parameters */
+static int rob_size = 64;
+static int fetchq_size = 32;
+static int decodeq_size = 32;
+
 static int fetch_bw = 32;
 static int alloc_bw = 16;
 static int decode_bw = 16;
@@ -789,9 +793,9 @@ void sim_state::initialize(sparse_mem *mem) {
   cpr1_valid.clear_and_resize(num_cpr1_prf);
   fcr1_valid.clear_and_resize(num_fcr1_prf);
   
-  fetch_queue.resize(16);
-  decode_queue.resize(16);
-  rob.resize(32);
+  fetch_queue.resize(fetchq_size);
+  decode_queue.resize(decodeq_size);
+  rob.resize(rob_size);
 
   num_alu_rs = num_alu_ports;
   num_fpu_rs = num_fpu_ports;
