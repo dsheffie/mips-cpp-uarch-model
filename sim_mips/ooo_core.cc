@@ -541,13 +541,14 @@ extern "C" {
 	machine_state.last_retire_pc = u->pc;
 	
 	stop_sim = u->op->stop_sim();
-	if(stop_sim) {
-	  break;
-	}
 	delete u;
 	u = nullptr;
 	retire_amt++;
 	rob.pop();
+	if(stop_sim) {
+	  break;
+	}
+
       }
 
 
@@ -837,7 +838,29 @@ void run_ooo_core() {
   
   double ipc = static_cast<double>(machine_state.icnt) /
     get_curr_cycle();
- 
+
+#if 0
+  for(int i = 0; i < 32; i++) {
+    std::cout << "reg " << getGPRName(i) << " : " 
+	      << std::hex << machine_state.arch_grf[i]
+	      << "," << s->gpr[i] << std::dec << "\n"; 
+  }
+
+  for(int i = 0; i < 32; i++) {
+    std::cout << "reg " << getGPRName(i) << " writer pc : " 
+	      << std::hex << machine_state.arch_grf_last_pc[i] << std::dec << "\n"; 
+  }
+#endif
+
+  for(int i = 0; i < 32; i++) {
+    std::cout << "cpr1 " << i << " : " 
+	      << std::hex << machine_state.arch_cpr1[i] <<","
+	      << s->cpr1[i] << std::dec << "\n"; 
+  }
+  for(int i = 0; i < 32; i++) {
+    std::cout << "reg " << (i) << " writer pc : " 
+	      << std::hex << machine_state.arch_cpr1_last_pc[i] << std::dec << "\n"; 
+  }
   std::cout << "SIMULATION COMPLETE : "
 	    << machine_state.icnt << " inst retired in "
 	    << get_curr_cycle() << " cycles\n";

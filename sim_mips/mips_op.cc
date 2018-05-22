@@ -1985,7 +1985,7 @@ protected:
     m->aux_prev_prf_idx = machine_state.cpr1_rat[get_dest()+1];
     m->src0_prf = machine_state.cpr1_rat[get_src0()];
     m->src1_prf = machine_state.cpr1_rat[get_src0()+1];
-    if(get_src1()) {
+    if(get_src1()!=-1) {
       m->src2_prf = machine_state.cpr1_rat[get_src1()];
       m->src3_prf = machine_state.cpr1_rat[get_src1()+1];
     }
@@ -2006,9 +2006,12 @@ protected:
   bool allocate_float(sim_state &machine_state) {
     m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
     m->src0_prf = machine_state.cpr1_rat[get_src0()];
-    if(get_src1()) {
+    if(get_src1()!=-1) {
       m->src1_prf = machine_state.cpr1_rat[get_src1()];
     }
+    assert(get_src1() != -1);
+    assert(machine_state.cpr1_rat[get_src1()] != -1);
+    assert(m->src1_prf != -1);
     if(machine_state.cpr1_freevec.num_free() < 1)
       return false;
     m->prf_idx = machine_state.cpr1_freevec.find_first_unset();
@@ -2019,31 +2022,31 @@ protected:
   }
   template <typename T>
   struct fp_executor {
-    load_thunk<T> operator()(fp_op_type fot,
-			     int &latency,
-			     load_thunk<T> &src0,
-			     load_thunk<T> &src1) const {
-      load_thunk<T> dest;
+    T operator()(fp_op_type fot,
+		 int &latency,
+		 const T src0,
+		 const T src1) const {
+      T dest = static_cast<T>(0);
       switch(fot)
 	{
 	case fp_op_type::add:
-	  dest.DT() = src0.DT()+src1.DT();
+	  dest = src0+src1;
 	  latency = 2;
 	  break;
 	case fp_op_type::sub:
-	  dest.DT() = src0.DT()-src1.DT();
+	  dest = src0-src1;
 	  latency = 2;
 	  break;
 	case fp_op_type::mul:
-	  dest.DT() = src0.DT()*src1.DT();
+	  dest = src0*src1;
 	  latency = 3;
 	  break;
 	case fp_op_type::div:
-	  dest.DT() = src0.DT()/src1.DT();
+	  dest = src0/src1;
 	  latency = 32;
 	  break;
 	case fp_op_type::mov:
-	  dest.DT() = src0.DT();
+	  dest = src0;
 	  latency = 1;
 	  break;
 	default:
@@ -2063,7 +2066,7 @@ protected:
       src1[1] = machine_state.cpr1_prf[m->src3_prf];
     }
     fp_executor<double> exec;
-    dest = exec(fot, latency, src0, src1);
+    dest.DT() = exec(fot, latency, src0.DT(), src1.DT());
     machine_state.cpr1_prf[m->prf_idx] = dest[0];
     machine_state.cpr1_prf[m->aux_prf_idx] = dest[1];
     m->complete_cycle = get_curr_cycle() + latency;
@@ -2076,7 +2079,7 @@ protected:
       src1[0] = machine_state.cpr1_prf[m->src1_prf];
     }
     fp_executor<float> exec;
-    dest = exec(fot, latency, src0, src1);
+    dest.DT() = exec(fot, latency, src0.DT(), src1.DT());
     machine_state.cpr1_prf[m->prf_idx] = dest[0];
     m->complete_cycle = get_curr_cycle() + latency;
   }
@@ -2122,18 +2125,23 @@ public:
       execute_float(machine_state);
   }
   virtual bool ready(sim_state &machine_state) const {
-    if(m->src0_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src0_prf))) {
+    if(m->src0_prf != -1 and not(machine_state.cpr1_valid[m->src0_prf])) {
       return false;
     }
-    if(m->src1_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src1_prf))) {
+    if(m->src1_prf != -1 and not(machine_state.cpr1_valid[m->src1_prf])) {
       return false;
     }
-    if(m->src2_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src2_prf))) {
+    if(m->src2_prf != -1 and not(machine_state.cpr1_valid[m->src2_prf])) {
       return false;
     }
-    if(m->src3_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src3_prf))) {
+    if(m->src3_prf != -1 and not(machine_state.cpr1_valid[m->src3_prf])) {
       return false;
     }
+    //std::cout << getAsmString(m->inst, m->pc) <<  " became ready @ " << get_curr_cycle() << "\n";
+    //std::cout << "\tsrc0 prf" << m->src0_prf <<",value=" << std::hex
+    //<< machine_state.cpr1_prf[m->src0_prf] << std::dec << "\n";
+    //std::cout << "\tsrc1 prf" << m->src1_prf <<",value=" << std::hex
+    // 	      << machine_state.cpr1_prf[m->src1_prf] << std::dec << "\n";
     return true;
   }
 
