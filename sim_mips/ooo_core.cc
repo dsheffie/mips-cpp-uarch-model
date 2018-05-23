@@ -65,19 +65,17 @@ uint64_t get_curr_cycle() {
   return curr_cycle;
 }
 
-void initialize_ooo_core(uint64_t maxicnt, state_t *s, const sparse_mem *sm) {
-  while(s->num_open_fd == 0)
-    execMips(s);
-  while(s->num_open_fd != 0)
-    execMips(s);
+void initialize_ooo_core(uint64_t skipicnt, uint64_t maxicnt,
+			 state_t *s, const sparse_mem *sm) {
 
-  while(s->icnt < 3015303892) {
+  while(s->icnt < skipicnt) {
     execMips(s);
   }
   
   u_arch_mem = new sparse_mem(*sm);
   machine_state.initialize(u_arch_mem);
   machine_state.maxicnt = maxicnt;
+  machine_state.skipicnt = skipicnt;
   machine_state.use_interp_check = true;
   machine_state.copy_state(s);
   //u_arch_mem->mark_pages_as_no_write();
@@ -124,7 +122,7 @@ extern "C" {
       if(curr_cycle % (1UL<<20) == 0) {
 	double ipc = static_cast<double>(machine_state.icnt) / curr_cycle;
 	std::cout << "heartbeat : " << curr_cycle << " cycles, "
-		  << machine_state.icnt << " insns retired,"
+		  << (machine_state.icnt-machine_state.skipicnt) << " insns retired,"
 		  << ipc << " ipc\n";
       }
       //if(curr_cycle >= 256) {
@@ -855,7 +853,6 @@ void sim_state::initialize(sparse_mem *mem) {
 
 
 void run_ooo_core() {
-  uint64_t initial_cnt = machine_state.icnt;
   gthread::make_gthread(&retire, nullptr);
   gthread::make_gthread(&complete, nullptr);
   gthread::make_gthread(&execute, nullptr);
@@ -867,7 +864,7 @@ void run_ooo_core() {
   start_gthreads();
   now = timestamp() - now;
 
-  uint64_t total_insns =  machine_state.icnt - initial_cnt;
+  uint64_t total_insns =  machine_state.icnt - machine_state.skipicnt;
   std::cout << "executed " << total_insns << " insns\n";
   
   double ipc = static_cast<double>(machine_state.icnt) /

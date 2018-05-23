@@ -35,7 +35,8 @@ bool enClockFuncts = false;
 state_t *s = nullptr;
 int buildArgcArgv(char *filename, char *sysArgs, char ***argv);
 
-void initialize_ooo_core(uint64_t maxicnt, state_t *s, const sparse_mem *sm);
+void initialize_ooo_core(uint64_t skipicnt, uint64_t maxicnt,
+			 state_t *s, const sparse_mem *sm);
 void run_ooo_core();
 void destroy_ooo_core();
 
@@ -50,8 +51,8 @@ int main(int argc, char *argv[]) {
   size_t pgSize = getpagesize();
   char *filename = nullptr;
   char *sysArgs = nullptr;
-  uint64_t maxicnt = ~(0UL);
-  while((c=getopt(argc,argv,"a:cf:m:"))!=-1) {
+  uint64_t maxicnt = ~(0UL), skipicnt = 0;
+  while((c=getopt(argc,argv,"a:cf:m:k:"))!=-1) {
     switch(c) {
     case 'a':
       sysArgs = strdup(optarg);
@@ -64,6 +65,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'm':
       maxicnt = atoi(optarg);
+      break;
+    case 'k':
+      skipicnt = atoi(optarg);
       break;
     default:
       break;
@@ -88,15 +92,7 @@ int main(int argc, char *argv[]) {
   load_elf(filename, s);
   mkMonitorVectors(s);
 
-  //while(s->icnt < (1UL<<28)) {
-   //execMips(s);
-  //if((s->icnt % 8192) == 0)
-  //std::cout << s->icnt << "\n";
-  //}
-  //std::cout << "fast-forwarded over " << s->icnt << " insns\n";
-  
-  //sparse_mem *u_arch_mem = new sparse_mem(*sm);
-  initialize_ooo_core(maxicnt, s, sm);
+  initialize_ooo_core(skipicnt, maxicnt, s, sm);
   run_ooo_core();
   destroy_ooo_core();
 
