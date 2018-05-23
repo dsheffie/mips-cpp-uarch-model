@@ -80,36 +80,31 @@ public:
     }
   }
   template <typename T>
-  T get(uint32_t byte_addr) const {
+  T get(uint32_t byte_addr) {
     uint32_t paddr = byte_addr / pgsize;
     uint32_t baddr = byte_addr % pgsize;
+    if(mem[paddr]==nullptr) {
+      present_bitvec.set_bit(paddr);
+      int rc = posix_memalign(reinterpret_cast<void**>(&mem[paddr]), 4096, pgsize);
+      assert(rc==0);
+      memset(mem[paddr],0,pgsize);
+    }
     return *reinterpret_cast<T*>(mem[paddr]+baddr);
   }
   template<typename T>
-  void set(uint32_t byte_addr, T v) const {
+  void set(uint32_t byte_addr, T v) {
     uint32_t paddr = byte_addr / pgsize;
     uint32_t baddr = byte_addr % pgsize;
-#if 0
-    if(paddr == ((1UL<<20)-1)) {
-      std::cout << "SET TO " << std::hex << byte_addr
-		<< ",data = " << v
-		<< std::dec
-		<< " of size " << sizeof(T) << "\n";
+    if(mem[paddr]==nullptr) {
+      present_bitvec.set_bit(paddr);
+      int rc = posix_memalign(reinterpret_cast<void**>(&mem[paddr]), 4096, pgsize);
+      assert(rc==0);
+      memset(mem[paddr],0,pgsize);
     }
-#endif
     *reinterpret_cast<T*>(mem[paddr]+baddr) = v;
-#if 0
-    if(paddr == ((1UL<<20)-1)) {
-      std::cout << "AFTER " << std::hex << 0xfffffec0
-		<< ",parity = " << parity(0xfffffec0)
-		<< "\n";
-    }
-#endif
-
   }
 
-
-  uint32_t get32(uint32_t byte_addr) const {
+  uint32_t get32(uint32_t byte_addr)  {
     return get<uint32_t>(byte_addr);
   }
   uint8_t * operator+(uint32_t disp) {

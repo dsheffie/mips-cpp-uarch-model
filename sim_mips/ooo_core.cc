@@ -75,7 +75,7 @@ void initialize_ooo_core(uint64_t skipicnt, uint64_t maxicnt,
   u_arch_mem = new sparse_mem(*sm);
   machine_state.initialize(u_arch_mem);
   machine_state.maxicnt = maxicnt;
-  machine_state.skipicnt = skipicnt;
+  machine_state.skipicnt = s->icnt;
   machine_state.use_interp_check = true;
   machine_state.copy_state(s);
   //u_arch_mem->mark_pages_as_no_write();
@@ -120,7 +120,7 @@ extern "C" {
 	machine_state.terminate_sim = true;
       }
       if(curr_cycle % (1UL<<20) == 0) {
-	double ipc = static_cast<double>(machine_state.icnt) / curr_cycle;
+	double ipc = static_cast<double>(machine_state.icnt-machine_state.skipicnt) / curr_cycle;
 	std::cout << "heartbeat : " << curr_cycle << " cycles, "
 		  << (machine_state.icnt-machine_state.skipicnt) << " insns retired,"
 		  << ipc << " ipc\n";
