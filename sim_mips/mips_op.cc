@@ -902,7 +902,6 @@ public:
 	m->has_delay_slot = true;
 	m->has_delay_slot = take_br;
 	break;
-
       case branch_type::bc1t:
 	take_br = getConditionCode(machine_state.fcr1_prf[m->src0_prf], (m->inst >> 18)&7);
 	m->has_delay_slot = true;
@@ -910,6 +909,16 @@ public:
       case branch_type::bc1f:
 	take_br = not(getConditionCode(machine_state.fcr1_prf[m->src0_prf], (m->inst >> 18)&7));
 	m->has_delay_slot = true;
+	break;
+      case branch_type::bc1tl:
+	take_br = getConditionCode(machine_state.fcr1_prf[m->src0_prf], (m->inst >> 18)&7);
+	m->likely_squash = not(take_br);
+	m->has_delay_slot = take_br;
+	break;
+      case branch_type::bc1fl:
+	take_br = not(getConditionCode(machine_state.fcr1_prf[m->src0_prf], (m->inst >> 18)&7));
+	m->likely_squash = not(take_br);
+	m->has_delay_slot = take_br;
 	break;
       default:
 	dprintf(2, "wtf @ %x\n", m->pc);
@@ -2314,9 +2323,13 @@ protected:
   void execute_truncw(sim_state &machine_state) {
     switch(fmt)
       {
-      case FMT_D:
-	die();
+      case FMT_D: {
+	load_thunk<double> thunk;
+	thunk[0] = machine_state.cpr1_prf[m->src0_prf];
+	thunk[1] = machine_state.cpr1_prf[m->src1_prf];
+	*reinterpret_cast<int32_t*>(&machine_state.cpr1_prf[m->prf_idx]) = static_cast<int32_t>(thunk.DT());
 	break;
+      }
       case FMT_S:
 	*reinterpret_cast<int32_t*>(&machine_state.cpr1_prf[m->prf_idx]) =
 	  static_cast<int32_t>(*reinterpret_cast<float*>(&machine_state.cpr1_prf[m->src0_prf]));

@@ -70,6 +70,11 @@ void initialize_ooo_core(uint64_t maxicnt, state_t *s, const sparse_mem *sm) {
     execMips(s);
   while(s->num_open_fd != 0)
     execMips(s);
+
+  while(s->icnt < 3015303892) {
+    execMips(s);
+  }
+  
   u_arch_mem = new sparse_mem(*sm);
   machine_state.initialize(u_arch_mem);
   machine_state.maxicnt = maxicnt;
