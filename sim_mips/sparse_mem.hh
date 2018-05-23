@@ -6,10 +6,12 @@
 #include <cstring>
 #include <cstdint>
 #include <iostream>
+#include <unistd.h>
+ #include <sys/mman.h>
 
 #include "sim_bitvec.hh"
+#include "helper.hh"
 
-#include <unistd.h>
 
 class sparse_mem {
 public:
@@ -29,10 +31,26 @@ public:
   sparse_mem(uint64_t nbytes = 1UL<<32);
   sparse_mem(const sparse_mem &other);
   ~sparse_mem();
+  void mark_pages_as_no_write();
+  bool get_pb_addr(uint32_t addr, uint32_t &paddr, uint32_t &baddr) {
+    paddr = addr / pgsize;
+    baddr = addr % pgsize;
+    return(mem[paddr]!=nullptr);
+  }
+  uint32_t parity(uint32_t addr) const {
+    uint32_t paddr = addr / pgsize;
+    if(mem[paddr] == nullptr)
+      return 0;
+    uint8_t p = 0;
+    for(int i = 0; i < pgsize; i++) {
+      p ^= mem[paddr][i];
+    }
+    return static_cast<uint32_t>(p);
+  }
   bool equal(const sparse_mem &other) const;
-  uint8_t & at(uint64_t addr) {
-    uint64_t paddr = addr / pgsize;
-    uint64_t baddr = addr % pgsize;
+  uint8_t & at(uint32_t addr) {
+    uint32_t paddr = addr / pgsize;
+    uint32_t baddr = addr % pgsize;
     if(mem[paddr]==nullptr) {
       present_bitvec.set_bit(paddr);
       int rc = posix_memalign(reinterpret_cast<void**>(&mem[paddr]), 4096, pgsize);
@@ -41,9 +59,9 @@ public:
     }
     return mem[paddr][baddr];
   }
-  uint8_t * operator[](uint64_t addr) {
-    uint64_t paddr = addr / pgsize;
-    uint64_t baddr = addr % pgsize;
+  uint8_t * operator[](uint32_t addr) {
+    uint32_t paddr = addr / pgsize;
+    uint32_t baddr = addr % pgsize;
     if(mem[paddr]==nullptr) {
       present_bitvec.set_bit(paddr);
       int rc = posix_memalign(reinterpret_cast<void**>(&mem[paddr]), 4096, pgsize);
@@ -52,8 +70,8 @@ public:
     }
     return &mem[paddr][baddr];
   }
-  void prefault(uint64_t addr) {
-    uint64_t paddr = addr / pgsize;
+  void prefault(uint32_t addr) {
+    uint32_t paddr = addr / pgsize;
     if(mem[paddr]==nullptr) {
       present_bitvec.set_bit(paddr);
       int rc = posix_memalign(reinterpret_cast<void**>(&mem[paddr]), 4096, pgsize);
@@ -61,35 +79,38 @@ public:
       memset(mem[paddr],0,pgsize);
     }
   }
-  uint32_t& get32(uint64_t byte_addr) {
-    uint64_t paddr = byte_addr / pgsize;
-    uint64_t baddr = byte_addr % pgsize;
-#if 0
-    if(mem[paddr]==nullptr) {
-      std::cerr << "ACCESS TO INVALID PAGE 0x"
-	<< std::hex
-	<< paddr*pgsize
-	<< std::dec
-	<< "\n";
-	   exit(-1);
-    }
-#endif
-    return *reinterpret_cast<uint32_t*>(mem[paddr]+baddr);
+  template <typename T>
+  T get(uint32_t byte_addr) const {
+    uint32_t paddr = byte_addr / pgsize;
+    uint32_t baddr = byte_addr % pgsize;
+    return *reinterpret_cast<T*>(mem[paddr]+baddr);
   }
-  uint32_t get32(uint64_t byte_addr) const {
-    uint64_t paddr = byte_addr / pgsize;
-    uint64_t baddr = byte_addr % pgsize;
+  template<typename T>
+  void set(uint32_t byte_addr, T v) const {
+    uint32_t paddr = byte_addr / pgsize;
+    uint32_t baddr = byte_addr % pgsize;
 #if 0
-    if(mem[paddr]==nullptr) {
-      std::cerr << "ACCESS TO INVALID PAGE 0x"
-	<< std::hex
-	<< paddr*pgsize
-	<< std::dec
-	<< "\n";
-	   exit(-1);
+    if(paddr == ((1UL<<20)-1)) {
+      std::cout << "SET TO " << std::hex << byte_addr
+		<< ",data = " << v
+		<< std::dec
+		<< " of size " << sizeof(T) << "\n";
     }
 #endif
-    return *reinterpret_cast<uint32_t*>(mem[paddr]+baddr);
+    *reinterpret_cast<T*>(mem[paddr]+baddr) = v;
+#if 0
+    if(paddr == ((1UL<<20)-1)) {
+      std::cout << "AFTER " << std::hex << 0xfffffec0
+		<< ",parity = " << parity(0xfffffec0)
+		<< "\n";
+    }
+#endif
+
+  }
+
+
+  uint32_t get32(uint32_t byte_addr) const {
+    return get<uint32_t>(byte_addr);
   }
   uint8_t * operator+(uint32_t disp) {
     return (*this)[disp];

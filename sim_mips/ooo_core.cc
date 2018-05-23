@@ -75,6 +75,7 @@ void initialize_ooo_core(uint64_t maxicnt, state_t *s, const sparse_mem *sm) {
   machine_state.maxicnt = maxicnt;
   machine_state.use_interp_check = true;
   machine_state.copy_state(s);
+  //u_arch_mem->mark_pages_as_no_write();
 }
 
 

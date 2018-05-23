@@ -1,5 +1,6 @@
 #include "sparse_mem.hh"
 #include <cstring>
+#include <sigsegv.h>
 
 sparse_mem::sparse_mem(uint64_t nbytes) {
   npages = (nbytes+pgsize-1) / pgsize;
@@ -32,11 +33,32 @@ sparse_mem::~sparse_mem() {
   delete [] mem;
 }
 
+static int sparse_mem_handler(void *fault_addr, int serious) {
+  uint64_t mask = ~(4095UL);
+  uint64_t page = reinterpret_cast<uint64_t>(fault_addr) & mask;
+  std::cerr << std::hex << "fault address = " << fault_addr << std::dec << "\n";
+  std::cerr << std::hex << "page = " << page << std::dec << "\n";
+  int rc = mprotect(reinterpret_cast<void*>(page), 4096, PROT_WRITE | PROT_READ);
+  assert(rc==0);
+  return 1;
+}
+
+void sparse_mem::mark_pages_as_no_write() {
+  int64_t p = present_bitvec.find_first_set();
+  while(p != -1) {
+    int rc = mprotect(mem[p], pgsize,  PROT_READ);
+    assert(rc == 0);
+    p = present_bitvec.find_next_set(p);
+  }
+  int rc = sigsegv_install_handler(&sparse_mem_handler);
+  assert(rc == 0);
+}
+
 bool sparse_mem::equal(const sparse_mem &other) const {
   if(other.npages != npages) {
     return false;
   }
-  
+
   int64_t p0 = other.present_bitvec.find_first_set();
   int64_t p1 = present_bitvec.find_first_set();
   

@@ -1016,18 +1016,7 @@ public:
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
-    
-    //serialize
-#if 0
-    for(size_t i = 0, s = machine_state.store_tbl_freevec.size(); i < s; i++) {
-      if(machine_state.store_tbl[i] != nullptr) {
-	if((machine_state.store_tbl[i]->alloc_cycle < m->alloc_cycle)) {
-	  return false;
-	}
-      }
-    }
-#endif
-    
+        
 #if 1
     auto it = load_alias_map.find(m->pc);
     if(it != load_alias_map.end()) {
@@ -1173,11 +1162,11 @@ public:
 	mem.at(effective_address) = static_cast<int8_t>(store_data);
 	break;
       case store_type::sh:
-	*((int16_t*)(mem + effective_address)) =
-	  accessBigEndian(static_cast<int16_t>(store_data));
+	mem.set<int16_t>(effective_address,
+			 accessBigEndian(static_cast<int16_t>(store_data)));
 	break;
       case store_type::sw:
-	*((int32_t*)(mem + effective_address)) = accessBigEndian(store_data);
+	mem.set<int32_t>(effective_address, accessBigEndian(store_data));
 	break;
       default:
 	die();
@@ -1206,6 +1195,10 @@ public:
 	machine_state.load_tbl[i]->load_exception = true;
       }
     }
+
+    //std::cerr << std::hex << m->pc << " : STORE to 0x"
+    //	      << effective_address << std::dec << "\n";
+    //mem.mark_pages_as_no_write();
     
     machine_state.store_tbl_freevec.clear_bit(m->store_tbl_idx);
     machine_state.store_tbl[m->store_tbl_idx] = nullptr;
@@ -1242,6 +1235,8 @@ public:
     }
     
     machine_state.load_tbl_freevec.set_bit(m->load_tbl_idx);
+    machine_state.load_tbl[m->load_tbl_idx] = m;
+    
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
     m->aux_prev_prf_idx = machine_state.cpr1_rat[get_dest()+1];
@@ -1265,13 +1260,20 @@ public:
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf)))
       return false;
 
-    for(size_t i = 0, s = machine_state.store_tbl_freevec.size(); i < s; i++) {
-      if(machine_state.store_tbl[i] != nullptr) {
-	if((machine_state.store_tbl[i]->alloc_cycle < m->alloc_cycle)) {
-	  return false;
+    auto it = load_alias_map.find(m->pc);
+    if(it != load_alias_map.end()) {
+      //std::cout << "potential conflict!\n";
+      for(size_t i = 0, s = machine_state.store_tbl_freevec.size(); i < s; i++) {
+	if(machine_state.store_tbl[i] != nullptr) {
+	  auto st = machine_state.store_tbl[i];
+	  if(st->pc == it->second and (st->alloc_cycle < m->alloc_cycle)) {
+	    //std::cout << "stalled due to inflight store\n";
+	    return false;
+	  }
 	}
       }
     }
+    
     return true;
   }
   virtual void execute(sim_state &machine_state) {
@@ -1286,13 +1288,8 @@ public:
 	{
 	case load_type::ldc1: {
 	  load_thunk<uint64_t> ld(accessBigEndian(*((uint64_t*)(mem + effective_address))));
-	  std::cout << "ldc1 : " << std::hex << "EA=" << effective_address << ","
-		    << (accessBigEndian(*((uint64_t*)(mem + effective_address)))) << std::dec << "\n";
-	  machine_state.cpr1_prf[m->prf_idx] = ld[1];
-	  machine_state.cpr1_prf[m->aux_prf_idx] = ld[0];
-	  std::cout << std::hex << machine_state.cpr1_prf[m->prf_idx] <<","
-		    <<  machine_state.cpr1_prf[m->aux_prf_idx] 
-		    << std::dec << "\n";
+	  machine_state.cpr1_prf[m->prf_idx] = ld[0];
+	  machine_state.cpr1_prf[m->aux_prf_idx] = ld[1];
 	  break;
 	}
 	case load_type::lwc1:
@@ -1408,13 +1405,13 @@ public:
     switch(st)
       {
       case store_type::swc1:
-	*((uint32_t*)(mem + effective_address)) = accessBigEndian(store_data[0]);
+	mem.set<uint32_t>(effective_address, accessBigEndian(store_data[0]));
 	break;
       case store_type::sdc1: {
 	load_thunk<uint64_t> ld;
 	ld[0] = store_data[0];
 	ld[1] = store_data[1];
-	*reinterpret_cast<uint64_t*>(mem + effective_address) = accessBigEndian(ld.DT());
+	mem.set<uint64_t>(effective_address, accessBigEndian(ld.DT()));
 	break;
       }
       default:

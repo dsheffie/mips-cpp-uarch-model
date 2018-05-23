@@ -1419,8 +1419,8 @@ static void _ldc1(uint32_t inst, state_t *s)
   int16_t himm = (int16_t)(inst & ((1<<16) - 1));
   int32_t imm = (int32_t)himm;
   uint32_t ea = s->gpr[rs] + imm;
-  std::cout << "FS ldc1 : " << std::hex << "EA=" << ea << ","
-	    << (accessBigEndian(*((uint64_t*)(s->mem + ea)))) << std::dec << "\n";
+  //std::cout << "FS ldc1 : " << std::hex << "EA=" << ea << ","
+  //<< (accessBigEndian(*((uint64_t*)(s->mem + ea)))) << std::dec << "\n";
   *((int64_t*)(s->cpr1 + ft)) = accessBigEndian(*((int64_t*)(s->mem + ea))); 
   s->pc += 4;
 }

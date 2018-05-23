@@ -20,7 +20,7 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 CXXFLAGS = -std=c++11 -g $(OPT) $(LLVM_CXXFLAGS)
-LIBS =  $(EXTRA_LD) -lpthread -lffi -lcurses -lz #-lunwind -lboost_system
+LIBS =  $(EXTRA_LD) -lpthread -lffi -lcurses -lz -lsigsegv #-lunwind -lboost_system
 
 
 DEP = $(OBJ:.o=.d)
