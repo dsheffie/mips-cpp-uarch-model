@@ -35,7 +35,7 @@ bool enClockFuncts = false;
 state_t *s = nullptr;
 int buildArgcArgv(char *filename, char *sysArgs, char ***argv);
 
-void initialize_ooo_core(uint64_t maxicnt, const state_t *s, const sparse_mem *sm);
+void initialize_ooo_core(uint64_t maxicnt, state_t *s, const sparse_mem *sm);
 void run_ooo_core();
 void destroy_ooo_core();
 

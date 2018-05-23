@@ -1291,10 +1291,12 @@ static void _monitorBody(uint32_t inst, state_t *s) {
       path = get_open_string(s, (uint32_t)s->gpr[R_a0]);
       flags = remapIOFlags(s->gpr[R_a1]);
       fd = open(path, flags, S_IRUSR|S_IWUSR);
+      //std::cout << "OPEN FD " << fd << "@ icnt " << s->icnt << "\n";
       if(fd == -1) {
 	perror("open");
 	exit(-1);
       }
+      s->num_open_fd++;
       delete [] path;
       s->gpr[R_v0] = fd;
       break;
@@ -1302,6 +1304,7 @@ static void _monitorBody(uint32_t inst, state_t *s) {
       fd = s->gpr[R_a0];
       nr = s->gpr[R_a2];
       s->gpr[R_v0] = per_page_rdwr<false>(s->mem, fd, s->gpr[R_a1], nr);
+      //std::cout << "READ FD " << fd << "@ icnt " << s->icnt << "\n";
       break;
     case 8: 
       /* int write(int file, char *ptr, int len) */
@@ -1319,8 +1322,11 @@ static void _monitorBody(uint32_t inst, state_t *s) {
       break;
     case 10:
       fd = s->gpr[R_a0];
-      if(fd>2)
+      //std::cout << "CLOSE FD " << fd << "@ icnt " << s->icnt << "\n";
+      if(fd>2) {
 	s->gpr[R_v0] = (int32_t)close(fd);
+	s->num_open_fd--;
+      }
       else
 	s->gpr[R_v0] = 0;
       break;
@@ -1413,6 +1419,8 @@ static void _ldc1(uint32_t inst, state_t *s)
   int16_t himm = (int16_t)(inst & ((1<<16) - 1));
   int32_t imm = (int32_t)himm;
   uint32_t ea = s->gpr[rs] + imm;
+  std::cout << "FS ldc1 : " << std::hex << "EA=" << ea << ","
+	    << (accessBigEndian(*((uint64_t*)(s->mem + ea)))) << std::dec << "\n";
   *((int64_t*)(s->cpr1 + ft)) = accessBigEndian(*((int64_t*)(s->mem + ea))); 
   s->pc += 4;
 }

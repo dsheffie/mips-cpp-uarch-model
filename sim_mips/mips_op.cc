@@ -1262,7 +1262,17 @@ public:
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
-    return machine_state.gpr_valid.get_bit(m->src0_prf);
+    if(not(machine_state.gpr_valid.get_bit(m->src0_prf)))
+      return false;
+
+    for(size_t i = 0, s = machine_state.store_tbl_freevec.size(); i < s; i++) {
+      if(machine_state.store_tbl[i] != nullptr) {
+	if((machine_state.store_tbl[i]->alloc_cycle < m->alloc_cycle)) {
+	  return false;
+	}
+      }
+    }
+    return true;
   }
   virtual void execute(sim_state &machine_state) {
     effective_address = machine_state.gpr_prf[m->src0_prf] + imm;
@@ -1276,8 +1286,13 @@ public:
 	{
 	case load_type::ldc1: {
 	  load_thunk<uint64_t> ld(accessBigEndian(*((uint64_t*)(mem + effective_address))));
-	  machine_state.cpr1_prf[m->prf_idx] = ld[0];
-	  machine_state.cpr1_prf[m->aux_prf_idx] = ld[1];
+	  std::cout << "ldc1 : " << std::hex << "EA=" << effective_address << ","
+		    << (accessBigEndian(*((uint64_t*)(mem + effective_address)))) << std::dec << "\n";
+	  machine_state.cpr1_prf[m->prf_idx] = ld[1];
+	  machine_state.cpr1_prf[m->aux_prf_idx] = ld[0];
+	  std::cout << std::hex << machine_state.cpr1_prf[m->prf_idx] <<","
+		    <<  machine_state.cpr1_prf[m->aux_prf_idx] 
+		    << std::dec << "\n";
 	  break;
 	}
 	case load_type::lwc1:

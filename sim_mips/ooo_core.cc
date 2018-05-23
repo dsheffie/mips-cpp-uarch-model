@@ -65,7 +65,11 @@ uint64_t get_curr_cycle() {
   return curr_cycle;
 }
 
-void initialize_ooo_core(uint64_t maxicnt, const state_t *s, const sparse_mem *sm) {
+void initialize_ooo_core(uint64_t maxicnt, state_t *s, const sparse_mem *sm) {
+  while(s->num_open_fd == 0)
+    execMips(s);
+  while(s->num_open_fd != 0)
+    execMips(s);
   u_arch_mem = new sparse_mem(*sm);
   machine_state.initialize(u_arch_mem);
   machine_state.maxicnt = maxicnt;
@@ -505,11 +509,27 @@ extern "C" {
 	      std::cout << "uarch cpr1 " << i << " : " 
 			<< std::hex << machine_state.arch_cpr1[i] << std::dec << "\n"; 
 	      std::cout << "func cpr1 " << i << " : " 
-			<< std::hex << s->cpr1[i] << std::dec << "\n"; 
+			<< std::hex << s->cpr1[i] << std::dec << "\n";
 	      error = true;
 	    }
 	  }
-	  if(u->is_store or true) {
+	  
+	  if(error) {
+	    std::cout << "uarch cpr1 " << 20 << " : " 
+		      << std::hex << machine_state.arch_cpr1[20]
+		      << std::dec << "\n"; 
+	    std::cout << "func cpr1 " << 20 << " : " 
+		      << std::hex << s->cpr1[20] << std::dec
+		      << "\n";
+	    std::cout << "uarch cpr1 " << 21 << " : " 
+		      << std::hex << machine_state.arch_cpr1[21]
+		      << std::dec << "\n"; 
+	    std::cout << "func cpr1 " << 21 << " : " 
+		      << std::hex << s->cpr1[21] << std::dec << "\n";
+	  }
+	  
+	  
+	  if(u->is_store and false) {
 	    error |= (machine_state.mem->equal(s->mem)==false);
 	  }
 	  if(error) {
@@ -829,6 +849,7 @@ void sim_state::initialize(sparse_mem *mem) {
 
 
 void run_ooo_core() {
+  uint64_t initial_cnt = machine_state.icnt;
   gthread::make_gthread(&retire, nullptr);
   gthread::make_gthread(&complete, nullptr);
   gthread::make_gthread(&execute, nullptr);
@@ -839,6 +860,9 @@ void run_ooo_core() {
   double now = timestamp();
   start_gthreads();
   now = timestamp() - now;
+
+  uint64_t total_insns =  machine_state.icnt - initial_cnt;
+  std::cout << "executed " << total_insns << " insns\n";
   
   double ipc = static_cast<double>(machine_state.icnt) /
     get_curr_cycle();
@@ -854,7 +878,6 @@ void run_ooo_core() {
     std::cout << "reg " << getGPRName(i) << " writer pc : " 
 	      << std::hex << machine_state.arch_grf_last_pc[i] << std::dec << "\n"; 
   }
-#endif
 
   for(int i = 0; i < 32; i++) {
     std::cout << "cpr1 " << i << " : " 
@@ -865,6 +888,7 @@ void run_ooo_core() {
     std::cout << "reg " << (i) << " writer pc : " 
 	      << std::hex << machine_state.arch_cpr1_last_pc[i] << std::dec << "\n"; 
   }
+#endif
   std::cout << "SIMULATION COMPLETE : "
 	    << machine_state.icnt << " inst retired in "
 	    << get_curr_cycle() << " cycles\n";
