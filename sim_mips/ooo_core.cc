@@ -785,6 +785,7 @@ void sim_state::copy_state(const state_t *s) {
   }
   for(int i = 0; i < 5; i++) {
     fcr1_prf[fcr1_rat[i]] = s->fcr1[i];
+    arch_fcr1[i] = s->fcr1[i];
   }
   icnt = s->icnt;
 }

@@ -2096,7 +2096,7 @@ protected:
 	  die();
 	  break;
 	}
-      return false;
+      return 0;
     }
   };
   uint32_t setCC(uint32_t old_cr, uint32_t v, uint32_t cc) const {
@@ -2121,8 +2121,7 @@ protected:
     fp_cmp_functor<float> cmp;
     src0[0] = machine_state.cpr1_prf[m->src0_prf];
     src1[0] = machine_state.cpr1_prf[m->src1_prf];
-    cmp.compare(m->inst & 15, src0.DT(), src1.DT());
-    uint32_t v = machine_state.fcr1_prf[m->src4_prf];
+    uint32_t v = cmp.compare(m->inst & 15, src0.DT(), src1.DT());
     machine_state.fcr1_prf[m->prf_idx] =
       setCC(machine_state.fcr1_prf[m->src4_prf], v, (m->inst >> 8) & 7);
   }
