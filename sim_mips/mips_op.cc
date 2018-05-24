@@ -2610,10 +2610,12 @@ public:
 	int fd = src_regs[0];
 	int nr = src_regs[2];
 	machine_state.gpr_prf[m->prf_idx] = per_page_rdwr<true>(mem, fd, src_regs[1], nr);
+#ifndef __FreeBSD__
 	if(fd==1)
 	  fflush(stdout);
 	else if(fd==2)
 	  fflush(stderr);
+#endif
       }
       case 10: /* close */
 	if(src_regs[0] > 2) {
