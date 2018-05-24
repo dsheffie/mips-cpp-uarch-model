@@ -131,6 +131,9 @@ struct sim_state {
   uint32_t arch_cpr1[32] = {0};
   uint32_t arch_cpr1_last_pc[32] = {0};
 
+  uint32_t arch_fcr1[5] = {0};
+  uint32_t arch_fcr1_last_pc[5] = {0};
+  
   int32_t *gpr_prf = nullptr;
   uint32_t *cpr0_prf = nullptr;
   uint32_t *cpr1_prf = nullptr;

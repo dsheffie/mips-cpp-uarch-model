@@ -1352,7 +1352,6 @@ public:
   }
   virtual bool allocate(sim_state &machine_state) {
     m->src0_prf = machine_state.cpr1_rat[get_src0()];
-    std::cout << *this << " read prf " << m->src0_prf << " for " << get_src0() << "\n";
     m->src1_prf = machine_state.gpr_rat[get_src1()];
     if(st == store_type::sdc1) {
       m->src2_prf = machine_state.cpr1_rat[get_src0()+1];
@@ -1950,8 +1949,24 @@ protected:
   bool getConditionCode(uint32_t cr, uint32_t cc) {
     return ((cr & (1U<<cc)) >> cc) & 0x1;
   }
-  void execute_double(sim_state &machine_state) {}
-  void execute_float(sim_state &machine_state) {}
+  void execute_double(sim_state &machine_state) {
+    uint32_t cc = (m->inst >> 18) & 7;
+    uint32_t tf = (m->inst>>16) & 1;
+    die();
+  }
+  void execute_float(sim_state &machine_state) {
+    uint32_t tf = (m->inst>>16) & 1;
+    bool cc = getConditionCode(machine_state.fcr1_prf[m->src4_prf],
+			       (m->inst >> 18)&7);
+    if(tf==0) {
+      machine_state.cpr1_prf[m->prf_idx] = cc ? machine_state.cpr1_prf[m->src1_prf] :
+	machine_state.cpr1_prf[m->src0_prf];
+    }
+    else {
+      machine_state.cpr1_prf[m->prf_idx] = cc ? machine_state.cpr1_prf[m->src0_prf] :
+	machine_state.cpr1_prf[m->src1_prf];
+    }
+  }
 public:
   fmovc_op(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {
     this->op_class = mips_op_type::fp; 
@@ -2023,7 +2038,6 @@ public:
     }
   }
   virtual void execute(sim_state &machine_state) {
-    die();
     switch(fmt)
       {
       case FMT_S:
@@ -2188,6 +2202,8 @@ public:
     retired = true;
     machine_state.icnt++;
     m->retire_cycle = get_curr_cycle();
+    machine_state.arch_fcr1[CP1_CR25] = machine_state.fcr1_prf[m->prf_idx];
+    machine_state.arch_fcr1_last_pc[CP1_CR25] = m->pc;
     return true;
   }
   virtual void undo(sim_state &machine_state) {

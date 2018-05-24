@@ -524,6 +524,20 @@ extern "C" {
 	      error = true;
 	    }
 	  }
+
+	  for(int i = 0; i < 5; i++) {
+	    if(s->fcr1[i] != machine_state.arch_fcr1[i]) {
+	      std::cerr << "uarch fcr1 " << i << " : " 
+			<< std::hex << machine_state.arch_fcr1[i]
+			<< std::dec << "\n"; 
+	      std::cerr << "func fcr1 " << i << " : " 
+			<< std::hex << s->fcr1[i]
+			<< std::dec << "\n";
+
+	      error = true;
+	    }
+	  }
+	  
 	  	  
 	  if(u->is_store and false) {
 	    error |= (machine_state.mem->equal(s->mem)==false);
