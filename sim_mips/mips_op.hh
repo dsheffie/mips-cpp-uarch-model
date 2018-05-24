@@ -194,31 +194,7 @@ struct sim_state {
     }
   }
   
-  
-  void initialize_rat_mappings() {
-    for(int i = 0; i < 32; i++) {
-      gpr_rat[i] = i;
-      gpr_freevec.set_bit(i);
-      gpr_valid.set_bit(i);
-      cpr0_rat[i] = i;
-      cpr0_freevec.set_bit(i);
-      cpr0_valid.set_bit(i);
-      cpr1_rat[i] = i;
-      cpr1_freevec.set_bit(i);
-      cpr1_valid.set_bit(i);
-    }
-    /* lo and hi regs */
-    for(int i = 32; i < 34; i++) {
-      gpr_rat[i] = i;
-      gpr_freevec.set_bit(i);
-      gpr_valid.set_bit(i);
-    }
-    for(int i = 0; i < 5; i++) {
-      fcr1_rat[i] = i;
-      fcr1_freevec.set_bit(i);
-      fcr1_valid.set_bit(i);
-    }
-  }
+  void initialize_rat_mappings();
   uint32_t gpr_parity() const {
     uint32_t p = 0;
     for(int i = 0; i < 32; i++) {
@@ -301,6 +277,8 @@ struct load_thunk {
     return t.u32[idx];
   }
 };
+
+std::ostream &operator<<(std::ostream &out, const mips_op &op);
 
 mips_op* decode_insn(sim_op m_op);
 

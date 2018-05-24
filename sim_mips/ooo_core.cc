@@ -292,9 +292,16 @@ extern "C" {
 	/* just yield... */
 	assert(u->op != nullptr);
 
+	bool val13 = machine_state.cpr1_valid[13];
 	if(not(u->op->allocate(machine_state))) {
 	  break;
 	}
+
+	if(val13 != machine_state.cpr1_valid[13]) {
+	  std::cerr << *(u->op) << "\n";
+	  exit(-1);
+	}
+
 
 #if 0
 	std::set<int32_t> gpr_prf_debug;
@@ -541,7 +548,7 @@ extern "C" {
 	  execMips(s);
 	}
 
-	
+	std::cerr << "retire for " << *(u->op) << "\n";
 	u->op->retire(machine_state);
 	stuck_cnt = 0;
 	
@@ -588,6 +595,7 @@ extern "C" {
 	      delay_slot_exception = true;
 	    }
 	    else {
+	      std::cerr << "retire for " << *(u->op) << "\n";
 	      u->op->retire(machine_state);
 	      machine_state.log_insn(u->inst, u->pc, u->exec_parity);
 	      insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
@@ -595,7 +603,8 @@ extern "C" {
 	      machine_state.last_retire_pc = u->pc;
 	      //std::cout << std::hex << u->pc << ":" << std::hex
 	      //<< getAsmString(u->inst, u->pc) << "\n";
-	      
+
+	      std::cerr << "retire for " << *(uu->op) << "\n";
 	      uu->op->retire(machine_state);
 	      machine_state.last_retire_cycle = get_curr_cycle();
 	      machine_state.last_retire_pc = uu->pc;
@@ -613,6 +622,7 @@ extern "C" {
 	    }
 	  }
 	  else {
+	    std::cerr << "retire for " << *(u->op) << "\n";
 	    u->op->retire(machine_state);
 	    machine_state.log_insn(u->inst, u->pc, u->exec_parity);
 	    insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
@@ -751,12 +761,13 @@ void sim_state::copy_state(const state_t *s) {
   }
   gpr_prf[gpr_rat[32]] = s->lo;
   gpr_prf[gpr_rat[33]] = s->hi;
+
   for(int i = 0; i < 32; i++) {
     cpr0_prf[cpr0_rat[i]] = s->cpr0[i];
   }
   for(int i = 0; i < 32; i++) {
     cpr1_prf[cpr1_rat[i]] = s->cpr1[i];
-    arch_cpr1[i] = s->cpr1[i];
+    arch_cpr1[i] = s->cpr1[i];    
   }
   for(int i = 0; i < 5; i++) {
     fcr1_prf[fcr1_rat[i]] = s->fcr1[i];
@@ -764,6 +775,31 @@ void sim_state::copy_state(const state_t *s) {
   icnt = s->icnt;
 }
 
+
+void sim_state::initialize_rat_mappings() {
+  for(int i = 0; i < 32; i++) {
+    gpr_rat[i] = i;
+    gpr_freevec.set_bit(i);
+    gpr_valid.set_bit(i);
+    cpr0_rat[i] = i;
+    cpr0_freevec.set_bit(i);
+    cpr0_valid.set_bit(i);
+    cpr1_rat[i] = i;
+    cpr1_freevec.set_bit(i);
+    cpr1_valid.set_bit(i);
+  }
+  /* lo and hi regs */
+  for(int i = 32; i < 34; i++) {
+    gpr_rat[i] = i;
+    gpr_freevec.set_bit(i);
+      gpr_valid.set_bit(i);
+  }
+  for(int i = 0; i < 5; i++) {
+    fcr1_rat[i] = i;
+    fcr1_freevec.set_bit(i);
+    fcr1_valid.set_bit(i);
+  }
+}
 
 void sim_state::initialize(sparse_mem *mem) {
   this->mem = mem;

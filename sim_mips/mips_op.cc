@@ -10,6 +10,11 @@ std::map<uint32_t, int32_t> branch_prediction_map;
 
 std::map<uint32_t, uint32_t> load_alias_map;
 
+std::ostream &operator<<(std::ostream &out, const mips_op &op) {
+  out << std::hex << op.m->pc << std::dec << ":"
+      << getAsmString(op.m->inst, op.m->pc);
+  return out;
+}
 
 class mtc0 : public mips_op {
 public:
@@ -1347,6 +1352,7 @@ public:
   }
   virtual bool allocate(sim_state &machine_state) {
     m->src0_prf = machine_state.cpr1_rat[get_src0()];
+    std::cout << *this << " read prf " << m->src0_prf << " for " << get_src0() << "\n";
     m->src1_prf = machine_state.gpr_rat[get_src1()];
     if(st == store_type::sdc1) {
       m->src2_prf = machine_state.cpr1_rat[get_src0()+1];
@@ -1354,11 +1360,16 @@ public:
     return true;
   }
   virtual bool ready(sim_state &machine_state) const {
-    if(not(machine_state.cpr1_valid.get_bit(m->src0_prf)) or
-       not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+    if(not(machine_state.cpr1_valid.get_bit(m->src0_prf))) {
+      std::cerr << *this << ":" << "src0 not ready \n";
+      return false;
+    }
+    if(not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+      std::cerr << *this << ":" << "src1 not ready \n";
       return false;
     }
     if(m->src2_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src2_prf))) {
+      std::cerr << *this << ":" << "src2 not ready \n";
       return false;
     }
     return true;
@@ -1932,6 +1943,125 @@ public:
   }
 };
 
+
+class fmovc_op : public mips_op {
+protected:
+  uint32_t fmt;
+  bool getConditionCode(uint32_t cr, uint32_t cc) {
+    return ((cr & (1U<<cc)) >> cc) & 0x1;
+  }
+  void execute_double(sim_state &machine_state) {}
+  void execute_float(sim_state &machine_state) {}
+public:
+  fmovc_op(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {
+    this->op_class = mips_op_type::fp; 
+  }
+  virtual int get_dest() const {
+    return (m->inst >> 6) & 31; /* fd */
+  }
+  virtual int get_src0() const {
+    return (m->inst >> 11) & 31; /* fs */
+  }
+  virtual int get_src1() const {
+    return (m->inst >> 6) & 31; /* fd */
+  }  
+  virtual bool allocate(sim_state &machine_state) {
+    int needed_regs = (fmt==FMT_D) ? 2 : 1;
+    if(machine_state.cpr1_freevec.num_free() < needed_regs)
+      return false;
+
+    m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
+    m->src0_prf = machine_state.cpr1_rat[get_src0()];
+    m->src1_prf = machine_state.cpr1_rat[get_src1()];
+    m->src4_prf = machine_state.fcr1_rat[CP1_CR25];
+    
+    if(fmt == FMT_D) {
+      m->src2_prf = machine_state.cpr1_rat[get_src0()+1];
+      m->src3_prf = machine_state.cpr1_rat[get_src1()+1];
+      m->aux_prev_prf_idx = machine_state.cpr1_rat[get_dest()+1];
+    }
+    
+    m->prf_idx = machine_state.cpr1_freevec.find_first_unset();
+    machine_state.cpr1_freevec.set_bit(m->prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prf_idx);
+    machine_state.cpr1_rat[get_dest()] = m->prf_idx;
+
+    if(fmt == FMT_D) {
+      m->aux_prf_idx = machine_state.cpr1_freevec.find_first_unset();
+      machine_state.cpr1_freevec.set_bit(m->aux_prf_idx);
+      machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
+      machine_state.cpr1_rat[get_dest()+1] = m->aux_prf_idx;
+    }
+    
+    return true;
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    if(not(machine_state.cpr1_valid[m->src0_prf])) {
+      return false;
+    }
+    if(not(machine_state.cpr1_valid[m->src1_prf])) {
+      return false;
+    }
+    if(not(machine_state.fcr1_valid[m->src4_prf])) {
+      return false;
+    }
+    if(m->src2_prf != -1 and not(machine_state.cpr1_valid[m->src2_prf])) {
+      return false;
+    }
+    if(m->src3_prf != -1 and not(machine_state.cpr1_valid[m->src3_prf])) {
+      return false;
+    }
+    return true;
+  }
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      machine_state.cpr1_valid.set_bit(m->prf_idx);
+      if(fmt == FMT_D) {
+	machine_state.cpr1_valid.set_bit(m->aux_prf_idx);
+      }
+    }
+  }
+  virtual void execute(sim_state &machine_state) {
+    die();
+    switch(fmt)
+      {
+      case FMT_S:
+	execute_float(machine_state);
+	break;
+      case FMT_D:
+	execute_double(machine_state);
+	break;
+      default:
+	die();
+      }
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  virtual bool retire(sim_state &machine_state) {
+    machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
+    if(fmt == FMT_D) {
+      machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
+      machine_state.cpr1_valid.clear_bit(m->aux_prev_prf_idx);
+    }
+    retired = true;
+    machine_state.icnt++;
+    m->retire_cycle = get_curr_cycle();
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {
+    machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.cpr1_freevec.clear_bit(m->prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prf_idx);
+    if(fmt == FMT_D) {
+      machine_state.cpr1_rat[get_dest()+1] = m->aux_prev_prf_idx;
+      machine_state.cpr1_freevec.clear_bit(m->aux_prf_idx);
+      machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
+    }
+  }
+};
+
+
 class fp_cmp : public mips_op {
 protected:
   uint32_t fmt;
@@ -2067,6 +2197,7 @@ public:
   }
 
 };
+
 
 class fp_arith_op : public mips_op {
 public:
@@ -2240,11 +2371,6 @@ public:
     if(m->src3_prf != -1 and not(machine_state.cpr1_valid[m->src3_prf])) {
       return false;
     }
-    //std::cout << getAsmString(m->inst, m->pc) <<  " became ready @ " << get_curr_cycle() << "\n";
-    //std::cout << "\tsrc0 prf" << m->src0_prf <<",value=" << std::hex
-    //<< machine_state.cpr1_prf[m->src0_prf] << std::dec << "\n";
-    //std::cout << "\tsrc1 prf" << m->src1_prf <<",value=" << std::hex
-    // 	      << machine_state.cpr1_prf[m->src1_prf] << std::dec << "\n";
     return true;
   }
 
@@ -2916,10 +3042,9 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
 #endif
 	  case 0xd:
 	    return new cvts_truncw_op(m_op, cvts_truncw_op::op_type::truncw);
-#if 0
 	  case 0x11:
-	    _fmovc(inst, s);
-	    break;
+	    return new fmovc_op(m_op);
+#if 0
 	  case 0x12:
 	    _fmovz(inst, s);
 	    break;

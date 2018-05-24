@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include "helper.hh"
 
 template <typename E>
 class sim_bitvec_template {
@@ -41,7 +42,9 @@ public:
     return get_bit(idx);
   }
   void set_bit(size_t idx) {
-    assert(idx < n_bits);
+    if(idx >= n_bits) {
+      die();
+    }
     uint64_t w_idx = idx / bpw;
     uint64_t b_idx = idx % bpw;
     arr[w_idx] |= (1UL << b_idx);
