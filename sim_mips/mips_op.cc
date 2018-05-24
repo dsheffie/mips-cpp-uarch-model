@@ -2,7 +2,7 @@
 #include "mips_op.hh"
 #include "helper.hh"
 #include "parseMips.hh"
-
+#include <cmath>
 #include <map>
 
 std::map<uint32_t, uint32_t> branch_target_map;
@@ -1074,7 +1074,7 @@ public:
 	    accessBigEndian(*((int32_t*)(mem + effective_address))); 
 	  break;
 	default:
-	  std::cout << std::hex << m->pc << std::dec << ":" <<
+	  std::cerr << std::hex << m->pc << std::dec << ":" <<
 	    getAsmString(m->pc, m->inst) << "\n";
 	  die();
 	}
@@ -2122,16 +2122,13 @@ protected:
     return true;
   }
   bool allocate_float(sim_state &machine_state) {
+    if(machine_state.cpr1_freevec.num_free() < 1)
+      return false;
     m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
     m->src0_prf = machine_state.cpr1_rat[get_src0()];
     if(get_src1()!=-1) {
       m->src1_prf = machine_state.cpr1_rat[get_src1()];
     }
-    assert(get_src1() != -1);
-    assert(machine_state.cpr1_rat[get_src1()] != -1);
-    assert(m->src1_prf != -1);
-    if(machine_state.cpr1_freevec.num_free() < 1)
-      return false;
     m->prf_idx = machine_state.cpr1_freevec.find_first_unset();
     machine_state.cpr1_freevec.set_bit(m->prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
@@ -2163,8 +2160,20 @@ protected:
 	  dest = src0/src1;
 	  latency = 32;
 	  break;
+	case fp_op_type::sqrt:
+	  dest = std::sqrt(src0);
+	  latency = 32;
+	  break;
+	case fp_op_type::abs:
+	  dest = std::abs(src0);
+	  latency = 1;
+	  break;
 	case fp_op_type::mov:
 	  dest = src0;
+	  latency = 1;
+	  break;
+	case fp_op_type::neg:
+	  dest = -src0;
 	  latency = 1;
 	  break;
 	default:
@@ -2311,9 +2320,14 @@ protected:
   void execute_cvts(sim_state &machine_state) {
     switch(fmt)
       {
-      case FMT_D:
-	die();
+      case FMT_D: {
+	load_thunk<double> thunk;
+	thunk[0] = machine_state.cpr1_prf[m->src0_prf];
+	thunk[1] = machine_state.cpr1_prf[m->src1_prf];
+	*reinterpret_cast<float*>(&machine_state.cpr1_prf[m->prf_idx]) =
+	  static_cast<float>(thunk.DT());
 	break;
+      }
       case FMT_W:
 	*reinterpret_cast<float*>(&machine_state.cpr1_prf[m->prf_idx]) =
 	  static_cast<float>(*reinterpret_cast<int32_t*>(&machine_state.cpr1_prf[m->src0_prf]));
@@ -2946,7 +2960,8 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
 	case 0x21:
 	  return new cvtd_op(m_op);
 	default:
-	  printf("unhandled coproc1 instruction (%x) @ %08x\n", m_op->inst, m_op->pc);
+	  std::cerr << std::hex << m_op->pc << ": lowop = " << lowop
+		    << std::dec << "\n";
 	  die();
 	  break;
 	}

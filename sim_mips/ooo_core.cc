@@ -501,38 +501,23 @@ extern "C" {
 	  bool error = false;
 	  for(int i = 0; i < 32; i++) {
 	    if(s->gpr[i] != machine_state.arch_grf[i]) {
-	      std::cout << "uarch reg " << getGPRName(i) << " : " 
+	      std::cerr << "uarch reg " << getGPRName(i) << " : " 
 			<< std::hex << machine_state.arch_grf[i] << std::dec << "\n"; 
-	      std::cout << "func reg " << getGPRName(i) << " : " 
+	      std::cerr << "func reg " << getGPRName(i) << " : " 
 			<< std::hex << s->gpr[i] << std::dec << "\n"; 
 	      error = true;
 	    }
 	  }
 	  for(int i = 0; i < 32; i++) {
 	    if(s->cpr1[i] != machine_state.arch_cpr1[i]) {
-	      std::cout << "uarch cpr1 " << i << " : " 
+	      std::cerr << "uarch cpr1 " << i << " : " 
 			<< std::hex << machine_state.arch_cpr1[i] << std::dec << "\n"; 
-	      std::cout << "func cpr1 " << i << " : " 
+	      std::cerr << "func cpr1 " << i << " : " 
 			<< std::hex << s->cpr1[i] << std::dec << "\n";
 	      error = true;
 	    }
 	  }
-	  
-	  if(error) {
-	    std::cout << "uarch cpr1 " << 20 << " : " 
-		      << std::hex << machine_state.arch_cpr1[20]
-		      << std::dec << "\n"; 
-	    std::cout << "func cpr1 " << 20 << " : " 
-		      << std::hex << s->cpr1[20] << std::dec
-		      << "\n";
-	    std::cout << "uarch cpr1 " << 21 << " : " 
-		      << std::hex << machine_state.arch_cpr1[21]
-		      << std::dec << "\n"; 
-	    std::cout << "func cpr1 " << 21 << " : " 
-		      << std::hex << s->cpr1[21] << std::dec << "\n";
-	  }
-	  
-	  
+	  	  
 	  if(u->is_store and false) {
 	    error |= (machine_state.mem->equal(s->mem)==false);
 	  }
