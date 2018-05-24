@@ -278,6 +278,30 @@ public:
   }
 };
 
+template <typename T>
+struct load_thunk {
+  union thunk {
+    uint32_t u32[sizeof(T)/sizeof(uint32_t)];
+    T dt;
+  };
+  thunk t;
+  load_thunk (T dt) {
+    t.dt = dt;
+  }
+  load_thunk () {
+    for(size_t i = 0; i < (sizeof(T)/sizeof(uint32_t)); i++) {
+      t.u32[i] = 0;
+    }
+  }
+  T &DT() {
+    return t.dt;
+  }
+  uint32_t &operator[](size_t idx) {
+    assert(idx <  (sizeof(T)/sizeof(uint32_t)));
+    return t.u32[idx];
+  }
+};
+
 mips_op* decode_insn(sim_op m_op);
 
 
