@@ -59,6 +59,7 @@ extern std::map<uint32_t, int32_t> branch_prediction_map;
 extern state_t *s;
 
 static std::map<int64_t, uint64_t> insn_lifetime_map;
+extern std::set<uint32_t> jr_map;
 static sparse_mem *u_arch_mem = nullptr;
 
 uint64_t get_curr_cycle() {
@@ -153,12 +154,20 @@ extern "C" {
 	uint32_t inst = accessBigEndian(mem.get32(machine_state.fetch_pc));
 	uint32_t npc = machine_state.fetch_pc + 4;
 	bool predict_taken = false;
+	
 	auto it = branch_prediction_map.find(machine_state.fetch_pc);
 	if(it != branch_prediction_map.end()) {
 	  /* predicted as taken */
 	  if(it->second > 1) {
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	    npc = branch_target_map.at(machine_state.fetch_pc);
+	    
+	    if((jr_map.find(machine_state.fetch_pc)!=jr_map.end()) and
+	       not(machine_state.return_stack.empty())) {
+	      npc = machine_state.return_stack.pop();
+	    }
+	    else {
+	      npc = branch_target_map.at(machine_state.fetch_pc);
+	    }
 	    predict_taken = true;
 	  }
 	}
@@ -719,7 +728,7 @@ extern "C" {
 	    delete d;
 	  }
 	}
-	
+	machine_state.return_stack.clear();
 	machine_state.decode_queue.clear();
 	machine_state.fetch_queue.clear();
 	machine_state.delay_slot_npc = 0;

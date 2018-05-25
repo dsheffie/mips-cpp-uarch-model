@@ -9,6 +9,7 @@
 #include "sim_queue.hh"
 #include "sim_bitvec.hh"
 #include "sim_list.hh"
+#include "sim_stack.hh"
 #include "mips_encoding.hh"
 
 uint64_t get_curr_cycle();
@@ -180,6 +181,8 @@ struct sim_state {
   uint64_t mispredicted_branches = 0;
   uint64_t mispredicted_jumps = 0;
   uint64_t nukes = 0, branch_nukes = 0, load_nukes = 0;
+
+  sim_stack_template<uint32_t> return_stack;
   
   bool log_execution = false;
   bool use_interp_check = false;

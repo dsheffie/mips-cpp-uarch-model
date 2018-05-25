@@ -4,9 +4,11 @@
 #include "parseMips.hh"
 #include <cmath>
 #include <map>
+#include <set>
 
 std::map<uint32_t, uint32_t> branch_target_map;
 std::map<uint32_t, int32_t> branch_prediction_map;
+std::set<uint32_t> jr_map;
 
 std::map<uint32_t, uint32_t> load_alias_map;
 
@@ -701,9 +703,17 @@ public:
     machine_state.n_jumps++;
     m->exec_parity = machine_state.gpr_parity();
 
+    if(get_dest() != -1 and not(machine_state.return_stack.full())) {
+      machine_state.return_stack.push(machine_state.gpr_prf[m->prf_idx]);
+    }
+    
     /* strongly taken */
     branch_target_map[m->pc] = m->correct_pc;
     branch_prediction_map[m->pc] = 3;
+
+    if(jt==jump_type::jr) {
+      jr_map.insert(m->pc);
+    }
     
     machine_state.mispredicted_jumps += m->branch_exception;
     m->retire_cycle = get_curr_cycle();
