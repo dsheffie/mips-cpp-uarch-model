@@ -41,9 +41,9 @@ static int num_gpr_prf = 128;
 static int num_cpr0_prf = 64;
 static int num_cpr1_prf = 64;
 static int num_fcr1_prf = 16;
-static int num_fpu_ports = 1;
-static int num_alu_ports = 1;
-static int num_load_ports = 1;
+static int num_fpu_ports = 2;
+static int num_alu_ports = 2;
+static int num_load_ports = 2;
 
 static int num_alu_sched_entries = 64;
 static int num_fpu_sched_entries = 64;
@@ -292,16 +292,9 @@ extern "C" {
 	/* just yield... */
 	assert(u->op != nullptr);
 
-	bool val13 = machine_state.cpr1_valid[13];
 	if(not(u->op->allocate(machine_state))) {
 	  break;
 	}
-
-	if(val13 != machine_state.cpr1_valid[13]) {
-	  std::cerr << *(u->op) << "\n";
-	  exit(-1);
-	}
-
 
 #if 0
 	std::set<int32_t> gpr_prf_debug;
