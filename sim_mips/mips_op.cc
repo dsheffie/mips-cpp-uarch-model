@@ -704,9 +704,13 @@ public:
     m->exec_parity = machine_state.gpr_parity();
 
     if(get_dest() != -1 and not(machine_state.return_stack.full())) {
+      //std::cerr << std::hex << "push "
+      //<< machine_state.gpr_prf[m->prf_idx]
+      //<< std::dec << "\n";
       machine_state.return_stack.push(machine_state.gpr_prf[m->prf_idx]);
     }
-    
+
+
     /* strongly taken */
     branch_target_map[m->pc] = m->correct_pc;
     branch_prediction_map[m->pc] = 3;

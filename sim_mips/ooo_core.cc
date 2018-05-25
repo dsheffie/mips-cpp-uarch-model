@@ -164,6 +164,9 @@ extern "C" {
 	    if((jr_map.find(machine_state.fetch_pc)!=jr_map.end()) and
 	       not(machine_state.return_stack.empty())) {
 	      npc = machine_state.return_stack.pop();
+	      //std::cerr << std::hex << "pop "
+	      //<< npc
+	      //<< std::dec << "\n";
 	    }
 	    else {
 	      npc = branch_target_map.at(machine_state.fetch_pc);

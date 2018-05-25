@@ -42,7 +42,7 @@ public:
   }
   T pop() {
     assert(not(empty()));
-    return stack[idx++];
+    return stack[++idx];
   }
 };
 
