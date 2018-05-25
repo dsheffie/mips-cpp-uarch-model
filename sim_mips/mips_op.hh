@@ -221,6 +221,10 @@ struct sim_state {
 
 
 class mips_op {
+protected:
+  bool getConditionCode(uint32_t cr, uint32_t cc) {
+    return ((cr & (1U<<cc)) >> cc) & 0x1;
+  }
 public:
   sim_op m = nullptr;
   bool retired = false;

@@ -562,7 +562,7 @@ extern "C" {
 	  execMips(s);
 	}
 
-	std::cerr << "retire for " << *(u->op) << "\n";
+	//std::cerr << "retire for " << *(u->op) << "\n";
 	u->op->retire(machine_state);
 	stuck_cnt = 0;
 	
@@ -609,7 +609,7 @@ extern "C" {
 	      delay_slot_exception = true;
 	    }
 	    else {
-	      std::cerr << "retire for " << *(u->op) << "\n";
+	      //std::cerr << "retire for " << *(u->op) << "\n";
 	      u->op->retire(machine_state);
 	      machine_state.log_insn(u->inst, u->pc, u->exec_parity);
 	      insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
@@ -618,7 +618,7 @@ extern "C" {
 	      //std::cout << std::hex << u->pc << ":" << std::hex
 	      //<< getAsmString(u->inst, u->pc) << "\n";
 
-	      std::cerr << "retire for " << *(uu->op) << "\n";
+	      //std::cerr << "retire for " << *(uu->op) << "\n";
 	      uu->op->retire(machine_state);
 	      machine_state.last_retire_cycle = get_curr_cycle();
 	      machine_state.last_retire_pc = uu->pc;
@@ -636,7 +636,7 @@ extern "C" {
 	    }
 	  }
 	  else {
-	    std::cerr << "retire for " << *(u->op) << "\n";
+	    //std::cerr << "retire for " << *(u->op) << "\n";
 	    u->op->retire(machine_state);
 	    machine_state.log_insn(u->inst, u->pc, u->exec_parity);
 	    insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;

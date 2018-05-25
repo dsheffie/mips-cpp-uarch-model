@@ -380,7 +380,10 @@ public:
 	  machine_state.gpr_prf[m->prf_idx] = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]) >>
 	    (machine_state.gpr_prf[m->src1_prf] & 0x1f);
 	  break;
-	  
+	case r_type::srav:
+	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] >>
+	    (machine_state.gpr_prf[m->src1_prf] & 0x1f);
+	  break;
 	case r_type::addu: {
 	  uint32_t urs = static_cast<uint32_t>(machine_state.gpr_prf[m->src1_prf]);
 	  uint32_t urt = static_cast<uint32_t>(machine_state.gpr_prf[m->src0_prf]);
@@ -406,6 +409,11 @@ public:
 	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] ^
 	    machine_state.gpr_prf[m->src1_prf];
 	  break;
+	case r_type::nor_:
+	  machine_state.gpr_prf[m->prf_idx] = ~(machine_state.gpr_prf[m->src0_prf] |
+						machine_state.gpr_prf[m->src1_prf]);
+	  break;
+	  
 	case r_type::slt:
 	  machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src1_prf] <
 	    machine_state.gpr_prf[m->src0_prf];
@@ -765,9 +773,6 @@ protected:
   }
   bool fp_ready(sim_state &machine_state) const {
     return machine_state.fcr1_valid[m->src0_prf];
-  }
-  bool getConditionCode(uint32_t cr, uint32_t cc) {
-    return ((cr & (1U<<cc)) >> cc) & 0x1;
   }
 public:
   branch_op(sim_op op, branch_type bt) :
@@ -1360,15 +1365,12 @@ public:
   }
   virtual bool ready(sim_state &machine_state) const {
     if(not(machine_state.cpr1_valid.get_bit(m->src0_prf))) {
-      std::cerr << *this << ":" << "src0 not ready \n";
       return false;
     }
     if(not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
-      std::cerr << *this << ":" << "src1 not ready \n";
       return false;
     }
     if(m->src2_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src2_prf))) {
-      std::cerr << *this << ":" << "src2 not ready \n";
       return false;
     }
     return true;
@@ -1866,10 +1868,6 @@ public:
 
 
 class movci_op : public mips_op {
-protected:
-  bool getConditionCode(uint32_t cr, uint32_t cc) {
-    return ((cr & (1U<<cc)) >> cc) & 0x1;
-  }
 public:
   movci_op(sim_op op) : mips_op(op) {
     this->op_class = mips_op_type::alu;
@@ -1946,9 +1944,6 @@ public:
 class fmovc_op : public mips_op {
 protected:
   uint32_t fmt;
-  bool getConditionCode(uint32_t cr, uint32_t cc) {
-    return ((cr & (1U<<cc)) >> cc) & 0x1;
-  }
   void execute_double(sim_state &machine_state) {
     uint32_t cc = (m->inst >> 18) & 7;
     uint32_t tf = (m->inst>>16) & 1;
@@ -1956,8 +1951,7 @@ protected:
   }
   void execute_float(sim_state &machine_state) {
     uint32_t tf = (m->inst>>16) & 1;
-    bool cc = getConditionCode(machine_state.fcr1_prf[m->src4_prf],
-			       (m->inst >> 18)&7);
+    bool cc = getConditionCode(machine_state.fcr1_prf[m->src4_prf],(m->inst >> 18)&7);
     if(tf==0) {
       machine_state.cpr1_prf[m->prf_idx] = cc ? machine_state.cpr1_prf[m->src1_prf] :
 	machine_state.cpr1_prf[m->src0_prf];
@@ -2054,9 +2048,11 @@ public:
   virtual bool retire(sim_state &machine_state) {
     machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
+    machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
     if(fmt == FMT_D) {
       machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
       machine_state.cpr1_valid.clear_bit(m->aux_prev_prf_idx);
+      machine_state.arch_cpr1[get_dest()+1] = machine_state.cpr1_prf[m->aux_prf_idx];
     }
     retired = true;
     machine_state.icnt++;
