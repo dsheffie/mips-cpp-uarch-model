@@ -145,7 +145,7 @@ extern "C" {
 	  uint32_t inst = accessBigEndian(mem.get32(machine_state.delay_slot_npc));
 	  auto f = new mips_meta_op(machine_state.delay_slot_npc, inst,
 				    machine_state.delay_slot_npc+4,
-				    curr_cycle, false);
+				    curr_cycle, false, false);
 	  fetch_queue.push(f);
 	  machine_state.delay_slot_npc = 0;
 	  continue;
@@ -154,28 +154,46 @@ extern "C" {
 	uint32_t inst = accessBigEndian(mem.get32(machine_state.fetch_pc));
 	uint32_t npc = machine_state.fetch_pc + 4;
 	bool predict_taken = false;
-	
-	auto it = branch_prediction_map.find(machine_state.fetch_pc);
-	if(it != branch_prediction_map.end()) {
-	  /* predicted as taken */
-	  if(it->second > 1) {
-	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	    
-	    if((jr_map.find(machine_state.fetch_pc)!=jr_map.end()) and
-	       not(machine_state.return_stack.empty())) {
-	      npc = machine_state.return_stack.pop();
-	      //std::cerr << std::hex << "pop "
-	      //<< npc
-	      //<< std::dec << "\n";
-	    }
-	    else {
-	      npc = branch_target_map.at(machine_state.fetch_pc);
-	    }
-	    predict_taken = true;
-	  }
-	}
 
-	auto f = new mips_meta_op(machine_state.fetch_pc, inst, npc, curr_cycle, predict_taken);
+	//std::cout << "return stack has " << machine_state.return_stack.size()
+	// << " entries at cycle " << get_curr_cycle() << "\n";
+	//std::cerr << "jr_map.size() = " << jr_map.size() << "\n";
+	auto jr_it = jr_map.find(machine_state.fetch_pc);
+	auto it = branch_prediction_map.find(machine_state.fetch_pc);
+	bool used_return_addr_stack = false;
+	if(jr_it != jr_map.end()) {
+	  if(not(machine_state.return_stack.empty())) {
+	    npc = machine_state.return_stack.pop();
+	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	    used_return_addr_stack = true;
+#if 0
+	    std::cerr << "found jr at fetch pc " << std::hex
+		      << machine_state.fetch_pc << ", pop "
+		      << npc
+		      << std::dec
+		      << " @ cycle " << get_curr_cycle()
+		      << "\n";
+#endif
+	  }
+#if 0
+	  else {
+	    std::cerr << "found jr at fetch pc "
+		      << std::hex
+		      << machine_state.fetch_pc
+		      << std::dec
+		      << " but empty return stack\n";
+	  }
+#endif
+	}
+	else if(it != branch_prediction_map.end()) {
+          /* predicted as taken */
+          if(it->second > 1) {
+            machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+            npc = branch_target_map.at(machine_state.fetch_pc);
+            predict_taken = true;
+          }
+        }
+	auto f = new mips_meta_op(machine_state.fetch_pc, inst, npc, curr_cycle, predict_taken, used_return_addr_stack);
 	fetch_queue.push(f);
 	machine_state.fetch_pc = npc;
       }
@@ -589,7 +607,12 @@ extern "C" {
 
 
       if(u!=nullptr and exception) {
-	
+#if 0
+	std::cerr << (u->branch_exception ? "BRANCH" : "LOAD")
+	  << " EXCEPTION @ cycle " << get_curr_cycle()
+	  << " for " << *(u->op)
+	  << "\n";
+#endif
 	if((retire_amt - retire_bw) < 2) {
 	  gthread_yield();
 	  retire_amt = 0;
@@ -731,7 +754,7 @@ extern "C" {
 	    delete d;
 	  }
 	}
-	machine_state.return_stack.clear();
+	//machine_state.return_stack.clear();
 	machine_state.decode_queue.clear();
 	machine_state.fetch_queue.clear();
 	machine_state.delay_slot_npc = 0;

@@ -54,7 +54,7 @@ struct mips_meta_op {
   uint32_t fetch_npc = 0;  
   uint64_t fetch_cycle = 0;
   bool predict_taken = false;
-  
+  bool predict_from_return_addr_stack = false;
   int64_t decode_cycle = -1;
   int64_t alloc_cycle = -1;
   int64_t ready_cycle = -1;
@@ -84,10 +84,10 @@ struct mips_meta_op {
   mips_op* op = nullptr;
 
   mips_meta_op(uint32_t pc, uint32_t inst,  uint32_t fetch_npc,
-	       uint32_t fetch_cycle, bool predict_taken) :
-    pc(pc), inst(inst), fetch_npc(fetch_npc), fetch_cycle(fetch_cycle), predict_taken(predict_taken)  {
-
-  }
+	       uint32_t fetch_cycle,
+	       bool predict_taken, bool predict_from_return_addr_stack) :
+    pc(pc), inst(inst), fetch_npc(fetch_npc), fetch_cycle(fetch_cycle), predict_taken(predict_taken),
+    predict_from_return_addr_stack(predict_from_return_addr_stack)  {}
   ~mips_meta_op();
 };
 

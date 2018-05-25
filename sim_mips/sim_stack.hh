@@ -36,6 +36,9 @@ public:
   bool empty() const {
     return idx==(stack_sz-1);
   }
+  int64_t size() const {
+    return idx+1;
+  }
   void push(const T &val) {
     assert(not(full()));
     stack[idx--]=val;
