@@ -896,7 +896,7 @@ void run_ooo_core() {
   uint64_t total_insns =  machine_state.icnt - machine_state.skipicnt;
   std::cout << "executed " << total_insns << " insns\n";
   
-  double ipc = static_cast<double>(machine_state.icnt) /
+  double ipc = static_cast<double>(machine_state.icnt-machine_state.skipicnt) /
     get_curr_cycle();
 
 #if 0
@@ -922,7 +922,8 @@ void run_ooo_core() {
   }
 #endif
   std::cout << "SIMULATION COMPLETE : "
-	    << machine_state.icnt << " inst retired in "
+	    << (machine_state.icnt-machine_state.skipicnt)
+	    << " inst retired in "
 	    << get_curr_cycle() << " cycles\n";
 
   std::cout << ipc << " instructions/cycle\n";
@@ -957,7 +958,7 @@ void run_ooo_core() {
     total_branches_and_jumps;  
   std::cout << (prediction_rate*100.0) << "\% of branches and jumps predicted correctly\n";
   
-  std::cout << (machine_state.icnt/now)
+  std::cout << ((machine_state.icnt-machine_state.skipicnt)/now)
 	    << " simulated instructions per second\n";
 
   
