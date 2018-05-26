@@ -2841,8 +2841,7 @@ static mips_op* decode_itype_insn(sim_op m_op) {
 	case 0x3:
 	  return new branch_op(m_op,branch_op::branch_type::bgezl);
 	default:
-	  dprintf(log_fd, "unknown branch type @ %x\n", m_op->pc);
-	  die();
+	  return nullptr;
 	}
     case 0x04: /* beq */
       return new branch_op(m_op,branch_op::branch_type::beq);
