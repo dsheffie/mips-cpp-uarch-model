@@ -58,7 +58,7 @@ public:
   uint64_t popcount() const {
     uint64_t c = 0;
     if((bpw*n_words) != n_bits) {
-      asm("int3");
+      die();
     }
     else {
       for(uint64_t w = 0; w < n_words; w++) {
