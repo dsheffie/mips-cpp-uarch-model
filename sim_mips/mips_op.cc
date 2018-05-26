@@ -19,10 +19,16 @@ std::ostream &operator<<(std::ostream &out, const mips_op &op) {
 }
 
 bool mips_load::stall_for_load(sim_state &machine_state) const {
+  std::cout << "CHECKING LOAD TABLE for "
+	    << std::hex << m->pc << std::dec
+	    << "@ cycle " << get_curr_cycle() << "\n";
   auto it = load_alias_map.find(m->pc);
   if(it != load_alias_map.end()) {
     for(size_t i = 0, s = machine_state.store_tbl_freevec.size(); i < s; i++) {
       if(machine_state.store_tbl[i] != nullptr) {
+	std::cout << std::hex << machine_state.store_tbl[i]->pc
+		  << std::dec << "\n";
+
 	auto st = machine_state.store_tbl[i];
 	auto st_it = it->second.find(st->pc);
 	bool st_found = st_it != it->second.end();
@@ -1189,6 +1195,10 @@ public:
 	continue;
       }
       mips_meta_op *mmo = machine_state.load_tbl[i];
+      if(mmo->alloc_cycle < m->alloc_cycle) {
+	continue;
+      }
+
       auto ld = reinterpret_cast<mips_load*>(mmo->op);
       if(ld == nullptr) {
 	die();
@@ -1420,16 +1430,29 @@ public:
 	continue;
       }
       mips_meta_op *mmo = machine_state.load_tbl[i];
+      if(mmo->alloc_cycle < m->alloc_cycle) {
+	continue;
+      }
       auto ld = reinterpret_cast<mips_load*>(mmo->op);
       if(ld == nullptr) {
 	die();
       }
       if(mmo->is_complete and ((effective_address>>3) == (ld->getEA()>>3))) {
 	load_violation = true;
+#if 1
 	auto it = load_alias_map.find(mmo->pc);
-	//if(it != load_alias_map.end()) {
-	//std::cout << "exception, but already seen load\n";
-	//}
+	if(it != load_alias_map.end()) {
+	  std::cout << "exception, but already seen load @ "
+		    << std::hex << mmo->pc << std::dec << "\n";
+	  std::cout << "load complete "<< mmo->complete_cycle << "\n";
+	  std::cout << "load alloc "<< mmo->alloc_cycle << "\n";
+	  std::cout << "load ready "<< mmo->ready_cycle << "\n";
+	  std::cout << "store alloc "<< m->alloc_cycle << "\n";
+	  std::cout << "store ready "<< m->ready_cycle << "\n";
+	  std::cout << get_curr_cycle() << "\n";
+	  //exit(-1);
+	}
+#endif
 	load_alias_map[mmo->pc].insert(m->pc);
 	//std::cout << "load / store exception, store pc = " << std::hex << m->pc
 	//<< ", load pc = " << mmo->pc << std::dec << "\n";
