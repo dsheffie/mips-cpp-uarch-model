@@ -1100,7 +1100,7 @@ public:
   virtual bool retire(sim_state &machine_state) {
     if(m->load_exception) {
       dprintf(2, "ATTEMPTING TO RETIRE LOAD EXCEPTION @ %x!!\n", m->pc);
-      asm("int3");
+      die();
     }
 
     machine_state.load_tbl[m->load_tbl_idx] = nullptr;
