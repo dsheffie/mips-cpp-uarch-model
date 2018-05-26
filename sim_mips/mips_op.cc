@@ -726,50 +726,16 @@ public:
     machine_state.n_jumps++;
     m->exec_parity = machine_state.gpr_parity();
 
-    if(get_dest() != -1 and not(machine_state.return_stack.full())) {
-#if 0
-      std::cerr << std::hex << "push "
-		<< machine_state.gpr_prf[m->prf_idx]
-		<< std::dec
-		<< " @ cycle " << get_curr_cycle()
-		<< " for " << *this
-		<< "\n";
-#endif
-      machine_state.return_stack.push(machine_state.gpr_prf[m->prf_idx]);
-    }
-
-
     /* strongly taken */
     branch_target_map[m->pc] = m->correct_pc;
     branch_prediction_map[m->pc] = 3;
 
-#if 0
-    if(jt==jump_type::jr) {      
-      if(m->branch_exception) {
-	std::cerr << "jr mispredict for "
-		  << *this << ": predicted " << std::hex
-		  << m->fetch_npc << ", should be " << m->correct_pc
-		  << std::dec
-		  << " @ cycle " << get_curr_cycle()
-		  << "\n";
-	 
-      }
-      else {
-	std::cerr << "jr correct : " << std::hex
-		  << m->fetch_npc << "," << m->correct_pc
-		  << std::dec << "\n";
-      }
-    }
-#endif
     
     machine_state.mispredicted_jumps += m->branch_exception;
     m->retire_cycle = get_curr_cycle();
     return true;
   }
   virtual void undo(sim_state &machine_state) {
-    if(m->predict_from_return_addr_stack) {
-      machine_state.return_stack.push(m->fetch_npc);
-    }
     if(get_dest() != -1) {
       if(m->prev_prf_idx != -1) {
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;

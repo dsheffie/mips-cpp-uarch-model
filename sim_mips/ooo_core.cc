@@ -209,7 +209,7 @@ extern "C" {
       int decode_amt = 0;
       while(not(fetch_queue.empty()) and not(decode_queue.full()) and (decode_amt < decode_bw) and not(machine_state.nuke)) {
 	auto u = fetch_queue.peek();
-	if(not((u->fetch_cycle+5) < curr_cycle)) {
+	if(not((u->fetch_cycle+1) < curr_cycle)) {
 	  break;
 	}
 	fetch_queue.pop();
