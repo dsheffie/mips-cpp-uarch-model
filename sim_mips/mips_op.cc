@@ -10,12 +10,29 @@ std::map<uint32_t, uint32_t> branch_target_map;
 std::map<uint32_t, int32_t> branch_prediction_map;
 std::set<uint32_t> jr_map;
 
-std::map<uint32_t, uint32_t> load_alias_map;
+std::map<uint32_t, std::set<uint32_t>> load_alias_map;
 
 std::ostream &operator<<(std::ostream &out, const mips_op &op) {
   out << std::hex << op.m->pc << std::dec << ":"
       << getAsmString(op.m->inst, op.m->pc);
   return out;
+}
+
+bool mips_load::stall_for_load(sim_state &machine_state) const {
+  auto it = load_alias_map.find(m->pc);
+  if(it != load_alias_map.end()) {
+    for(size_t i = 0, s = machine_state.store_tbl_freevec.size(); i < s; i++) {
+      if(machine_state.store_tbl[i] != nullptr) {
+	auto st = machine_state.store_tbl[i];
+	auto st_it = it->second.find(st->pc);
+	bool st_found = st_it != it->second.end();
+	if(st_found and (st->alloc_cycle <= m->alloc_cycle)) {
+	  return true;
+	}
+      }
+    }
+  }
+  return false;
 }
 
 class mtc0 : public mips_op {
@@ -998,25 +1015,6 @@ public:
 };
 
 
-class mips_load : public mips_op {
-public:
-  enum class load_type {lb,lbu,lh,lhu,lw,ldc1,lwc1,bogus};
-protected:
-  itype i_;
-  load_type lt;
-  int32_t imm = -1;
-  uint32_t effective_address = ~0;
-public:
-  mips_load(sim_op op) : mips_op(op), i_(op->inst), lt(load_type::bogus) {
-    this->op_class = mips_op_type::load;
-    int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
-    imm = static_cast<int32_t>(himm);
-  }
-  uint32_t getEA() const {
-    return effective_address;
-  }
-};
-
 class load_op : public mips_load {
 public:
   load_op(sim_op op, load_type lt) : mips_load(op) {
@@ -1048,21 +1046,9 @@ public:
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
-        
-#if 1
-    auto it = load_alias_map.find(m->pc);
-    if(it != load_alias_map.end()) {
-      for(size_t i = 0, s = machine_state.store_tbl_freevec.size(); i < s; i++) {
-	if(machine_state.store_tbl[i] != nullptr) {
-	  auto st = machine_state.store_tbl[i];
-	  if(st->pc == it->second and (st->alloc_cycle <= m->alloc_cycle)) {
-	    //std::cout << "stalled due to inflight store\n";
-	    return false;
-	  }
-	}
-      }
+    if(stall_for_load(machine_state)) {
+      return false;
     }
-#endif
     return true;
   }
   virtual void execute(sim_state &machine_state) {
@@ -1134,23 +1120,15 @@ public:
   }
 };
 
-class store_op : public mips_op {
+class store_op : public mips_store {
 public:
   enum class store_type {sb, sh, sw}; 
 protected:
-  itype i_;
   store_type st;
-  int32_t imm = -1;
-  uint32_t effective_address = ~0;
   int32_t store_data = ~0;
 public:
   store_op(sim_op op, store_type st) :
-    mips_op(op), i_(op->inst), st(st) {
-    this->op_class = mips_op_type::store;
-    int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
-    imm = static_cast<int32_t>(himm);
-    op->is_store = true;
-  }
+    mips_store(op), st(st) {}
   virtual int get_src0() const {
     return i_.ii.rt;
   }
@@ -1217,10 +1195,13 @@ public:
       }
       if(mmo->is_complete and (effective_address>>3) == (ld->getEA()>>3)) {
 	load_violation = true;
-	load_alias_map[mmo->pc] = m->pc;
+	load_alias_map[mmo->pc].insert(m->pc);
+	//std::cout << "load / store exception, store pc = " << std::hex << m->pc
+	//<< ", load pc = " << mmo->pc << std::dec << "\n";
+
       }
     }
-    //std::cout << "load / store exception, store pc = " << std::hex << m->pc << std::dec << "\n";
+
     for(size_t i = 0; load_violation and (i < machine_state.load_tbl_freevec.size()); i++ ){
       if(machine_state.load_tbl[i]!=nullptr) {
 	machine_state.load_tbl[i]->load_exception = true;
@@ -1291,19 +1272,9 @@ public:
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf)))
       return false;
 
-    auto it = load_alias_map.find(m->pc);
-    if(it != load_alias_map.end()) {
-      for(size_t i = 0, s = machine_state.store_tbl_freevec.size(); i < s; i++) {
-	if(machine_state.store_tbl[i] != nullptr) {
-	  auto st = machine_state.store_tbl[i];
-	  if(st->pc == it->second and (st->alloc_cycle <= m->alloc_cycle)) {
-	    //std::cout << "stalled due to inflight store\n";
-	    return false;
-	  }
-	}
-      }
-    }
-    
+    if(stall_for_load(machine_state))
+      return false;
+
     return true;
   }
   virtual void execute(sim_state &machine_state) {
@@ -1366,22 +1337,15 @@ public:
   }
 };
 
-class fp_store_op : public mips_op {
+class fp_store_op : public mips_store {
 public:
   enum class store_type {sdc1, swc1}; 
 protected:
-  itype i_;
   store_type st;
-  int32_t imm = -1;
-  uint32_t effective_address = ~0;
   uint32_t store_data[2] = {0};
 public:
   fp_store_op(sim_op op, store_type st) :
-    mips_op(op), i_(op->inst), st(st) {
-    this->op_class = mips_op_type::store;
-    int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
-    imm = static_cast<int32_t>(himm);
-    op->is_store = true;
+    mips_store(op), st(st) {
     op->is_fp_store = true;
   }
   virtual int get_src0() const {
@@ -1462,6 +1426,14 @@ public:
       }
       if(mmo->is_complete and ((effective_address>>3) == (ld->getEA()>>3))) {
 	load_violation = true;
+	auto it = load_alias_map.find(mmo->pc);
+	//if(it != load_alias_map.end()) {
+	//std::cout << "exception, but already seen load\n";
+	//}
+	load_alias_map[mmo->pc].insert(m->pc);
+	//std::cout << "load / store exception, store pc = " << std::hex << m->pc
+	//<< ", load pc = " << mmo->pc << std::dec << "\n";
+	
       }
     }
     for(size_t i = 0; load_violation and (i < machine_state.load_tbl_freevec.size()); i++ ){

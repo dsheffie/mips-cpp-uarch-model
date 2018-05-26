@@ -264,6 +264,40 @@ public:
   }
 };
 
+class mips_store : public mips_op {
+protected:
+  itype i_;
+  int32_t imm = -1;
+  uint32_t effective_address = ~0;
+public:
+  mips_store(sim_op op) : mips_op(op), i_(op->inst) {
+    this->op_class = mips_op_type::store;
+    int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
+    imm = static_cast<int32_t>(himm);
+    op->is_store = true;
+  }
+};
+
+class mips_load : public mips_op {
+public:
+  enum class load_type {lb,lbu,lh,lhu,lw,ldc1,lwc1,bogus};
+protected:
+  itype i_;
+  load_type lt;
+  int32_t imm = -1;
+  uint32_t effective_address = ~0;
+  bool stall_for_load(sim_state &machine_state) const;
+public:
+  mips_load(sim_op op) : mips_op(op), i_(op->inst), lt(load_type::bogus) {
+    this->op_class = mips_op_type::load;
+    int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
+    imm = static_cast<int32_t>(himm);
+  }
+  uint32_t getEA() const {
+    return effective_address;
+  }
+};
+
 template <typename T>
 struct load_thunk {
   union thunk {
