@@ -23,7 +23,6 @@
 #include "parseMips.hh"
 #include "profileMips.hh"
 #include "globals.hh"
-#include "gthread.hh"
 
 #include "mips_op.hh"
 
