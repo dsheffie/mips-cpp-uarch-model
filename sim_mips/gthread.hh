@@ -10,12 +10,12 @@ void start_gthreads();
 void gthread_yield();
 void gthread_terminate();
 
-class alignas(64) gthread {
+class gthread {
  public:
   typedef gthread* gthread_ptr;
 private:
   typedef void (*callback_t)(void*);
-  static const size_t stack_sz = 1<<24;
+  static const size_t stack_sz = 1<<20;
   enum class thread_status {uninitialized,ready,run};
   static gthread_ptr head;
   static std::list<gthread_ptr> threads;
@@ -27,8 +27,8 @@ private:
   thread_status status = thread_status::uninitialized;
   gthread_ptr next = nullptr;
   gthread_ptr prev = nullptr;
-  uint64_t state[7] = {0};
-  uint8_t stack_alloc[stack_sz] __attribute__((aligned(64))) = {0};
+  uint64_t state[13] = {0};
+  uint8_t stack_alloc[stack_sz] __attribute__((aligned(16))) = {0};
   int64_t get_id() const {
     return id;
   }
