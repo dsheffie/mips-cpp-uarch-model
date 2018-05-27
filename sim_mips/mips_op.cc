@@ -639,6 +639,7 @@ public:
     this->op_class = mips_op_type::jmp;
     op->has_delay_slot = true;
     op->is_branch_or_jump = true;
+    op->could_cause_exception = true;
   }
   virtual int get_dest() const {
     switch(jt)
@@ -708,6 +709,15 @@ public:
 	break;
       }
     m->branch_exception = (m->fetch_npc != m->correct_pc);
+
+    if(m->branch_exception and (jt == jump_type::jr) and m->pop_return_stack) {
+      std::cerr << std::hex << m->pc << " mispredict : predict "
+		<< m->fetch_npc << " , correct " << m->correct_pc
+		<< std::dec
+		<< " @ cycle " << get_curr_cycle()
+		<< "\n";
+      die();
+    }
     
     if(get_dest() != -1) {
       machine_state.gpr_prf[m->prf_idx] = m->pc + 8;
@@ -733,6 +743,10 @@ public:
     
     machine_state.mispredicted_jumps += m->branch_exception;
     m->retire_cycle = get_curr_cycle();
+
+    if(jt==jump_type::jal) {
+      std::cerr << "most recent jal : " << *this << "\n";
+    }
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -809,6 +823,7 @@ public:
     uint32_t npc = m->pc+4;
     branch_target = (imm+npc);
     op->is_branch_or_jump = true;
+    op->could_cause_exception = true;
   }
   virtual int get_src0() const {
     if(is_fp_branch()) {
@@ -948,10 +963,6 @@ public:
     }
 
     m->branch_exception |= (m->predict_taken != take_br);
-    //if(m->predict_taken xor take_br) {
-    //dprintf(2, "%x : predicted %d, but branch was %d\n",
-    //m->pc, m->predict_taken, take_br);
-    //}
 
     m->complete_cycle = get_curr_cycle() + 1;
   }
@@ -2676,6 +2687,7 @@ protected:
 public:
   monitor_op(sim_op op) : mips_op(op) {
     this->op_class = mips_op_type::system;
+    op->could_cause_exception = true;
   }
   virtual int get_dest() const {
     return 2;
@@ -2821,6 +2833,7 @@ static mips_op* decode_jtype_insn(sim_op m_op) {
     case 0x2:
       return new jump_op(m_op, jump_op::jump_type::j);
     case 0x3:
+      m_op->is_jal = true;
       return new jump_op(m_op, jump_op::jump_type::jal);
     default:
       break;
@@ -2933,6 +2946,7 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
     case 0x07: /* srav */
       return new rtype_alu_op(m_op, rtype_alu_op::r_type::srav);
     case 0x08: /* jr */
+      m_op->is_jr = true;
       if(jr_map.find(m_op->pc) == jr_map.end()) {
 	jr_map.insert(m_op->pc);
       }

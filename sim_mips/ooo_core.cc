@@ -136,6 +136,7 @@ extern "C" {
   
   void fetch(void *arg) {
     auto &fetch_queue = machine_state.fetch_queue;
+    auto &return_stack = machine_state.return_stack;
     while(not(machine_state.terminate_sim)) {
       int fetch_amt = 0;
       for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
@@ -161,12 +162,14 @@ extern "C" {
 	auto jr_it = jr_map.find(machine_state.fetch_pc);
 	auto it = branch_prediction_map.find(machine_state.fetch_pc);
 	bool used_return_addr_stack = false;
+	bool control_flow = false;
 	if(jr_it != jr_map.end()) {
-	  if(not(machine_state.return_stack.empty())) {
-	    npc = machine_state.return_stack.pop();
+	  if(not(return_stack.empty())) {
+	    npc = return_stack.pop();
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	    used_return_addr_stack = true;
-#if 0
+	    control_flow = true;
+#if 1
 	    std::cerr << "found jr at fetch pc " << std::hex
 		      << machine_state.fetch_pc << ", pop "
 		      << npc
@@ -191,11 +194,15 @@ extern "C" {
             machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
             npc = branch_target_map.at(machine_state.fetch_pc);
             predict_taken = true;
+	    control_flow = true;
           }
         }
-	auto f = new mips_meta_op(machine_state.fetch_pc, inst, npc, curr_cycle, predict_taken, used_return_addr_stack);
+	auto f = new mips_meta_op(machine_state.fetch_pc, inst, npc, curr_cycle, predict_taken,
+				  used_return_addr_stack);
 	fetch_queue.push(f);
 	machine_state.fetch_pc = npc;
+	if(control_flow)
+	  break;
       }
       gthread_yield();
     }
@@ -204,7 +211,7 @@ extern "C" {
   void decode(void *arg) {
     auto &fetch_queue = machine_state.fetch_queue;
     auto &decode_queue = machine_state.decode_queue;
-    
+    auto &return_stack = machine_state.return_stack;
     while(not(machine_state.terminate_sim)) {
       int decode_amt = 0;
       while(not(fetch_queue.empty()) and not(decode_queue.full()) and (decode_amt < decode_bw) and not(machine_state.nuke)) {
@@ -216,6 +223,25 @@ extern "C" {
 	u->decode_cycle = curr_cycle;
 	u->op = decode_insn(u);
 	decode_queue.push(u);
+	if(u->is_jal) {
+	  if(not(return_stack.full())) {
+	    std::cerr << std::hex
+		      << u->pc 
+		      << " : push return address " 
+		      << u->pc+8 
+		      << std::dec
+		      << " @ cycle " << get_curr_cycle()
+		      << "\n";
+	    u->push_return_stack = true;
+	    return_stack.push(u->pc + 8);
+	  }
+	}
+	if(u->could_cause_exception) {
+	  u->shadow_rstack.copy(return_stack);
+	}
+	if(u->is_branch_or_jump) {
+	  break;
+	}
       }
       gthread_yield();
     }
@@ -607,12 +633,20 @@ extern "C" {
 
 
       if(u!=nullptr and exception) {
-#if 0
+#if 1
 	std::cerr << (u->branch_exception ? "BRANCH" : "LOAD")
-	  << " EXCEPTION @ cycle " << get_curr_cycle()
-	  << " for " << *(u->op)
-	  << "\n";
+		  << " EXCEPTION @ cycle " << get_curr_cycle()
+		  << " for " << *(u->op)
+		  << " fetched @ cycle " << u->fetch_cycle
+		  << "\n";
 #endif
+	assert(u->could_cause_exception);
+	machine_state.return_stack.copy(u->shadow_rstack);
+	
+	//while(!u->shadow_rstack.empty()) {
+	//std::cerr << std::hex << u->shadow_rstack.pop() << std::dec << "\n";
+	//}
+	
 	if((retire_amt - retire_bw) < 2) {
 	  gthread_yield();
 	  retire_amt = 0;
@@ -694,6 +728,7 @@ extern "C" {
 	while(true) {
 	  auto uu = rob.at(i);
 	  if(uu) {
+	    //std::cerr << "UNDO:" << *(uu->op) << "\n";
 	    uu->op->undo(machine_state);
 	    delete uu;
 	    rob.at(i) = nullptr;

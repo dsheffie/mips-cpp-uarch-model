@@ -54,7 +54,7 @@ struct mips_meta_op {
   uint32_t fetch_npc = 0;  
   uint64_t fetch_cycle = 0;
   bool predict_taken = false;
-  bool predict_from_return_addr_stack = false;
+  bool pop_return_stack = false;
   int64_t decode_cycle = -1;
   int64_t alloc_cycle = -1;
   int64_t ready_cycle = -1;
@@ -62,9 +62,11 @@ struct mips_meta_op {
   int64_t retire_cycle = -1;
   /* finished execution */
   bool is_complete = false;
+  bool could_cause_exception = false;
   bool branch_exception = false;
   bool load_exception = false;
   bool is_branch_or_jump = false;
+  bool is_jal = false, is_jr = false;
   bool has_delay_slot = false;
   bool likely_squash = false;
   uint32_t correct_pc = 0;
@@ -82,12 +84,14 @@ struct mips_meta_op {
   int32_t prev_hi_prf_idx = -1, prev_lo_prf_idx = -1;
   
   mips_op* op = nullptr;
-
+  bool push_return_stack = false;
+  sim_stack_template<uint32_t> shadow_rstack;
+  
   mips_meta_op(uint32_t pc, uint32_t inst,  uint32_t fetch_npc,
 	       uint32_t fetch_cycle,
-	       bool predict_taken, bool predict_from_return_addr_stack) :
+	       bool predict_taken, bool pop_return_stack) :
     pc(pc), inst(inst), fetch_npc(fetch_npc), fetch_cycle(fetch_cycle), predict_taken(predict_taken),
-    predict_from_return_addr_stack(predict_from_return_addr_stack)  {}
+    pop_return_stack(pop_return_stack)  {}
   ~mips_meta_op();
 };
 
@@ -292,6 +296,7 @@ public:
     this->op_class = mips_op_type::load;
     int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
     imm = static_cast<int32_t>(himm);
+    op->could_cause_exception = true;
   }
   uint32_t getEA() const {
     return effective_address;

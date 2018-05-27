@@ -16,6 +16,15 @@ public:
     stack = new T[stack_sz];
     memset(stack, 0, sizeof(T)*stack_sz);
   }
+  void copy(const sim_stack_template &other) {
+    if(stack) {
+      delete [] stack;
+    }
+    stack = new T[other.stack_sz];
+    memcpy(stack, other.stack, sizeof(T)*other.stack_sz);
+    stack_sz = other.stack_sz;
+    idx = other.idx;
+  }
   ~sim_stack_template() {
     delete [] stack;
   }
