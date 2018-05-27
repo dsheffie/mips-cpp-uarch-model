@@ -55,6 +55,7 @@ struct mips_meta_op {
   uint64_t fetch_cycle = 0;
   bool predict_taken = false;
   bool predict_from_return_addr_stack = false;
+  int64_t alloc_id = -1;
   int64_t decode_cycle = -1;
   int64_t alloc_cycle = -1;
   int64_t ready_cycle = -1;

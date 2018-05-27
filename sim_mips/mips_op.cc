@@ -28,11 +28,21 @@ bool mips_load::stall_for_load(sim_state &machine_state) const {
       if(machine_state.store_tbl[i] != nullptr) {
 	//std::cout << std::hex << machine_state.store_tbl[i]->pc
 	//<< std::dec << "\n";
-
 	auto st = machine_state.store_tbl[i];
+	assert(machine_state.rob.at(st->rob_idx)==st);
 	auto st_it = it->second.find(st->pc);
 	bool st_found = st_it != it->second.end();
-	if(st_found and (st->alloc_cycle <= m->alloc_cycle)) {
+	//if(st_found and (st->alloc_cycle <= m->alloc_cycle)) {
+	if(st_found and (st->alloc_id < m->alloc_id)) {
+#if 0
+	  std::cout << *(st->op) << " blocks issse\n";
+	  std::cout << "store alloc'd @ "<< st->alloc_cycle << "\n";
+	  std::cout << "store ready @ "<< st->ready_cycle << "\n";
+	  std::cout << "store rob idx " << st->rob_idx << "\n";
+	  std::cout << "store retired @ "<< st->retire_cycle << "\n";
+	  std::cout << "load  alloc'd @ "<< m->alloc_cycle << "\n";
+	  std::cout << "now @  "<< get_curr_cycle() << "\n";
+#endif
 	  return true;
 	}
       }

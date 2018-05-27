@@ -115,8 +115,8 @@ extern "C" {
       //dprintf(log_fd, "cycle %llu : icnt %llu\n", curr_cycle, machine_state.icnt);
       curr_cycle++;
       uint64_t delta = curr_cycle - machine_state.last_retire_cycle;
-      if(delta > 128) {
-	dprintf(2, "no retirement in 128 cycles, last pc = %x!\n",
+      if(delta > 1024) {
+	dprintf(2, "no retirement in 1024 cycles, last pc = %x!\n",
 		machine_state.last_retire_pc);
 	machine_state.terminate_sim = true;
       }
@@ -228,6 +228,7 @@ extern "C" {
     auto &alu_alloc = machine_state.alu_alloc;
     auto &fpu_alloc = machine_state.fpu_alloc;
     auto &load_alloc = machine_state.load_alloc;
+    int64_t alloc_counter = 0;
     while(not(machine_state.terminate_sim)) {
       int alloc_amt = 0;
       std::map<mips_op_type, int> alloc_histo;
@@ -325,7 +326,7 @@ extern "C" {
 	if(not(u->op->allocate(machine_state))) {
 	  break;
 	}
-
+	u->alloc_id = alloc_counter++;
 #if 0
 	std::set<int32_t> gpr_prf_debug;
 	for(int i = 0; i < 32; i++) {
@@ -475,9 +476,31 @@ extern "C" {
 	empty_cnt = 0;
 	if(not(u->is_complete)) {
 	  if(stuck_cnt > 32) {
-	    std::cerr << "pc : stuck at head of rob " << std::hex << u->pc << std::dec << "\n";
-	    std::cout << "ready at cycle " << u->ready_cycle << "\n";
-	    
+	    std::cerr << "STUCK:" << *(u->op) << "\n";
+	    int64_t i = rob.get_write_idx();
+	    for(int c = 0; (c < rob.size()) and rob.full(); c++) {
+	      if(rob.at(i)) {
+		if(rob.at(i)->op) {
+		  std::cerr << i << " " << *(rob.at(i)->op) << ", alloc cycle ="
+			    << rob.at(i)->alloc_cycle << "\n";
+		}
+		else {
+		  std::cerr << i << " no op for rob slot!\n";
+		}
+	      }
+	      i--;
+	      if(i < 0) i = rob.size()-1;
+	    }
+	    while(!rob.full()) {
+	      if(rob.at(i)) {
+		std::cerr << *(rob.at(i)->op) << "\n";
+	      }
+	      if(i == rob.get_read_idx())
+		break;
+	      i--;
+	      if(i < 0)
+		i = rob.size()-1;
+	    }
 	  }
 	  stuck_cnt++;
 	  u = nullptr;
