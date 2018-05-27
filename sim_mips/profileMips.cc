@@ -163,13 +163,13 @@ void mkMonitorVectors(state_t *s) {
 
 void execMips(state_t *s) {
   if(s->brk) return;
-  s->steps++;
   sparse_mem &mem = s->mem;
   uint32_t inst = accessBigEndian(mem.get32(s->pc));
 
-  //std::cout << std::hex << s->pc << std::dec << " : "
-  //<< getAsmString(inst, s->pc) << "\n";
-  
+  if(s->debug) {
+    std::cout << std::hex << s->pc << std::dec << " : "
+	      << getAsmString(inst, s->pc) << "\n";
+  }
   uint32_t opcode = inst>>26;
   bool isRType = (opcode==0);
   bool isJType = ((opcode>>1)==1);

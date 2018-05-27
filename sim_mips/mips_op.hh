@@ -4,7 +4,7 @@
 #include <memory>
 #include <vector>
 #include <list>
-
+#include <cassert>
 #include "sparse_mem.hh"
 #include "sim_queue.hh"
 #include "sim_bitvec.hh"
@@ -17,6 +17,29 @@ uint64_t get_curr_cycle();
 extern int log_fd;
 
 enum class mips_op_type { unknown, alu, fp, jmp, load, store, system };
+
+inline bool is_jr(uint32_t inst) {
+  uint32_t opcode = inst>>26;
+  uint32_t funct = inst & 63;
+  return (opcode==0) and (funct == 0x08);
+}
+
+inline bool is_jal(uint32_t inst) {
+  uint32_t opcode = inst>>26;
+  return ((opcode>>1)==1) and (opcode == 3);
+}
+
+inline bool is_j(uint32_t inst) {
+  uint32_t opcode = inst>>26;
+  return ((opcode>>1)==1) and (opcode == 2);
+}
+
+inline uint32_t get_jump_target(uint32_t pc, uint32_t inst) {
+  assert(is_jal(inst) or is_j(inst));
+  static const uint32_t pc_mask = (~((1U<<28)-1));
+  uint32_t jaddr = (inst & ((1<<26)-1)) << 2;
+  return ((pc + 4)&pc_mask) | jaddr;
+}
 
 inline std::ostream &operator<<(std::ostream &out, mips_op_type ot) {
   switch(ot)
@@ -87,11 +110,27 @@ struct mips_meta_op {
   mips_op* op = nullptr;
   bool push_return_stack = false;
   sim_stack_template<uint32_t> shadow_rstack;
+
+
+  mips_meta_op(uint32_t pc,
+	       uint32_t inst,
+	       uint32_t fetch_cycle) :
+    pc(pc), inst(inst),
+    fetch_npc(0),
+    fetch_cycle(fetch_cycle),
+    predict_taken(false),
+    pop_return_stack(false)  {}
   
-  mips_meta_op(uint32_t pc, uint32_t inst,  uint32_t fetch_npc,
+  mips_meta_op(uint32_t pc,
+	       uint32_t inst,
+	       uint32_t fetch_npc,
 	       uint32_t fetch_cycle,
-	       bool predict_taken, bool pop_return_stack) :
-    pc(pc), inst(inst), fetch_npc(fetch_npc), fetch_cycle(fetch_cycle), predict_taken(predict_taken),
+	       bool predict_taken,
+	       bool pop_return_stack) :
+    pc(pc), inst(inst),
+    fetch_npc(fetch_npc),
+    fetch_cycle(fetch_cycle),
+    predict_taken(predict_taken),
     pop_return_stack(pop_return_stack)  {}
   ~mips_meta_op();
 };

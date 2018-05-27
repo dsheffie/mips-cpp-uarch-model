@@ -8,7 +8,6 @@
 
 std::map<uint32_t, uint32_t> branch_target_map;
 std::map<uint32_t, int32_t> branch_prediction_map;
-std::set<uint32_t> jr_map;
 
 std::map<uint32_t, std::set<uint32_t>> load_alias_map;
 
@@ -720,14 +719,32 @@ public:
       }
     m->branch_exception = (m->fetch_npc != m->correct_pc);
 
-    if(m->branch_exception and (jt == jump_type::jr) and m->pop_return_stack) {
-      std::cerr << std::hex << m->pc << " mispredict : predict "
+    bool return_mispredict = false;
+    if((jt == jump_type::jr) and m->pop_return_stack) {
+      if(m->branch_exception) {
+	return_mispredict = true;
+	std::cerr << "RETURN MISPREDICT " << std::hex << m->pc << " : predict "
+		  << m->fetch_npc << " , correct " << m->correct_pc
+		  << std::dec
+		  << " @ fetch cycle " << m->fetch_cycle
+		  << "\n";
+      }
+      else {
+	std::cerr << "RETURN CORRECT " << std::hex << m->pc << " : predict "
+		  << m->fetch_npc << " , correct " << m->correct_pc
+		  << std::dec
+		  << " @ fetch cycle " << m->fetch_cycle
+		  << "\n";
+      }
+    }
+    if(not(return_mispredict) and jt == jump_type::jr and m->branch_exception) {
+      std::cerr << "JR MISPREDICT " << std::hex << m->pc << " : predict "
 		<< m->fetch_npc << " , correct " << m->correct_pc
 		<< std::dec
-		<< " @ cycle " << get_curr_cycle()
+		<< " @ fetch cycle " << m->fetch_cycle
 		<< "\n";
-      die();
     }
+
     
     if(get_dest() != -1) {
       machine_state.gpr_prf[m->prf_idx] = m->pc + 8;
@@ -754,9 +771,6 @@ public:
     machine_state.mispredicted_jumps += m->branch_exception;
     m->retire_cycle = get_curr_cycle();
 
-    if(jt==jump_type::jal) {
-      std::cerr << "most recent jal : " << *this << "\n";
-    }
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -2957,9 +2971,6 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
       return new rtype_alu_op(m_op, rtype_alu_op::r_type::srav);
     case 0x08: /* jr */
       m_op->is_jr = true;
-      if(jr_map.find(m_op->pc) == jr_map.end()) {
-	jr_map.insert(m_op->pc);
-      }
       return new jump_op(m_op, jump_op::jump_type::jr);
     case 0x09: /* jalr */
       return new jump_op(m_op, jump_op::jump_type::jalr);

@@ -32,9 +32,9 @@ static int rob_size = 64;
 static int fetchq_size = 64;
 static int decodeq_size = 64;
 
-static int fetch_bw = 16;
+static int fetch_bw = 1;
+static int decode_bw = 1;
 static int alloc_bw = 16;
-static int decode_bw = 16;
 static int retire_bw = 16;
 
 static int num_gpr_prf = 128;
@@ -59,7 +59,6 @@ extern std::map<uint32_t, int32_t> branch_prediction_map;
 extern state_t *s;
 
 static std::map<int64_t, uint64_t> insn_lifetime_map;
-extern std::set<uint32_t> jr_map;
 static sparse_mem *u_arch_mem = nullptr;
 
 uint64_t get_curr_cycle() {
@@ -72,6 +71,7 @@ void initialize_ooo_core(uint64_t skipicnt, uint64_t maxicnt,
   while(s->icnt < skipicnt) {
     execMips(s);
   }
+  //s->debug = 1;
   
   u_arch_mem = new sparse_mem(*sm);
   machine_state.initialize(u_arch_mem);
@@ -159,12 +159,20 @@ extern "C" {
 	//std::cout << "return stack has " << machine_state.return_stack.size()
 	// << " entries at cycle " << get_curr_cycle() << "\n";
 	//std::cerr << "jr_map.size() = " << jr_map.size() << "\n";
-	auto jr_it = jr_map.find(machine_state.fetch_pc);
 	auto it = branch_prediction_map.find(machine_state.fetch_pc);
 	bool used_return_addr_stack = false;
 	bool control_flow = false;
-	if(jr_it != jr_map.end()) {
+	
+        mips_meta_op *f = new mips_meta_op(machine_state.fetch_pc, inst, curr_cycle);
+	std::cerr << "FETCH PC " << std::hex << machine_state.fetch_pc << std::dec << "\n";
+	if(is_jr(inst)) {
 	  if(not(return_stack.empty())) {
+	    f->shadow_rstack.copy(return_stack);
+	    std::cerr << "JR SHADOW STACK\n";
+	    while(not(f->shadow_rstack.empty())) {
+	      std::cerr << "\t" << std::hex << f->shadow_rstack.pop() << std::dec << "\n";
+	    }
+	    f->shadow_rstack.copy(return_stack);
 	    npc = return_stack.pop();
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	    used_return_addr_stack = true;
@@ -178,15 +186,12 @@ extern "C" {
 		      << "\n";
 #endif
 	  }
-#if 0
-	  else {
-	    std::cerr << "found jr at fetch pc "
-		      << std::hex
-		      << machine_state.fetch_pc
-		      << std::dec
-		      << " but empty return stack\n";
-	  }
-#endif
+	}
+	else if(is_jal(inst) or is_j(inst)) {
+	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	  npc = get_jump_target(machine_state.fetch_pc, inst);
+	  predict_taken = true;
+	  control_flow = true;
 	}
 	else if(it != branch_prediction_map.end()) {
           /* predicted as taken */
@@ -197,8 +202,11 @@ extern "C" {
 	    control_flow = true;
           }
         }
-	auto f = new mips_meta_op(machine_state.fetch_pc, inst, npc, curr_cycle, predict_taken,
-				  used_return_addr_stack);
+
+	f->fetch_npc = npc;
+	f->predict_taken = predict_taken;
+	f->pop_return_stack = used_return_addr_stack;
+
 	fetch_queue.push(f);
 	machine_state.fetch_pc = npc;
 	if(control_flow)
@@ -236,7 +244,7 @@ extern "C" {
 	    return_stack.push(u->pc + 8);
 	  }
 	}
-	if(u->could_cause_exception) {
+	if(u->could_cause_exception and not u->is_jr) {
 	  u->shadow_rstack.copy(return_stack);
 	}
 	if(u->is_branch_or_jump) {
@@ -657,11 +665,13 @@ extern "C" {
 
       if(u!=nullptr and exception) {
 #if 1
-	std::cerr << (u->branch_exception ? "BRANCH" : "LOAD")
-		  << " EXCEPTION @ cycle " << get_curr_cycle()
-		  << " for " << *(u->op)
-		  << " fetched @ cycle " << u->fetch_cycle
-		  << "\n";
+	if(u->branch_exception and u->is_jr) {
+	  std::cerr << (u->branch_exception ? "BRANCH" : "LOAD")
+		    << " EXCEPTION @ cycle " << get_curr_cycle()
+		    << " for " << *(u->op)
+		    << " fetched @ cycle " << u->fetch_cycle
+		    << "\n";
+	}
 #endif
 	assert(u->could_cause_exception);
 	machine_state.return_stack.copy(u->shadow_rstack);

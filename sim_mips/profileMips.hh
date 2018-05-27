@@ -55,7 +55,6 @@ struct state_t {
   int32_t hi;
   uint64_t icnt;
   uint8_t brk;
-  int steps;
   int call_site;
   int32_t gpr[32];
   uint32_t cpr0[32];
@@ -63,9 +62,9 @@ struct state_t {
   uint32_t fcr1[5];
 
   int num_open_fd = 0;
-  
+  int debug;
   state_t(sparse_mem &mem) : mem(mem), pc(0), lo(0), hi(0),
-			     icnt(0), brk(0), steps(1) {
+			     icnt(0), brk(0) {
     memset(gpr, 0, sizeof(int32_t)*32);
     memset(cpr0, 0, sizeof(uint32_t)*32);
     memset(cpr1, 0, sizeof(uint32_t)*32);
@@ -77,4 +76,5 @@ struct state_t {
 void initState(state_t *s);
 void execMips(state_t *s);
 void mkMonitorVectors(state_t *s);
+
 #endif
