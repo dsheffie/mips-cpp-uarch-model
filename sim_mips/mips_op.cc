@@ -982,7 +982,7 @@ public:
     }
     else {
       m->correct_pc = m->pc + 8;
-      if(is_likely_branch()) {
+      if(is_likely_branch() and (m->fetch_npc != (m->pc+8))) {
 	m->branch_exception = true;
       }
     }
