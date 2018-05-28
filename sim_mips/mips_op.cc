@@ -1078,16 +1078,31 @@ public:
 	    static_cast<uint32_t>(mem.at(effective_address));
 	  break;
 	case load_type::lh:
-	  machine_state.gpr_prf[m->prf_idx] = 
-	    accessBigEndian(*((int16_t*)(mem + effective_address)));
+	  if(effective_address & 0x1 == 0) {
+	    machine_state.gpr_prf[m->prf_idx] = 
+	      accessBigEndian(*((int16_t*)(mem + effective_address)));
+	  }
+	  else {
+	    m->load_exception = true;
+	  }
 	  break;
 	case load_type::lhu:
-	  *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
-	    static_cast<uint32_t>(accessBigEndian(*(uint16_t*)(mem + effective_address))); 
+	  if(effective_address & 0x1 == 0) {
+	    *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
+	      static_cast<uint32_t>(accessBigEndian(*(uint16_t*)(mem + effective_address)));
+	  }
+	  else {
+	    m->load_exception = true;
+	  }
 	  break;
 	case load_type::lw:
-	  machine_state.gpr_prf[m->prf_idx] =
-	    accessBigEndian(*((int32_t*)(mem + effective_address))); 
+	  if(effective_address & 0x3 == 0) {
+	    machine_state.gpr_prf[m->prf_idx] =
+	      accessBigEndian(*((int32_t*)(mem + effective_address)));
+	  }
+	  else {
+	    m->load_exception = true;
+	  }
 	  break;
 	default:
 	  std::cerr << std::hex << m->pc << std::dec << ":" <<
