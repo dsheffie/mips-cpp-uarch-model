@@ -95,7 +95,6 @@ struct mips_meta_op {
   bool likely_squash = false;
   uint32_t correct_pc = 0;
   bool is_store = false, is_fp_store = false;
-  uint32_t exec_parity = 0;
 
   int32_t rob_idx = -1;
   /* result will get written to prf idx */

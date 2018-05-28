@@ -218,7 +218,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     retired = true;
     m->retire_cycle = get_curr_cycle();
     return true;
@@ -308,7 +308,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     m->retire_cycle = get_curr_cycle();
     return true;
   }
@@ -492,7 +492,7 @@ public:
 
       machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
       machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-      m->exec_parity = machine_state.gpr_parity();
+      
     }
     retired = true;
     machine_state.icnt++;
@@ -603,7 +603,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     m->retire_cycle = get_curr_cycle();
     return true;
   }
@@ -761,7 +761,7 @@ public:
     retired = true;
     machine_state.icnt++;
     machine_state.n_jumps++;
-    m->exec_parity = machine_state.gpr_parity();
+    
 
     /* strongly taken */
     branch_target_map[m->pc] = m->correct_pc;
@@ -1000,7 +1000,7 @@ public:
     machine_state.icnt++;
     machine_state.n_branches++;
     machine_state.mispredicted_branches += m->branch_exception;
-    m->exec_parity = machine_state.gpr_parity();
+    
 
     
     branch_target_map[m->pc] = branch_target;
@@ -1114,7 +1114,7 @@ public:
     
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     m->retire_cycle = get_curr_cycle();
     return true;
   }
@@ -1544,7 +1544,7 @@ public:
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     retired = true;
     machine_state.icnt++;
     m->retire_cycle = get_curr_cycle();
@@ -1606,7 +1606,7 @@ public:
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     retired = true;
     machine_state.icnt++;
     m->retire_cycle = get_curr_cycle();
@@ -1846,7 +1846,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     m->retire_cycle = get_curr_cycle();
     return true;
   }
@@ -1901,7 +1901,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     m->retire_cycle = get_curr_cycle();
     return true;
   }
@@ -1975,7 +1975,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     m->retire_cycle = get_curr_cycle();
     return true;
   }
@@ -2831,7 +2831,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     m->retire_cycle = get_curr_cycle();
     return true;
   }
