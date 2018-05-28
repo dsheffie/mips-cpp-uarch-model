@@ -52,20 +52,19 @@ static int num_load_sched_entries = 64;
 static int num_store_sched_entries = 64;
 static int num_system_sched_entries = 4;
 
-static sim_state machine_state;
 static uint64_t curr_cycle = 0;
 extern std::map<uint32_t, uint32_t> branch_target_map;
 extern std::map<uint32_t, int32_t> branch_prediction_map;
 extern state_t *s;
 
 static std::map<int64_t, uint64_t> insn_lifetime_map;
-static sparse_mem *u_arch_mem = nullptr;
 
 uint64_t get_curr_cycle() {
   return curr_cycle;
 }
 
-void initialize_ooo_core(uint64_t skipicnt, uint64_t maxicnt,
+void initialize_ooo_core(sim_state &machine_state,
+			 uint64_t skipicnt, uint64_t maxicnt,
 			 state_t *s, const sparse_mem *sm) {
 
   while(s->icnt < skipicnt) {
@@ -73,8 +72,8 @@ void initialize_ooo_core(uint64_t skipicnt, uint64_t maxicnt,
   }
   //s->debug = 1;
   
-  u_arch_mem = new sparse_mem(*sm);
-  machine_state.initialize(u_arch_mem);
+  machine_state.mem = new sparse_mem(*sm);
+  machine_state.initialize();
   machine_state.maxicnt = maxicnt;
   machine_state.skipicnt = s->icnt;
   machine_state.use_interp_check = true;
@@ -83,7 +82,7 @@ void initialize_ooo_core(uint64_t skipicnt, uint64_t maxicnt,
 }
 
 
-void destroy_ooo_core() {
+void destroy_ooo_core(sim_state &machine_state) {
   for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
     auto f = machine_state.fetch_queue.at(i);
     if(f) {
@@ -103,7 +102,7 @@ void destroy_ooo_core() {
     }
   }
 
-  delete u_arch_mem;
+  delete machine_state.mem;
   gthread::free_threads();
 }
 
@@ -111,6 +110,7 @@ void destroy_ooo_core() {
 
 extern "C" {
   void cycle_count(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     while(not(machine_state.terminate_sim)) {
       //dprintf(log_fd, "cycle %llu : icnt %llu\n", curr_cycle, machine_state.icnt);
       curr_cycle++;
@@ -135,6 +135,7 @@ extern "C" {
   }
   
   void fetch(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto &fetch_queue = machine_state.fetch_queue;
     auto &return_stack = machine_state.return_stack;
     while(not(machine_state.terminate_sim)) {
@@ -217,6 +218,7 @@ extern "C" {
     gthread_terminate();
   }
   void decode(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto &fetch_queue = machine_state.fetch_queue;
     auto &decode_queue = machine_state.decode_queue;
     auto &return_stack = machine_state.return_stack;
@@ -257,6 +259,7 @@ extern "C" {
   }
 
   void allocate(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto &decode_queue = machine_state.decode_queue;
     auto &rob = machine_state.rob;
     auto &alu_alloc = machine_state.alu_alloc;
@@ -401,6 +404,7 @@ extern "C" {
   }
 
   void execute(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto & alu_rs = machine_state.alu_rs;
     auto & fpu_rs = machine_state.fpu_rs;
     auto & jmp_rs = machine_state.jmp_rs;
@@ -470,6 +474,7 @@ extern "C" {
     gthread_terminate();
   }
   void complete(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto &rob = machine_state.rob;
     while(not(machine_state.terminate_sim)) {
       for(size_t i = 0; not(machine_state.nuke) and (i < rob.size()); i++) {
@@ -489,6 +494,7 @@ extern "C" {
     gthread_terminate();
   }
   void retire(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto &rob = machine_state.rob;
     int stuck_cnt = 0, empty_cnt = 0;
     while(not(machine_state.terminate_sim)) {
@@ -912,8 +918,7 @@ void sim_state::initialize_rat_mappings() {
   }
 }
 
-void sim_state::initialize(sparse_mem *mem) {
-  this->mem = mem;
+void sim_state::initialize() {
   num_gpr_prf_ = num_gpr_prf;
   num_cpr0_prf_ = num_cpr0_prf;
   num_cpr1_prf_ = num_cpr1_prf;
@@ -984,14 +989,14 @@ void sim_state::initialize(sparse_mem *mem) {
 }
 
 
-void run_ooo_core() {
-  gthread::make_gthread(&retire, nullptr);
-  gthread::make_gthread(&complete, nullptr);
-  gthread::make_gthread(&execute, nullptr);
-  gthread::make_gthread(&allocate, nullptr);
-  gthread::make_gthread(&decode, nullptr);
-  gthread::make_gthread(&fetch, nullptr);
-  gthread::make_gthread(&cycle_count, nullptr);
+void run_ooo_core(sim_state &machine_state) {
+  gthread::make_gthread(&retire, reinterpret_cast<void*>(&machine_state));
+  gthread::make_gthread(&complete,reinterpret_cast<void*>(&machine_state));
+  gthread::make_gthread(&execute, reinterpret_cast<void*>(&machine_state));
+  gthread::make_gthread(&allocate, reinterpret_cast<void*>(&machine_state));
+  gthread::make_gthread(&decode, reinterpret_cast<void*>(&machine_state));
+  gthread::make_gthread(&fetch, reinterpret_cast<void*>(&machine_state));
+  gthread::make_gthread(&cycle_count, reinterpret_cast<void*>(&machine_state));
   double now = timestamp();
   start_gthreads();
   now = timestamp() - now;

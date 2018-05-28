@@ -230,6 +230,7 @@ struct sim_state {
   
   bool log_execution = false;
   bool use_interp_check = false;
+
   struct retire_entry {
     uint32_t inst;
     uint32_t pc;
@@ -253,7 +254,7 @@ struct sim_state {
     return p;
   }
   
-  void initialize(sparse_mem *mem);
+  void initialize();
   void copy_state(const state_t *s);
 
   ~sim_state() {
