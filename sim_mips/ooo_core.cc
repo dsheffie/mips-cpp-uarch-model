@@ -110,6 +110,8 @@ void destroy_ooo_core(sim_state &machine_state) {
 extern "C" {
   void cycle_count(void *arg) {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
+    uint64_t prev_icnt = 0;
+    static const uint64_t hinterval = 1UL<<20;
     while(not(machine_state.terminate_sim)) {
       //dprintf(log_fd, "cycle %llu : icnt %llu\n", curr_cycle, machine_state.icnt);
       curr_cycle++;
@@ -119,11 +121,15 @@ extern "C" {
 		machine_state.last_retire_pc);
 	machine_state.terminate_sim = true;
       }
-      if(curr_cycle % (1UL<<20) == 0) {
-	double ipc = static_cast<double>(machine_state.icnt-machine_state.skipicnt) / curr_cycle;
+      if(curr_cycle % hinterval == 0) {
+	uint64_t curr_icnt = (machine_state.icnt-machine_state.skipicnt);
+	double ipc = static_cast<double>(curr_icnt) / curr_cycle;
+	double wipc = static_cast<double>(curr_icnt-prev_icnt) / hinterval;
 	std::cout << "heartbeat : " << curr_cycle << " cycles, "
-		  << (machine_state.icnt-machine_state.skipicnt) << " insns retired,"
-		  << ipc << " ipc\n";
+		  << curr_icnt << " insns retired, avg ipc "
+		  << ipc << ", window ipc "
+		  << wipc <<"\n";
+	prev_icnt = curr_icnt;
       }
       //if(curr_cycle >= 256) {
       //machine_state.terminate_sim = true;
