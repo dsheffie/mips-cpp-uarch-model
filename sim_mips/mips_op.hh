@@ -231,20 +231,6 @@ struct sim_state {
   bool log_execution = false;
   bool use_interp_check = false;
 
-  struct retire_entry {
-    uint32_t inst;
-    uint32_t pc;
-    uint32_t parity;
-    retire_entry(uint32_t inst, uint32_t pc, uint32_t parity) : 
-      inst(inst), pc(pc), parity(parity) {}
-  };
-  std::list<retire_entry> retire_log;
-  void log_insn(uint32_t insn, uint32_t pc, uint32_t parity = 0) {
-    if(log_execution) {
-      retire_log.push_back(retire_entry(insn, pc, parity));
-    }
-  }
-  
   void initialize_rat_mappings();
   uint32_t gpr_parity() const {
     uint32_t p = 0;

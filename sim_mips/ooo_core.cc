@@ -652,7 +652,6 @@ extern "C" {
 	u->op->retire(machine_state);
 	stuck_cnt = 0;
 	
-	machine_state.log_insn(u->inst, u->pc, u->exec_parity);
 	insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
 	machine_state.last_retire_cycle = get_curr_cycle();
 	machine_state.last_retire_pc = u->pc;
@@ -712,7 +711,6 @@ extern "C" {
 	    else {
 	      //std::cerr << "retire for " << *(u->op) << "\n";
 	      u->op->retire(machine_state);
-	      machine_state.log_insn(u->inst, u->pc, u->exec_parity);
 	      insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
 	      machine_state.last_retire_cycle = get_curr_cycle();
 	      machine_state.last_retire_pc = u->pc;
@@ -739,7 +737,6 @@ extern "C" {
 	  else {
 	    //std::cerr << "retire for " << *(u->op) << "\n";
 	    u->op->retire(machine_state);
-	    machine_state.log_insn(u->inst, u->pc, u->exec_parity);
 	    insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
 	    machine_state.last_retire_cycle = get_curr_cycle();
 	    machine_state.last_retire_pc = u->pc;
