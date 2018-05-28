@@ -10,7 +10,8 @@ class sim_queue {
 public:
   class funcobj {
   public:
-    virtual bool operator()(T e) {};
+    virtual bool operator()(T e) = 0;
+
   };
 private:
   uint64_t len = 0, len2 = 0;

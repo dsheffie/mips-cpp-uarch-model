@@ -52,8 +52,6 @@ static int num_load_sched_entries = 64;
 static int num_store_sched_entries = 64;
 static int num_system_sched_entries = 4;
 
-static bool use_oracle = false;
-
 static uint64_t curr_cycle = 0;
 extern std::map<uint32_t, uint32_t> branch_target_map;
 extern std::map<uint32_t, int32_t> branch_prediction_map;
@@ -541,19 +539,21 @@ void retire(sim_state &machine_state) {
 }
 
 void initialize_ooo_core(sim_state &machine_state,
+			 bool use_oracle,
 			 uint64_t skipicnt, uint64_t maxicnt,
 			 state_t *s, const sparse_mem *sm) {
-
   while(s->icnt < skipicnt) {
     execMips(s);
   }
   
   //s->debug = 1;
   machine_state.ref_state = s;
-  machine_state.oracle_mem = new sparse_mem(*sm);
-  machine_state.oracle_state = new state_t(*machine_state.oracle_mem);
-  machine_state.oracle_state->copy(s);
-  
+
+  if(use_oracle) {
+    machine_state.oracle_mem = new sparse_mem(*sm);
+    machine_state.oracle_state = new state_t(*machine_state.oracle_mem);
+    machine_state.oracle_state->copy(s);
+  }
   machine_state.mem = new sparse_mem(*sm);
   machine_state.initialize();
   machine_state.maxicnt = maxicnt;
@@ -629,10 +629,12 @@ extern "C" {
   
   void fetch(void *arg) {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
-    if(use_oracle)
+    if(machine_state.oracle_mem) {
       fetch<true>(machine_state);
-    else
+    }
+    else {
       fetch<false>(machine_state);
+    }
   }
   void decode(void *arg) {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
@@ -914,7 +916,7 @@ extern "C" {
   }
   void retire(void *arg) {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
-    if(use_oracle)
+    if(machine_state.oracle_mem)
       retire<true>(machine_state);
     else
       retire<false>(machine_state);
