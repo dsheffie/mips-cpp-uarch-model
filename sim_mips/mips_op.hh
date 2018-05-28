@@ -265,6 +265,8 @@ struct sim_state {
   sim_stack_template<uint32_t> return_stack;
 
   state_t *ref_state = nullptr;
+  
+  sparse_mem *oracle_mem = nullptr;
   state_t *oracle_state = nullptr;
   
   bool log_execution = false;

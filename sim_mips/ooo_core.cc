@@ -69,8 +69,13 @@ void initialize_ooo_core(sim_state &machine_state,
   while(s->icnt < skipicnt) {
     execMips(s);
   }
+  
   //s->debug = 1;
   machine_state.ref_state = s;
+  machine_state.oracle_mem = new sparse_mem(*sm);
+  machine_state.oracle_state = new state_t(*machine_state.oracle_mem);
+  machine_state.oracle_state->copy(s);
+  
   machine_state.mem = new sparse_mem(*sm);
   machine_state.initialize();
   machine_state.maxicnt = maxicnt;
@@ -100,7 +105,12 @@ void destroy_ooo_core(sim_state &machine_state) {
       delete r;
     }
   }
-
+  if(machine_state.oracle_mem) {
+    delete machine_state.oracle_mem;
+  }
+  if(machine_state.oracle_state) {
+    delete machine_state.oracle_state;
+  }
   delete machine_state.mem;
   gthread::free_threads();
 }
@@ -144,6 +154,7 @@ extern "C" {
     auto &fetch_queue = machine_state.fetch_queue;
     auto &return_stack = machine_state.return_stack;
     sparse_mem &mem = *(machine_state.mem);
+    
     while(not(machine_state.terminate_sim)) {
       int fetch_amt = 0;
       for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
@@ -155,6 +166,7 @@ extern "C" {
 				    curr_cycle, false, false);
 	  fetch_queue.push(f);
 	  machine_state.delay_slot_npc = 0;
+	  machine_state.oracle_state->steps--;
 	  continue;
 	}
 	
@@ -162,6 +174,53 @@ extern "C" {
 	uint32_t npc = machine_state.fetch_pc + 4;
 	bool predict_taken = false;
 
+	
+	bool oracle_taken = false, oracle_nullify = false;
+	//std::cout << "ORACLE STEPS = "
+	//<< machine_state.oracle_state->steps
+	//	  << "\n";
+	if(machine_state.oracle_state->steps == 0 and
+	   not(machine_state.oracle_state->brk)) {
+#if 0
+	  std::cerr << std::hex << "fetch " << machine_state.fetch_pc
+		    << ", oracle " << machine_state.oracle_state->pc
+		    << std::dec << "\n";
+#endif	  
+	  assert(machine_state.oracle_state->pc == machine_state.fetch_pc);
+	  machine_state.oracle_state->was_branch_or_jump = false;
+	  machine_state.oracle_state->was_likely_branch = false;
+	  machine_state.oracle_state->took_branch_or_jump = false;
+
+#if 0
+	  std::cerr << "BSTEP ORACLE : "
+		    << std::hex <<
+	    machine_state.oracle_state->pc << std::dec << "\n";
+#endif	  
+	  
+	  execMips(machine_state.oracle_state);
+
+#if 0
+	  std::cerr << "\tASTEP ORACLE : "
+	    	    << std::hex <<
+	    machine_state.oracle_state->pc << std::dec << ", steps = " <<
+	    machine_state.oracle_state->steps  <<"\n";
+#endif
+	  
+	
+	  machine_state.oracle_state->steps--;
+	  if(machine_state.oracle_state->was_branch_or_jump and
+	     machine_state.oracle_state->took_branch_or_jump) {
+	    oracle_taken = true;
+	  }
+	  else if(machine_state.oracle_state->was_likely_branch and
+		  not(machine_state.oracle_state->took_branch_or_jump)) {
+	    oracle_nullify = true;
+	  }
+	}
+	else {
+	  machine_state.oracle_state->steps--;
+	}
+	
 	//std::cout << "return stack has " << machine_state.return_stack.size()
 	// << " entries at cycle " << get_curr_cycle() << "\n";
 	//std::cerr << "jr_map.size() = " << jr_map.size() << "\n";
@@ -172,8 +231,18 @@ extern "C" {
         mips_meta_op *f = new mips_meta_op(machine_state.fetch_pc, inst, curr_cycle);
 
 	//std::cerr << "FETCH PC " << std::hex << machine_state.fetch_pc << std::dec << "\n";
-	
-	if(is_jr(inst)) {
+	if(oracle_taken) {
+	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	  npc = machine_state.oracle_state->pc;
+	  predict_taken = true;
+	  control_flow = true;
+	}
+	else if(oracle_nullify) {
+	  npc = machine_state.fetch_pc + 8;
+	}
+
+#if 0
+	else if(is_jr(inst)) {
 	  if(not(return_stack.empty())) {
 #if 0
 	    f->shadow_rstack.copy(return_stack);
@@ -227,6 +296,8 @@ extern "C" {
 	    control_flow = true;
 	  }
 	}
+#endif
+	
 	f->fetch_npc = npc;
 	f->predict_taken = predict_taken;
 	f->pop_return_stack = used_return_addr_stack;
@@ -696,13 +767,11 @@ extern "C" {
 
       if(u!=nullptr and exception) {
 #if 0
-	if(u->branch_exception and u->is_jr) {
-	  std::cerr << (u->branch_exception ? "BRANCH" : "LOAD")
-		    << " EXCEPTION @ cycle " << get_curr_cycle()
-		    << " for " << *(u->op)
-		    << " fetched @ cycle " << u->fetch_cycle
-		    << "\n";
-	}
+	std::cerr << (u->branch_exception ? "BRANCH" : "LOAD")
+		  << " EXCEPTION @ cycle " << get_curr_cycle()
+		  << " for " << *(u->op)
+		  << " fetched @ cycle " << u->fetch_cycle
+		  << "\n";
 #endif
 	assert(u->could_cause_exception);
 	machine_state.return_stack.copy(u->shadow_rstack);
@@ -876,6 +945,11 @@ extern "C" {
 	  machine_state.store_tbl[i] = nullptr;
 	}
 	machine_state.nuke = false;
+
+
+	machine_state.oracle_state->copy(machine_state.ref_state);
+	machine_state.oracle_mem->copy(machine_state.ref_state->mem);
+	
 	gthread_yield();
       }
       else {
