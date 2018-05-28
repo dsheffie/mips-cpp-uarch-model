@@ -8,7 +8,6 @@
 
 std::map<uint32_t, uint32_t> branch_target_map;
 std::map<uint32_t, int32_t> branch_prediction_map;
-std::set<uint32_t> jr_map;
 
 std::map<uint32_t, std::set<uint32_t>> load_alias_map;
 
@@ -219,7 +218,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     retired = true;
     m->retire_cycle = get_curr_cycle();
     return true;
@@ -309,7 +308,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     m->retire_cycle = get_curr_cycle();
     return true;
   }
@@ -493,7 +492,7 @@ public:
 
       machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
       machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-      m->exec_parity = machine_state.gpr_parity();
+      
     }
     retired = true;
     machine_state.icnt++;
@@ -604,7 +603,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     m->retire_cycle = get_curr_cycle();
     return true;
   }
@@ -649,6 +648,7 @@ public:
     this->op_class = mips_op_type::jmp;
     op->has_delay_slot = true;
     op->is_branch_or_jump = true;
+    op->could_cause_exception = true;
   }
   virtual int get_dest() const {
     switch(jt)
@@ -718,6 +718,34 @@ public:
 	break;
       }
     m->branch_exception = (m->fetch_npc != m->correct_pc);
+
+#if 0
+    bool return_mispredict = false;
+    if((jt == jump_type::jr) and m->pop_return_stack) {
+      if(m->branch_exception) {
+	return_mispredict = true;
+	std::cerr << "RETURN MISPREDICT " << std::hex << m->pc << " : predict "
+		  << m->fetch_npc << " , correct " << m->correct_pc
+		  << std::dec
+		  << " @ fetch cycle " << m->fetch_cycle
+		  << "\n";
+      }
+      else {
+	std::cerr << "RETURN CORRECT " << std::hex << m->pc << " : predict "
+		  << m->fetch_npc << " , correct " << m->correct_pc
+		  << std::dec
+		  << " @ fetch cycle " << m->fetch_cycle
+		  << "\n";
+      }
+    }
+    if(not(return_mispredict) and jt == jump_type::jr and m->branch_exception) {
+      std::cerr << "JR MISPREDICT " << std::hex << m->pc << " : predict "
+		<< m->fetch_npc << " , correct " << m->correct_pc
+		<< std::dec
+		<< " @ fetch cycle " << m->fetch_cycle
+		<< "\n";
+    }
+#endif
     
     if(get_dest() != -1) {
       machine_state.gpr_prf[m->prf_idx] = m->pc + 8;
@@ -734,7 +762,7 @@ public:
     retired = true;
     machine_state.icnt++;
     machine_state.n_jumps++;
-    m->exec_parity = machine_state.gpr_parity();
+    
 
     /* strongly taken */
     branch_target_map[m->pc] = m->correct_pc;
@@ -743,6 +771,7 @@ public:
     
     machine_state.mispredicted_jumps += m->branch_exception;
     m->retire_cycle = get_curr_cycle();
+
     return true;
   }
   virtual void undo(sim_state &machine_state) {
@@ -819,6 +848,7 @@ public:
     uint32_t npc = m->pc+4;
     branch_target = (imm+npc);
     op->is_branch_or_jump = true;
+    op->could_cause_exception = true;
   }
   virtual int get_src0() const {
     if(is_fp_branch()) {
@@ -958,10 +988,6 @@ public:
     }
 
     m->branch_exception |= (m->predict_taken != take_br);
-    //if(m->predict_taken xor take_br) {
-    //dprintf(2, "%x : predicted %d, but branch was %d\n",
-    //m->pc, m->predict_taken, take_br);
-    //}
 
     m->complete_cycle = get_curr_cycle() + 1;
   }
@@ -975,7 +1001,7 @@ public:
     machine_state.icnt++;
     machine_state.n_branches++;
     machine_state.mispredicted_branches += m->branch_exception;
-    m->exec_parity = machine_state.gpr_parity();
+    
 
     
     branch_target_map[m->pc] = branch_target;
@@ -1089,7 +1115,7 @@ public:
     
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     m->retire_cycle = get_curr_cycle();
     return true;
   }
@@ -1519,7 +1545,7 @@ public:
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     retired = true;
     machine_state.icnt++;
     m->retire_cycle = get_curr_cycle();
@@ -1581,7 +1607,7 @@ public:
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     retired = true;
     machine_state.icnt++;
     m->retire_cycle = get_curr_cycle();
@@ -1821,7 +1847,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     m->retire_cycle = get_curr_cycle();
     return true;
   }
@@ -1876,7 +1902,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     m->retire_cycle = get_curr_cycle();
     return true;
   }
@@ -1950,7 +1976,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     m->retire_cycle = get_curr_cycle();
     return true;
   }
@@ -2686,6 +2712,7 @@ protected:
 public:
   monitor_op(sim_op op) : mips_op(op) {
     this->op_class = mips_op_type::system;
+    op->could_cause_exception = true;
   }
   virtual int get_dest() const {
     return 2;
@@ -2805,7 +2832,7 @@ public:
     machine_state.icnt++;
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    m->exec_parity = machine_state.gpr_parity();
+    
     m->retire_cycle = get_curr_cycle();
     return true;
   }
@@ -2831,6 +2858,7 @@ static mips_op* decode_jtype_insn(sim_op m_op) {
     case 0x2:
       return new jump_op(m_op, jump_op::jump_type::j);
     case 0x3:
+      m_op->is_jal = true;
       return new jump_op(m_op, jump_op::jump_type::jal);
     default:
       break;
@@ -2943,9 +2971,7 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
     case 0x07: /* srav */
       return new rtype_alu_op(m_op, rtype_alu_op::r_type::srav);
     case 0x08: /* jr */
-      if(jr_map.find(m_op->pc) == jr_map.end()) {
-	jr_map.insert(m_op->pc);
-      }
+      m_op->is_jr = true;
       return new jump_op(m_op, jump_op::jump_type::jr);
     case 0x09: /* jalr */
       return new jump_op(m_op, jump_op::jump_type::jalr);

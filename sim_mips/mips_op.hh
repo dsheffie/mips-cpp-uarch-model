@@ -4,7 +4,7 @@
 #include <memory>
 #include <vector>
 #include <list>
-
+#include <cassert>
 #include "sparse_mem.hh"
 #include "sim_queue.hh"
 #include "sim_bitvec.hh"
@@ -17,6 +17,29 @@ uint64_t get_curr_cycle();
 extern int log_fd;
 
 enum class mips_op_type { unknown, alu, fp, jmp, load, store, system };
+
+inline bool is_jr(uint32_t inst) {
+  uint32_t opcode = inst>>26;
+  uint32_t funct = inst & 63;
+  return (opcode==0) and (funct == 0x08);
+}
+
+inline bool is_jal(uint32_t inst) {
+  uint32_t opcode = inst>>26;
+  return ((opcode>>1)==1) and (opcode == 3);
+}
+
+inline bool is_j(uint32_t inst) {
+  uint32_t opcode = inst>>26;
+  return ((opcode>>1)==1) and (opcode == 2);
+}
+
+inline uint32_t get_jump_target(uint32_t pc, uint32_t inst) {
+  assert(is_jal(inst) or is_j(inst));
+  static const uint32_t pc_mask = (~((1U<<28)-1));
+  uint32_t jaddr = (inst & ((1<<26)-1)) << 2;
+  return ((pc + 4)&pc_mask) | jaddr;
+}
 
 inline std::ostream &operator<<(std::ostream &out, mips_op_type ot) {
   switch(ot)
@@ -54,7 +77,7 @@ struct mips_meta_op {
   uint32_t fetch_npc = 0;  
   uint64_t fetch_cycle = 0;
   bool predict_taken = false;
-  bool predict_from_return_addr_stack = false;
+  bool pop_return_stack = false;
   int64_t alloc_id = -1;
   int64_t decode_cycle = -1;
   int64_t alloc_cycle = -1;
@@ -63,14 +86,15 @@ struct mips_meta_op {
   int64_t retire_cycle = -1;
   /* finished execution */
   bool is_complete = false;
+  bool could_cause_exception = false;
   bool branch_exception = false;
   bool load_exception = false;
   bool is_branch_or_jump = false;
+  bool is_jal = false, is_jr = false;
   bool has_delay_slot = false;
   bool likely_squash = false;
   uint32_t correct_pc = 0;
   bool is_store = false, is_fp_store = false;
-  uint32_t exec_parity = 0;
 
   int32_t rob_idx = -1;
   /* result will get written to prf idx */
@@ -83,12 +107,30 @@ struct mips_meta_op {
   int32_t prev_hi_prf_idx = -1, prev_lo_prf_idx = -1;
   
   mips_op* op = nullptr;
+  bool push_return_stack = false;
+  sim_stack_template<uint32_t> shadow_rstack;
 
-  mips_meta_op(uint32_t pc, uint32_t inst,  uint32_t fetch_npc,
+
+  mips_meta_op(uint32_t pc,
+	       uint32_t inst,
+	       uint32_t fetch_cycle) :
+    pc(pc), inst(inst),
+    fetch_npc(0),
+    fetch_cycle(fetch_cycle),
+    predict_taken(false),
+    pop_return_stack(false)  {}
+  
+  mips_meta_op(uint32_t pc,
+	       uint32_t inst,
+	       uint32_t fetch_npc,
 	       uint32_t fetch_cycle,
-	       bool predict_taken, bool predict_from_return_addr_stack) :
-    pc(pc), inst(inst), fetch_npc(fetch_npc), fetch_cycle(fetch_cycle), predict_taken(predict_taken),
-    predict_from_return_addr_stack(predict_from_return_addr_stack)  {}
+	       bool predict_taken,
+	       bool pop_return_stack) :
+    pc(pc), inst(inst),
+    fetch_npc(fetch_npc),
+    fetch_cycle(fetch_cycle),
+    predict_taken(predict_taken),
+    pop_return_stack(pop_return_stack)  {}
   ~mips_meta_op();
 };
 
@@ -184,33 +226,15 @@ struct sim_state {
   uint64_t nukes = 0, branch_nukes = 0, load_nukes = 0;
 
   sim_stack_template<uint32_t> return_stack;
+
+  state_t *ref_state = nullptr;
+  state_t *oracle_state = nullptr;
   
   bool log_execution = false;
   bool use_interp_check = false;
-  struct retire_entry {
-    uint32_t inst;
-    uint32_t pc;
-    uint32_t parity;
-    retire_entry(uint32_t inst, uint32_t pc, uint32_t parity) : 
-      inst(inst), pc(pc), parity(parity) {}
-  };
-  std::list<retire_entry> retire_log;
-  void log_insn(uint32_t insn, uint32_t pc, uint32_t parity = 0) {
-    if(log_execution) {
-      retire_log.push_back(retire_entry(insn, pc, parity));
-    }
-  }
-  
+
   void initialize_rat_mappings();
-  uint32_t gpr_parity() const {
-    uint32_t p = 0;
-    for(int i = 0; i < 32; i++) {
-      p ^= arch_grf[i];
-    }
-    return p;
-  }
-  
-  void initialize(sparse_mem *mem);
+  void initialize();
   void copy_state(const state_t *s);
 
   ~sim_state() {
@@ -293,6 +317,7 @@ public:
     this->op_class = mips_op_type::load;
     int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
     imm = static_cast<int32_t>(himm);
+    op->could_cause_exception = true;
   }
   uint32_t getEA() const {
     return effective_address;

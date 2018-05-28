@@ -32,10 +32,10 @@ static int rob_size = 64;
 static int fetchq_size = 64;
 static int decodeq_size = 64;
 
-static int fetch_bw = 16;
-static int alloc_bw = 16;
-static int decode_bw = 16;
-static int retire_bw = 16;
+static int fetch_bw = 8;
+static int decode_bw = 6;
+static int alloc_bw = 6;
+static int retire_bw = 6;
 
 static int num_gpr_prf = 128;
 static int num_cpr0_prf = 64;
@@ -52,29 +52,27 @@ static int num_load_sched_entries = 64;
 static int num_store_sched_entries = 64;
 static int num_system_sched_entries = 4;
 
-static sim_state machine_state;
 static uint64_t curr_cycle = 0;
 extern std::map<uint32_t, uint32_t> branch_target_map;
 extern std::map<uint32_t, int32_t> branch_prediction_map;
-extern state_t *s;
 
 static std::map<int64_t, uint64_t> insn_lifetime_map;
-extern std::set<uint32_t> jr_map;
-static sparse_mem *u_arch_mem = nullptr;
 
 uint64_t get_curr_cycle() {
   return curr_cycle;
 }
 
-void initialize_ooo_core(uint64_t skipicnt, uint64_t maxicnt,
+void initialize_ooo_core(sim_state &machine_state,
+			 uint64_t skipicnt, uint64_t maxicnt,
 			 state_t *s, const sparse_mem *sm) {
 
   while(s->icnt < skipicnt) {
     execMips(s);
   }
-  
-  u_arch_mem = new sparse_mem(*sm);
-  machine_state.initialize(u_arch_mem);
+  //s->debug = 1;
+  machine_state.ref_state = s;
+  machine_state.mem = new sparse_mem(*sm);
+  machine_state.initialize();
   machine_state.maxicnt = maxicnt;
   machine_state.skipicnt = s->icnt;
   machine_state.use_interp_check = true;
@@ -83,7 +81,7 @@ void initialize_ooo_core(uint64_t skipicnt, uint64_t maxicnt,
 }
 
 
-void destroy_ooo_core() {
+void destroy_ooo_core(sim_state &machine_state) {
   for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
     auto f = machine_state.fetch_queue.at(i);
     if(f) {
@@ -103,7 +101,7 @@ void destroy_ooo_core() {
     }
   }
 
-  delete u_arch_mem;
+  delete machine_state.mem;
   gthread::free_threads();
 }
 
@@ -111,6 +109,9 @@ void destroy_ooo_core() {
 
 extern "C" {
   void cycle_count(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
+    uint64_t prev_icnt = 0;
+    static const uint64_t hinterval = 1UL<<20;
     while(not(machine_state.terminate_sim)) {
       //dprintf(log_fd, "cycle %llu : icnt %llu\n", curr_cycle, machine_state.icnt);
       curr_cycle++;
@@ -120,11 +121,15 @@ extern "C" {
 		machine_state.last_retire_pc);
 	machine_state.terminate_sim = true;
       }
-      if(curr_cycle % (1UL<<20) == 0) {
-	double ipc = static_cast<double>(machine_state.icnt-machine_state.skipicnt) / curr_cycle;
+      if(curr_cycle % hinterval == 0) {
+	uint64_t curr_icnt = (machine_state.icnt-machine_state.skipicnt);
+	double ipc = static_cast<double>(curr_icnt) / curr_cycle;
+	double wipc = static_cast<double>(curr_icnt-prev_icnt) / hinterval;
 	std::cout << "heartbeat : " << curr_cycle << " cycles, "
-		  << (machine_state.icnt-machine_state.skipicnt) << " insns retired,"
-		  << ipc << " ipc\n";
+		  << curr_icnt << " insns retired, avg ipc "
+		  << ipc << ", window ipc "
+		  << wipc <<"\n";
+	prev_icnt = curr_icnt;
       }
       //if(curr_cycle >= 256) {
       //machine_state.terminate_sim = true;
@@ -135,11 +140,13 @@ extern "C" {
   }
   
   void fetch(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto &fetch_queue = machine_state.fetch_queue;
+    auto &return_stack = machine_state.return_stack;
+    sparse_mem &mem = *(machine_state.mem);
     while(not(machine_state.terminate_sim)) {
       int fetch_amt = 0;
       for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
-	sparse_mem &mem = s->mem;
 
 	if(machine_state.delay_slot_npc) {
 	  uint32_t inst = accessBigEndian(mem.get32(machine_state.delay_slot_npc));
@@ -158,14 +165,28 @@ extern "C" {
 	//std::cout << "return stack has " << machine_state.return_stack.size()
 	// << " entries at cycle " << get_curr_cycle() << "\n";
 	//std::cerr << "jr_map.size() = " << jr_map.size() << "\n";
-	auto jr_it = jr_map.find(machine_state.fetch_pc);
 	auto it = branch_prediction_map.find(machine_state.fetch_pc);
 	bool used_return_addr_stack = false;
-	if(jr_it != jr_map.end()) {
-	  if(not(machine_state.return_stack.empty())) {
-	    npc = machine_state.return_stack.pop();
+	bool control_flow = false;
+	
+        mips_meta_op *f = new mips_meta_op(machine_state.fetch_pc, inst, curr_cycle);
+
+	//std::cerr << "FETCH PC " << std::hex << machine_state.fetch_pc << std::dec << "\n";
+	
+	if(is_jr(inst)) {
+	  if(not(return_stack.empty())) {
+#if 0
+	    f->shadow_rstack.copy(return_stack);
+	    std::cerr << "JR SHADOW STACK\n";
+	    while(not(f->shadow_rstack.empty())) {
+	      std::cerr << "\t" << std::hex << f->shadow_rstack.pop() << std::dec << "\n";
+	    }
+#endif
+	    f->shadow_rstack.copy(return_stack);
+	    npc = return_stack.pop();
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	    used_return_addr_stack = true;
+	    control_flow = true;
 #if 0
 	    std::cerr << "found jr at fetch pc " << std::hex
 		      << machine_state.fetch_pc << ", pop "
@@ -175,15 +196,12 @@ extern "C" {
 		      << "\n";
 #endif
 	  }
-#if 0
-	  else {
-	    std::cerr << "found jr at fetch pc "
-		      << std::hex
-		      << machine_state.fetch_pc
-		      << std::dec
-		      << " but empty return stack\n";
-	  }
-#endif
+	}
+	else if(is_jal(inst) or is_j(inst)) {
+	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	  npc = get_jump_target(machine_state.fetch_pc, inst);
+	  predict_taken = true;
+	  control_flow = true;
 	}
 	else if(it != branch_prediction_map.end()) {
           /* predicted as taken */
@@ -191,20 +209,28 @@ extern "C" {
             machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
             npc = branch_target_map.at(machine_state.fetch_pc);
             predict_taken = true;
+	    control_flow = true;
           }
         }
-	auto f = new mips_meta_op(machine_state.fetch_pc, inst, npc, curr_cycle, predict_taken, used_return_addr_stack);
+
+	f->fetch_npc = npc;
+	f->predict_taken = predict_taken;
+	f->pop_return_stack = used_return_addr_stack;
+
 	fetch_queue.push(f);
 	machine_state.fetch_pc = npc;
+	//if(control_flow)
+	//break;
       }
       gthread_yield();
     }
     gthread_terminate();
   }
   void decode(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto &fetch_queue = machine_state.fetch_queue;
     auto &decode_queue = machine_state.decode_queue;
-    
+    auto &return_stack = machine_state.return_stack;
     while(not(machine_state.terminate_sim)) {
       int decode_amt = 0;
       while(not(fetch_queue.empty()) and not(decode_queue.full()) and (decode_amt < decode_bw) and not(machine_state.nuke)) {
@@ -216,6 +242,27 @@ extern "C" {
 	u->decode_cycle = curr_cycle;
 	u->op = decode_insn(u);
 	decode_queue.push(u);
+	if(u->is_jal) {
+	  if(not(return_stack.full())) {
+#if 0
+	    std::cerr << std::hex
+		      << u->pc 
+		      << " : push return address " 
+		      << u->pc+8 
+		      << std::dec
+		      << " @ cycle " << get_curr_cycle()
+		      << "\n";
+#endif
+	    u->push_return_stack = true;
+	    return_stack.push(u->pc + 8);
+	  }
+	}
+	if(u->could_cause_exception and not u->is_jr) {
+	  u->shadow_rstack.copy(return_stack);
+	}
+	if(u->is_branch_or_jump) {
+	  break;
+	}
       }
       gthread_yield();
     }
@@ -223,6 +270,7 @@ extern "C" {
   }
 
   void allocate(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto &decode_queue = machine_state.decode_queue;
     auto &rob = machine_state.rob;
     auto &alu_alloc = machine_state.alu_alloc;
@@ -367,6 +415,7 @@ extern "C" {
   }
 
   void execute(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto & alu_rs = machine_state.alu_rs;
     auto & fpu_rs = machine_state.fpu_rs;
     auto & jmp_rs = machine_state.jmp_rs;
@@ -436,6 +485,7 @@ extern "C" {
     gthread_terminate();
   }
   void complete(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto &rob = machine_state.rob;
     while(not(machine_state.terminate_sim)) {
       for(size_t i = 0; not(machine_state.nuke) and (i < rob.size()); i++) {
@@ -455,6 +505,8 @@ extern "C" {
     gthread_terminate();
   }
   void retire(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
+    state_t *s = machine_state.ref_state;
     auto &rob = machine_state.rob;
     int stuck_cnt = 0, empty_cnt = 0;
     while(not(machine_state.terminate_sim)) {
@@ -612,7 +664,6 @@ extern "C" {
 	u->op->retire(machine_state);
 	stuck_cnt = 0;
 	
-	machine_state.log_insn(u->inst, u->pc, u->exec_parity);
 	insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
 	machine_state.last_retire_cycle = get_curr_cycle();
 	machine_state.last_retire_pc = u->pc;
@@ -631,11 +682,21 @@ extern "C" {
 
       if(u!=nullptr and exception) {
 #if 0
-	std::cerr << (u->branch_exception ? "BRANCH" : "LOAD")
-	  << " EXCEPTION @ cycle " << get_curr_cycle()
-	  << " for " << *(u->op)
-	  << "\n";
+	if(u->branch_exception and u->is_jr) {
+	  std::cerr << (u->branch_exception ? "BRANCH" : "LOAD")
+		    << " EXCEPTION @ cycle " << get_curr_cycle()
+		    << " for " << *(u->op)
+		    << " fetched @ cycle " << u->fetch_cycle
+		    << "\n";
+	}
 #endif
+	assert(u->could_cause_exception);
+	machine_state.return_stack.copy(u->shadow_rstack);
+	
+	//while(!u->shadow_rstack.empty()) {
+	//std::cerr << std::hex << u->shadow_rstack.pop() << std::dec << "\n";
+	//}
+	
 	if((retire_amt - retire_bw) < 2) {
 	  gthread_yield();
 	  retire_amt = 0;
@@ -662,7 +723,6 @@ extern "C" {
 	    else {
 	      //std::cerr << "retire for " << *(u->op) << "\n";
 	      u->op->retire(machine_state);
-	      machine_state.log_insn(u->inst, u->pc, u->exec_parity);
 	      insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
 	      machine_state.last_retire_cycle = get_curr_cycle();
 	      machine_state.last_retire_pc = u->pc;
@@ -689,7 +749,6 @@ extern "C" {
 	  else {
 	    //std::cerr << "retire for " << *(u->op) << "\n";
 	    u->op->retire(machine_state);
-	    machine_state.log_insn(u->inst, u->pc, u->exec_parity);
 	    insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
 	    machine_state.last_retire_cycle = get_curr_cycle();
 	    machine_state.last_retire_pc = u->pc;
@@ -717,6 +776,7 @@ extern "C" {
 	while(true) {
 	  auto uu = rob.at(i);
 	  if(uu) {
+	    //std::cerr << "UNDO:" << *(uu->op) << "\n";
 	    uu->op->undo(machine_state);
 	    delete uu;
 	    rob.at(i) = nullptr;
@@ -867,8 +927,7 @@ void sim_state::initialize_rat_mappings() {
   }
 }
 
-void sim_state::initialize(sparse_mem *mem) {
-  this->mem = mem;
+void sim_state::initialize() {
   num_gpr_prf_ = num_gpr_prf;
   num_cpr0_prf_ = num_cpr0_prf;
   num_cpr1_prf_ = num_cpr1_prf;
@@ -939,14 +998,14 @@ void sim_state::initialize(sparse_mem *mem) {
 }
 
 
-void run_ooo_core() {
-  gthread::make_gthread(&retire, nullptr);
-  gthread::make_gthread(&complete, nullptr);
-  gthread::make_gthread(&execute, nullptr);
-  gthread::make_gthread(&allocate, nullptr);
-  gthread::make_gthread(&decode, nullptr);
-  gthread::make_gthread(&fetch, nullptr);
-  gthread::make_gthread(&cycle_count, nullptr);
+void run_ooo_core(sim_state &machine_state) {
+  gthread::make_gthread(&retire, reinterpret_cast<void*>(&machine_state));
+  gthread::make_gthread(&complete,reinterpret_cast<void*>(&machine_state));
+  gthread::make_gthread(&execute, reinterpret_cast<void*>(&machine_state));
+  gthread::make_gthread(&allocate, reinterpret_cast<void*>(&machine_state));
+  gthread::make_gthread(&decode, reinterpret_cast<void*>(&machine_state));
+  gthread::make_gthread(&fetch, reinterpret_cast<void*>(&machine_state));
+  gthread::make_gthread(&cycle_count, reinterpret_cast<void*>(&machine_state));
   double now = timestamp();
   start_gthreads();
   now = timestamp() - now;
@@ -998,7 +1057,7 @@ void run_ooo_core() {
   std::cout << machine_state.branch_nukes << " branch nukes\n";
   std::cout << machine_state.load_nukes << " load nukes\n";
   std::cout << "CHECK INSN CNT : "
-	    << s->icnt << "\n";
+	    << machine_state.ref_state->icnt << "\n";
 
   if(get_curr_cycle() != 0) {
     double avg_latency = 0;

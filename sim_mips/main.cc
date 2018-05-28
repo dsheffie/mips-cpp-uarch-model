@@ -34,10 +34,12 @@ bool enClockFuncts = false;
 state_t *s = nullptr;
 int buildArgcArgv(char *filename, char *sysArgs, char ***argv);
 
-void initialize_ooo_core(uint64_t skipicnt, uint64_t maxicnt,
+void initialize_ooo_core(sim_state & machine_state,
+			 uint64_t skipicnt, uint64_t maxicnt,
 			 state_t *s, const sparse_mem *sm);
-void run_ooo_core();
-void destroy_ooo_core();
+
+void run_ooo_core(sim_state &machine_state);
+void destroy_ooo_core(sim_state &machine_state);
 
 int main(int argc, char *argv[]) {
   bool bigEndianMips = true;
@@ -90,10 +92,10 @@ int main(int argc, char *argv[]) {
 
   load_elf(filename, s);
   mkMonitorVectors(s);
-
-  initialize_ooo_core(skipicnt, maxicnt, s, sm);
-  run_ooo_core();
-  destroy_ooo_core();
+  sim_state machine_state;
+  initialize_ooo_core(machine_state, skipicnt, maxicnt, s, sm);
+  run_ooo_core(machine_state);
+  destroy_ooo_core(machine_state);
 
 
   delete s;
