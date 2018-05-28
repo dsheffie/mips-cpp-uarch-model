@@ -226,19 +226,14 @@ struct sim_state {
   uint64_t nukes = 0, branch_nukes = 0, load_nukes = 0;
 
   sim_stack_template<uint32_t> return_stack;
+
+  state_t *ref_state = nullptr;
+  state_t *oracle_state = nullptr;
   
   bool log_execution = false;
   bool use_interp_check = false;
 
   void initialize_rat_mappings();
-  uint32_t gpr_parity() const {
-    uint32_t p = 0;
-    for(int i = 0; i < 32; i++) {
-      p ^= arch_grf[i];
-    }
-    return p;
-  }
-  
   void initialize();
   void copy_state(const state_t *s);
 

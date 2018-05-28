@@ -55,7 +55,6 @@ static int num_system_sched_entries = 4;
 static uint64_t curr_cycle = 0;
 extern std::map<uint32_t, uint32_t> branch_target_map;
 extern std::map<uint32_t, int32_t> branch_prediction_map;
-extern state_t *s;
 
 static std::map<int64_t, uint64_t> insn_lifetime_map;
 
@@ -71,7 +70,7 @@ void initialize_ooo_core(sim_state &machine_state,
     execMips(s);
   }
   //s->debug = 1;
-  
+  machine_state.ref_state = s;
   machine_state.mem = new sparse_mem(*sm);
   machine_state.initialize();
   machine_state.maxicnt = maxicnt;
@@ -138,10 +137,10 @@ extern "C" {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto &fetch_queue = machine_state.fetch_queue;
     auto &return_stack = machine_state.return_stack;
+    sparse_mem &mem = *(machine_state.mem);
     while(not(machine_state.terminate_sim)) {
       int fetch_amt = 0;
       for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
-	sparse_mem &mem = s->mem;
 
 	if(machine_state.delay_slot_npc) {
 	  uint32_t inst = accessBigEndian(mem.get32(machine_state.delay_slot_npc));
@@ -501,6 +500,7 @@ extern "C" {
   }
   void retire(void *arg) {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
+    state_t *s = machine_state.ref_state;
     auto &rob = machine_state.rob;
     int stuck_cnt = 0, empty_cnt = 0;
     while(not(machine_state.terminate_sim)) {
@@ -1051,7 +1051,7 @@ void run_ooo_core(sim_state &machine_state) {
   std::cout << machine_state.branch_nukes << " branch nukes\n";
   std::cout << machine_state.load_nukes << " load nukes\n";
   std::cout << "CHECK INSN CNT : "
-	    << s->icnt << "\n";
+	    << machine_state.ref_state->icnt << "\n";
 
   if(get_curr_cycle() != 0) {
     double avg_latency = 0;
