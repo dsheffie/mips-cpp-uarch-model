@@ -1061,60 +1061,54 @@ public:
   }
   virtual void execute(sim_state &machine_state) {
     effective_address = machine_state.gpr_prf[m->src0_prf] + imm;
+    switch(lt)
+      {
+      case load_type::lh:
+      case load_type::lhu:
+	m->load_exception |= ((effective_address & 0x1) != 0);
+	break;
+      case load_type::lw:
+	m->load_exception |= ((effective_address & 0x3) != 0);
+	break;
+      default:
+	break;
+      }
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       sparse_mem & mem = *(machine_state.mem);
-      switch(lt)
-	{
-	case load_type::lb:
-	  machine_state.gpr_prf[m->prf_idx] = 
-	    accessBigEndian(*((int8_t*)(mem + effective_address)));
-	  break;
-	case load_type::lbu:
-	  *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
-	    static_cast<uint32_t>(mem.at(effective_address));
-	  break;
-	case load_type::lh:
-	  if((effective_address & 0x1) == 0) {
+      if(not(m->load_exception)) {
+	switch(lt)
+	  {
+	  case load_type::lb:
+	    machine_state.gpr_prf[m->prf_idx] = 
+	      accessBigEndian(*((int8_t*)(mem + effective_address)));
+	    break;
+	  case load_type::lbu:
+	    *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
+	      static_cast<uint32_t>(mem.at(effective_address));
+	    break;
+	  case load_type::lh:
 	    machine_state.gpr_prf[m->prf_idx] = 
 	      accessBigEndian(*((int16_t*)(mem + effective_address)));
-	  }
-	  else {
-	    m->load_exception = true;
-	  }
-	  break;
-	case load_type::lhu:
-	  if((effective_address & 0x1) == 0) {
+	    break;
+	  case load_type::lhu:
 	    *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
 	      static_cast<uint32_t>(accessBigEndian(*(uint16_t*)(mem + effective_address)));
-	  }
-	  else {
-	    m->load_exception = true;
-	  }
-	  break;
-	case load_type::lw:
-	  if((effective_address & 0x3) == 0) {
+	    break;
+	  case load_type::lw:
 	    machine_state.gpr_prf[m->prf_idx] =
 	      accessBigEndian(*((int32_t*)(mem + effective_address)));
+	    break;
+	  default:
+	    std::cerr << std::hex << m->pc << std::dec << ":" <<
+	      getAsmString(m->pc, m->inst) << "\n";
+	    die();
 	  }
-	  else {
-	    m->load_exception = true;
-	  }
-	  break;
-	default:
-	  std::cerr << std::hex << m->pc << std::dec << ":" <<
-	    getAsmString(m->pc, m->inst) << "\n";
-	  die();
-	}
-      //dprintf(2, "%x : early load ea %x, cycle %llu\n",
-      //m->pc, effective_address, get_curr_cycle());
-      machine_state.gpr_valid.set_bit(m->prf_idx);
-      //std::cout << "LOAD COMPLETE, set " << m->prf_idx
-      //<< " for load @ " << std::hex << m->pc << std::dec 
-      //<< "\n";
+	machine_state.gpr_valid.set_bit(m->prf_idx);
+      }
     }
   }
   virtual bool retire(sim_state &machine_state) {
@@ -1305,33 +1299,49 @@ public:
   }
   virtual void execute(sim_state &machine_state) {
     effective_address = machine_state.gpr_prf[m->src0_prf] + imm;
+    switch(lt)
+      {
+      case load_type::ldc1:
+	m->load_exception |= ((effective_address & 0x7) != 0);
+	break;
+      case load_type::lwc1:
+	m->load_exception |= ((effective_address & 0x3) != 0);
+	break;
+      default:
+	break;
+      }
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       sparse_mem & mem = *(machine_state.mem);
-      switch(lt)
-	{
-	case load_type::ldc1: {
-	  load_thunk<uint64_t> ld(accessBigEndian(*((uint64_t*)(mem + effective_address))));
-	  machine_state.cpr1_prf[m->prf_idx] = ld[0];
-	  machine_state.cpr1_prf[m->aux_prf_idx] = ld[1];
-	  break;
+      if(not(m->load_exception)) {
+	switch(lt)
+	  {
+	  case load_type::ldc1: {
+	    load_thunk<uint64_t> ld(accessBigEndian(*((uint64_t*)(mem + effective_address))));
+	    machine_state.cpr1_prf[m->prf_idx] = ld[0];
+	    machine_state.cpr1_prf[m->aux_prf_idx] = ld[1];
+	    machine_state.cpr1_valid.set_bit(m->prf_idx);
+	    machine_state.cpr1_valid.set_bit(m->aux_prf_idx);
+	    break;
+	  }
+	  case load_type::lwc1:
+	    machine_state.cpr1_prf[m->prf_idx] = accessBigEndian(*((uint32_t*)(mem + effective_address)));
+	    machine_state.cpr1_valid.set_bit(m->prf_idx);
+	    break;
+	  default:
+	    std::cerr << "unimplemented.." << __PRETTY_FUNCTION__ << "\n";
+	    die();
 	}
-	case load_type::lwc1:
-	  machine_state.cpr1_prf[m->prf_idx] = accessBigEndian(*((uint32_t*)(mem + effective_address)));
-	  break;
-	default:
-	  std::cerr << "unimplemented.." << __PRETTY_FUNCTION__ << "\n";
-	  die();
-	}
+      }
     }
   }
   virtual bool retire(sim_state &machine_state) {
     machine_state.load_tbl[m->load_tbl_idx] = nullptr;
     machine_state.load_tbl_freevec.clear_bit(m->load_tbl_idx);
-    machine_state.cpr1_valid.set_bit(m->prf_idx);
+
     machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
 
@@ -1340,7 +1350,6 @@ public:
     machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
     machine_state.arch_cpr1_last_pc[get_dest()] = m->pc;
     if(m->aux_prf_idx != -1) {
-      machine_state.cpr1_valid.set_bit(m->aux_prf_idx);
       machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
       machine_state.cpr1_valid.clear_bit(m->aux_prev_prf_idx);
       machine_state.arch_cpr1[get_dest()+1] = machine_state.cpr1_prf[m->aux_prf_idx];
