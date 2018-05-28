@@ -1078,7 +1078,7 @@ public:
 	    static_cast<uint32_t>(mem.at(effective_address));
 	  break;
 	case load_type::lh:
-	  if(effective_address & 0x1 == 0) {
+	  if((effective_address & 0x1) == 0) {
 	    machine_state.gpr_prf[m->prf_idx] = 
 	      accessBigEndian(*((int16_t*)(mem + effective_address)));
 	  }
@@ -1087,7 +1087,7 @@ public:
 	  }
 	  break;
 	case load_type::lhu:
-	  if(effective_address & 0x1 == 0) {
+	  if((effective_address & 0x1) == 0) {
 	    *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
 	      static_cast<uint32_t>(accessBigEndian(*(uint16_t*)(mem + effective_address)));
 	  }
@@ -1096,7 +1096,7 @@ public:
 	  }
 	  break;
 	case load_type::lw:
-	  if(effective_address & 0x3 == 0) {
+	  if((effective_address & 0x3) == 0) {
 	    machine_state.gpr_prf[m->prf_idx] =
 	      accessBigEndian(*((int32_t*)(mem + effective_address)));
 	  }
