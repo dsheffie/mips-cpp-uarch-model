@@ -114,6 +114,12 @@ public:
     assert(tail->data);
     return tail->data;
   }
+  T &peekpeek() {
+    if(tail->next)
+      return tail->next->data;
+    else
+      return nullptr;
+  }
   /* push to head */
   void push(T v) {
     assert(v != nullptr);

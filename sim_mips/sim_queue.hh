@@ -4,8 +4,14 @@
 #include <cstdint>
 #include <cassert>
 
+
 template <typename T>
 class sim_queue {
+public:
+  class funcobj {
+  public:
+    virtual bool operator()(T e) {};
+  };
 private:
   uint64_t len = 0, len2 = 0;
   T *data = nullptr;
@@ -51,6 +57,21 @@ public:
     const uint64_t m_rd_idx = read_idx & (len-1);
     const uint64_t m_wr_idx = write_idx & (len-1);
     return (m_rd_idx==m_wr_idx) && (read_idx != write_idx);
+  }
+  int64_t traverse_and_apply(funcobj &o) {
+    int64_t i = (full() ? write_idx - 1 : write_idx) & (len-1);
+    int64_t d = read_idx & (len-1);
+    int64_t c = 0;
+    while(true) {
+      c += o(data[i]);
+      data[i] = nullptr;
+      if(i==d) {
+	break;
+      }
+      i--;
+      i &= (len-1);
+    }
+    return c;
   }
   void clear() {
     memset(data, 0, sizeof(T)*len);

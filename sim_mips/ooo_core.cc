@@ -62,6 +62,22 @@ uint64_t get_curr_cycle() {
   return curr_cycle;
 }
 
+class undo_rob_entry : public sim_queue<sim_op>::funcobj {
+protected:
+  sim_state &machine_state;
+public:
+  undo_rob_entry(sim_state &machine_state) :
+    machine_state(machine_state) {}
+  virtual bool operator()(sim_op e){
+    if(e) {
+      e->op->undo(machine_state);
+      delete e;
+      return true;
+    }
+    return false;
+  }
+};
+
 void initialize_ooo_core(sim_state &machine_state,
 			 uint64_t skipicnt, uint64_t maxicnt,
 			 state_t *s, const sparse_mem *sm) {
@@ -858,46 +874,13 @@ extern "C" {
 	    delete u;
 	  }
 	}
-       int64_t i = rob.get_write_idx();
-       int64_t c = 0;
-       bool seen_full = false;
-       uint64_t last_alloc_id = ~(0UL);
-	while(true) {
-	  auto uu = rob.at(i);
-	  if(uu) {
-	    if(not(rob.full() and not(seen_full))) {
-	      uu->op->undo(machine_state);
-	      if(uu->alloc_id > last_alloc_id) {
-		die();
-	      }
-	      last_alloc_id = uu->alloc_id;
-	      delete uu;
-	      rob.at(i) = nullptr;
-	    }
-	  }
-	  
-	  if(i == rob.get_read_idx()) {
-	    if(rob.full()) {
-	      if(seen_full) {
-		break;
-	      }
-	      else {
-		seen_full = true;
-	      }
-	    }
-	    else {
-	      break;
-	    }
-	  }
-	  i--;
-	  if(i < 0) {
-	    i = rob.size()-1;
-	  }
-	  c++;
-	  if(c % retire_bw == 0) {
-	    gthread_yield();
-	  }
-	}
+
+       undo_rob_entry undo_rob(machine_state);
+       int64_t c = rob.traverse_and_apply(undo_rob);
+       int64_t sleep_cycles = (c + retire_bw - 1) / retire_bw;
+       for(int64_t i = 0; i < sleep_cycles; i++) {
+	 gthread_yield();
+       }
 	rob.clear();
 	
 	std::set<int32_t> gpr_prf_debug;
