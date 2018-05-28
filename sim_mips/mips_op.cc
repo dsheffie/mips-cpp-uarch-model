@@ -719,6 +719,7 @@ public:
       }
     m->branch_exception = (m->fetch_npc != m->correct_pc);
 
+#if 0
     bool return_mispredict = false;
     if((jt == jump_type::jr) and m->pop_return_stack) {
       if(m->branch_exception) {
@@ -744,7 +745,7 @@ public:
 		<< " @ fetch cycle " << m->fetch_cycle
 		<< "\n";
     }
-
+#endif
     
     if(get_dest() != -1) {
       machine_state.gpr_prf[m->prf_idx] = m->pc + 8;

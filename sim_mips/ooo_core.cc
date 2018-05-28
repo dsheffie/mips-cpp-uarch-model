@@ -32,10 +32,10 @@ static int rob_size = 64;
 static int fetchq_size = 64;
 static int decodeq_size = 64;
 
-static int fetch_bw = 1;
-static int decode_bw = 1;
-static int alloc_bw = 16;
-static int retire_bw = 16;
+static int fetch_bw = 8;
+static int decode_bw = 6;
+static int alloc_bw = 6;
+static int retire_bw = 6;
 
 static int num_gpr_prf = 128;
 static int num_cpr0_prf = 64;
@@ -165,20 +165,24 @@ extern "C" {
 	bool control_flow = false;
 	
         mips_meta_op *f = new mips_meta_op(machine_state.fetch_pc, inst, curr_cycle);
-	std::cerr << "FETCH PC " << std::hex << machine_state.fetch_pc << std::dec << "\n";
+
+	//std::cerr << "FETCH PC " << std::hex << machine_state.fetch_pc << std::dec << "\n";
+	
 	if(is_jr(inst)) {
 	  if(not(return_stack.empty())) {
+#if 0
 	    f->shadow_rstack.copy(return_stack);
 	    std::cerr << "JR SHADOW STACK\n";
 	    while(not(f->shadow_rstack.empty())) {
 	      std::cerr << "\t" << std::hex << f->shadow_rstack.pop() << std::dec << "\n";
 	    }
+#endif
 	    f->shadow_rstack.copy(return_stack);
 	    npc = return_stack.pop();
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	    used_return_addr_stack = true;
 	    control_flow = true;
-#if 1
+#if 0
 	    std::cerr << "found jr at fetch pc " << std::hex
 		      << machine_state.fetch_pc << ", pop "
 		      << npc
@@ -210,8 +214,8 @@ extern "C" {
 
 	fetch_queue.push(f);
 	machine_state.fetch_pc = npc;
-	if(control_flow)
-	  break;
+	//if(control_flow)
+	//break;
       }
       gthread_yield();
     }
@@ -235,6 +239,7 @@ extern "C" {
 	decode_queue.push(u);
 	if(u->is_jal) {
 	  if(not(return_stack.full())) {
+#if 0
 	    std::cerr << std::hex
 		      << u->pc 
 		      << " : push return address " 
@@ -242,6 +247,7 @@ extern "C" {
 		      << std::dec
 		      << " @ cycle " << get_curr_cycle()
 		      << "\n";
+#endif
 	    u->push_return_stack = true;
 	    return_stack.push(u->pc + 8);
 	  }
@@ -669,7 +675,7 @@ extern "C" {
 
 
       if(u!=nullptr and exception) {
-#if 1
+#if 0
 	if(u->branch_exception and u->is_jr) {
 	  std::cerr << (u->branch_exception ? "BRANCH" : "LOAD")
 		    << " EXCEPTION @ cycle " << get_curr_cycle()
