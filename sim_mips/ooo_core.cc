@@ -477,7 +477,7 @@ extern "C" {
 	  exit(-1);
 	}
 #endif
-	
+	//std::cout << "allocated " << *(u->op) << " with prf " << u->prf_idx << "\n";
 	rs_queue->push(u);
 	decode_queue.pop();
 	u->alloc_cycle = curr_cycle;
@@ -614,6 +614,7 @@ extern "C" {
 	if(not(u->is_complete)) {
 	  if(stuck_cnt > 32) {
 	    std::cerr << "STUCK:" << *(u->op) << "\n";
+#if 0
 	    int64_t i = rob.get_write_idx();
 	    for(int c = 0; (c < rob.size()) and rob.full(); c++) {
 	      if(rob.at(i)) {
@@ -638,7 +639,9 @@ extern "C" {
 	      if(i < 0)
 		i = rob.size()-1;
 	    }
+#endif
 	  }
+
 	  stuck_cnt++;
 	  u = nullptr;
 	  break;
@@ -771,6 +774,7 @@ extern "C" {
 		  << " EXCEPTION @ cycle " << get_curr_cycle()
 		  << " for " << *(u->op)
 		  << " fetched @ cycle " << u->fetch_cycle
+		  << " with prf idx  " << u->prf_idx
 		  << "\n";
 #endif
 	assert(u->could_cause_exception);
@@ -854,15 +858,22 @@ extern "C" {
 	    delete u;
 	  }
 	}
-	int64_t i = rob.get_write_idx(), c = 0;
-	bool seen_full = false;
+       int64_t i = rob.get_write_idx();
+       int64_t c = 0;
+       bool seen_full = false;
+       uint64_t last_alloc_id = ~(0UL);
 	while(true) {
 	  auto uu = rob.at(i);
 	  if(uu) {
-	    //std::cerr << "UNDO:" << *(uu->op) << "\n";
-	    uu->op->undo(machine_state);
-	    delete uu;
-	    rob.at(i) = nullptr;
+	    if(not(rob.full() and not(seen_full))) {
+	      uu->op->undo(machine_state);
+	      if(uu->alloc_id > last_alloc_id) {
+		die();
+	      }
+	      last_alloc_id = uu->alloc_id;
+	      delete uu;
+	      rob.at(i) = nullptr;
+	    }
 	  }
 	  
 	  if(i == rob.get_read_idx()) {

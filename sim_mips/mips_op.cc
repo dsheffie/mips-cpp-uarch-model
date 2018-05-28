@@ -1097,6 +1097,9 @@ public:
       //dprintf(2, "%x : early load ea %x, cycle %llu\n",
       //m->pc, effective_address, get_curr_cycle());
       machine_state.gpr_valid.set_bit(m->prf_idx);
+      //std::cout << "LOAD COMPLETE, set " << m->prf_idx
+      //<< " for load @ " << std::hex << m->pc << std::dec 
+      //<< "\n";
     }
   }
   virtual bool retire(sim_state &machine_state) {
