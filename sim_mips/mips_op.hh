@@ -26,12 +26,12 @@ inline bool is_jr(uint32_t inst) {
 
 inline bool is_jal(uint32_t inst) {
   uint32_t opcode = inst>>26;
-  return ((opcode>>1)==1) and (opcode == 3);
+  return (opcode == 3);
 }
 
 inline bool is_j(uint32_t inst) {
   uint32_t opcode = inst>>26;
-  return ((opcode>>1)==1) and (opcode == 2);
+  return (opcode == 2);
 }
 
 inline uint32_t get_jump_target(uint32_t pc, uint32_t inst) {
@@ -39,6 +39,43 @@ inline uint32_t get_jump_target(uint32_t pc, uint32_t inst) {
   static const uint32_t pc_mask = (~((1U<<28)-1));
   uint32_t jaddr = (inst & ((1<<26)-1)) << 2;
   return ((pc + 4)&pc_mask) | jaddr;
+}
+
+inline bool is_branch(uint32_t inst) {
+  uint32_t opcode = inst>>26;
+  switch(opcode)
+    {
+    case 0x01:
+    case 0x04:
+    case 0x05:
+    case 0x06:
+    case 0x07:
+      return true;
+    default:
+      break;
+    }
+  return false;
+}
+
+inline bool is_likely_branch(uint32_t inst) {
+  uint32_t opcode = inst>>26;
+  switch(opcode)
+    {
+    case 0x14:
+    case 0x16:
+    case 0x15:
+    case 0x17:
+      return true;
+    default:
+      break;
+    }
+  return false;
+}
+
+inline uint32_t get_branch_target(uint32_t pc, uint32_t inst) {
+  int16_t himm = (int16_t)(inst & ((1<<16) - 1));
+  int32_t imm = ((int32_t)himm) << 2;
+  return  pc+4+imm; 
 }
 
 inline std::ostream &operator<<(std::ostream &out, mips_op_type ot) {

@@ -206,7 +206,21 @@ extern "C" {
 	    control_flow = true;
           }
         }
-
+	else if(is_likely_branch(inst)) {
+	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	  npc = get_branch_target(machine_state.fetch_pc, inst);
+	  predict_taken = true;
+	  control_flow = true;
+	}
+	else if(is_branch(inst)) {
+	  uint32_t target = get_branch_target(machine_state.fetch_pc, inst);
+	  if(target < machine_state.fetch_pc) {
+	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	    npc = get_branch_target(machine_state.fetch_pc, inst);
+	    predict_taken = true;
+	    control_flow = true;
+	  }
+	}
 	f->fetch_npc = npc;
 	f->predict_taken = predict_taken;
 	f->pop_return_stack = used_return_addr_stack;
