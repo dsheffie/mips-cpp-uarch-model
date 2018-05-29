@@ -1770,6 +1770,15 @@ public:
 	*hi = static_cast<uint32_t>(y>>32);
 	break;
       }
+      case mult_div_types::div: {
+	if(machine_state.gpr_prf[m->src1_prf] != 0) {
+	  *reinterpret_cast<int32_t*>(lo) = machine_state.gpr_prf[m->src0_prf] / machine_state.gpr_prf[m->src1_prf];
+	  *reinterpret_cast<int32_t*>(hi) = machine_state.gpr_prf[m->src0_prf] % machine_state.gpr_prf[m->src1_prf];
+	}
+	latency = 32;
+	break;
+      }
+
       case mult_div_types::divu: {
 	if(machine_state.gpr_prf[m->src1_prf] != 0) {
 	  *lo = (uint32_t)machine_state.gpr_prf[m->src0_prf] /
@@ -3040,15 +3049,8 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
       return new mult_div_op(m_op, mult_div_op::mult_div_types::mult);
     case 0x19:  /* multu */
       return new mult_div_op(m_op, mult_div_op::mult_div_types::multu);
-#if 0
     case 0x1A: /* div */
-      if(s->gpr[rt] != 0) {
-	s->lo = s->gpr[rs] / s->gpr[rt];
-	s->hi = s->gpr[rs] % s->gpr[rt];
-      }
-      s->pc += 4;
-      break;
-#endif
+      return new mult_div_op(m_op, mult_div_op::mult_div_types::div);
     case 0x1B: /* divu */
       return new mult_div_op(m_op, mult_div_op::mult_div_types::divu);
     case 0x20: /* add */
