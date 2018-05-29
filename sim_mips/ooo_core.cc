@@ -62,15 +62,498 @@ uint64_t get_curr_cycle() {
   return curr_cycle;
 }
 
+class undo_rob_entry : public sim_queue<sim_op>::funcobj {
+protected:
+  sim_state &machine_state;
+public:
+  undo_rob_entry(sim_state &machine_state) :
+    machine_state(machine_state) {}
+  virtual bool operator()(sim_op e){
+    if(e) {
+      e->op->undo(machine_state);
+      delete e;
+      return true;
+    }
+    return false;
+  }
+};
+
+template <bool enable_oracle>
+void fetch(sim_state &machine_state) {
+  auto &fetch_queue = machine_state.fetch_queue;
+  auto &return_stack = machine_state.return_stack;
+  sparse_mem &mem = *(machine_state.mem);
+  
+  while(not(machine_state.terminate_sim)) {
+    int fetch_amt = 0;
+    for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
+      
+      if(machine_state.delay_slot_npc) {
+	uint32_t inst = accessBigEndian(mem.get32(machine_state.delay_slot_npc));
+	auto f = new mips_meta_op(machine_state.delay_slot_npc, inst,
+				  machine_state.delay_slot_npc+4,
+				  curr_cycle, false, false);
+	fetch_queue.push(f);
+	machine_state.delay_slot_npc = 0;
+	if(enable_oracle) {
+	  machine_state.oracle_state->steps--;
+	}
+	continue;
+      }
+      
+      uint32_t inst = accessBigEndian(mem.get32(machine_state.fetch_pc));
+      uint32_t npc = machine_state.fetch_pc + 4;
+      bool predict_taken = false;
+      bool oracle_taken = false, oracle_nullify = false;
+
+      if(enable_oracle) {
+	if(machine_state.oracle_state->steps == 0 and not(machine_state.oracle_state->brk)) {
+	  assert(machine_state.oracle_state->pc == machine_state.fetch_pc);
+	  machine_state.oracle_state->was_branch_or_jump = false;
+	  machine_state.oracle_state->was_likely_branch = false;
+	  machine_state.oracle_state->took_branch_or_jump = false;
+	  execMips(machine_state.oracle_state);
+	  machine_state.oracle_state->steps--;
+	  if(machine_state.oracle_state->was_branch_or_jump and
+	     machine_state.oracle_state->took_branch_or_jump) {
+	    oracle_taken = true;
+	  }
+	  else if(machine_state.oracle_state->was_likely_branch and
+		  not(machine_state.oracle_state->took_branch_or_jump)) {
+	    oracle_nullify = true;
+	  }
+	}
+	else {
+	  machine_state.oracle_state->steps--;
+	}
+      }
+	
+      auto it = branch_prediction_map.find(machine_state.fetch_pc);
+      bool used_return_addr_stack = false;
+      bool control_flow = false;
+      
+      mips_meta_op *f = new mips_meta_op(machine_state.fetch_pc, inst, curr_cycle);
+      
+      //std::cerr << "FETCH PC " << std::hex << machine_state.fetch_pc << std::dec << "\n";
+      if(enable_oracle) {
+	if(oracle_taken) {
+	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	  npc = machine_state.oracle_state->pc;
+	  predict_taken = true;
+	  control_flow = true;
+	}
+	else if(oracle_nullify) {
+	  npc = machine_state.fetch_pc + 8;
+	}
+      }
+      else {
+	if(is_jr(inst)) {
+	  if(not(return_stack.empty())) {
+#if 0
+	    f->shadow_rstack.copy(return_stack);
+	    std::cerr << "JR SHADOW STACK\n";
+	    while(not(f->shadow_rstack.empty())) {
+	      std::cerr << "\t" << std::hex << f->shadow_rstack.pop() << std::dec << "\n";
+	    }
+#endif
+	    f->shadow_rstack.copy(return_stack);
+	    npc = return_stack.pop();
+	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	    used_return_addr_stack = true;
+	    control_flow = true;
+#if 0
+	    std::cerr << "found jr at fetch pc " << std::hex
+		      << machine_state.fetch_pc << ", pop "
+		      << npc
+		      << std::dec
+		      << " @ cycle " << get_curr_cycle()
+		      << "\n";
+#endif
+	  }
+	}
+	else if(is_jal(inst) or is_j(inst)) {
+	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	  npc = get_jump_target(machine_state.fetch_pc, inst);
+	  predict_taken = true;
+	  control_flow = true;
+	}
+	else if(it != branch_prediction_map.end()) {
+	  /* predicted as taken */
+	  if(it->second > 1) {
+	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	    npc = branch_target_map.at(machine_state.fetch_pc);
+	    predict_taken = true;
+	    control_flow = true;
+	  }
+	}
+	else if(is_likely_branch(inst)) {
+	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	  npc = get_branch_target(machine_state.fetch_pc, inst);
+	  predict_taken = true;
+	  control_flow = true;
+	}
+	else if(is_branch(inst)) {
+	  uint32_t target = get_branch_target(machine_state.fetch_pc, inst);
+	  if(target < machine_state.fetch_pc) {
+	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	    npc = get_branch_target(machine_state.fetch_pc, inst);
+	    predict_taken = true;
+	    control_flow = true;
+	  }
+	}
+      }
+	
+      f->fetch_npc = npc;
+      f->predict_taken = predict_taken;
+      f->pop_return_stack = used_return_addr_stack;
+      
+      fetch_queue.push(f);
+      machine_state.fetch_pc = npc;
+      //if(control_flow)
+      //break;
+    }
+    gthread_yield();
+  }
+  gthread_terminate();
+}
+
+template<bool enable_oracle>
+void retire(sim_state &machine_state) {
+  state_t *s = machine_state.ref_state;
+  auto &rob = machine_state.rob;
+  int stuck_cnt = 0, empty_cnt = 0;
+  while(not(machine_state.terminate_sim)) {
+    int retire_amt = 0;
+    sim_op u = nullptr;
+    bool stop_sim = false;
+    bool exception = false;
+      
+    if(rob.empty()) {
+      empty_cnt++;
+      if(empty_cnt > 64) {
+	std::cerr << "empty ROB for 64 cycles at " << get_curr_cycle() << "\n";
+      }
+    }
+      
+    while(not(rob.empty()) and (retire_amt < retire_bw)) {
+      u = rob.peek();
+      empty_cnt = 0;
+      if(not(u->is_complete)) {
+	if(stuck_cnt > 32) {
+	  std::cerr << "STUCK:" << *(u->op) << "\n";
+	}
+	stuck_cnt++;
+	u = nullptr;
+	break;
+      }
+      if(u->complete_cycle == curr_cycle) {
+	u = nullptr;
+	break;
+      }
+
+	
+      if(u->branch_exception) {
+	machine_state.nukes++;
+	machine_state.branch_nukes++;
+	exception = true;
+	break;
+      }
+      else if(u->load_exception) {
+	machine_state.nukes++;
+	machine_state.load_nukes++;
+	exception = true;
+	break;
+      }
+
+      if(u->has_delay_slot) {
+	while(rob.peek_next_pop() == nullptr) {
+	  gthread_yield();
+	}
+	sim_op uu = rob.peek_next_pop();
+	while(not(uu->is_complete)) {
+	  gthread_yield();
+	}
+	if(uu->branch_exception or uu->load_exception) {
+	  machine_state.nukes++;
+	  if(uu->branch_exception) {
+	    machine_state.branch_nukes++;
+	  }
+	  else {
+	    machine_state.load_nukes++;
+	  }
+	  exception = true;
+	  break;
+	}
+      }
+
+      if(machine_state.use_interp_check and (s->pc == u->pc)) {
+	assert(not(exception));
+	bool error = false;
+	for(int i = 0; i < 32; i++) {
+	  if(s->gpr[i] != machine_state.arch_grf[i]) {
+	    std::cerr << "uarch reg " << getGPRName(i) << " : " 
+		      << std::hex << machine_state.arch_grf[i] << std::dec << "\n"; 
+	    std::cerr << "func reg " << getGPRName(i) << " : " 
+		      << std::hex << s->gpr[i] << std::dec << "\n"; 
+	    error = true;
+	  }
+	}
+	for(int i = 0; i < 32; i++) {
+	  if(s->cpr1[i] != machine_state.arch_cpr1[i]) {
+	    std::cerr << "uarch cpr1 " << i << " : " 
+		      << std::hex << machine_state.arch_cpr1[i] << std::dec << "\n"; 
+	    std::cerr << "func cpr1 " << i << " : " 
+		      << std::hex << s->cpr1[i] << std::dec << "\n";
+	    error = true;
+	  }
+	}
+
+	for(int i = 0; i < 5; i++) {
+	  if(s->fcr1[i] != machine_state.arch_fcr1[i]) {
+	    std::cerr << "uarch fcr1 " << i << " : " 
+		      << std::hex << machine_state.arch_fcr1[i]
+		      << std::dec << "\n"; 
+	    std::cerr << "func fcr1 " << i << " : " 
+		      << std::hex << s->fcr1[i]
+		      << std::dec << "\n";
+
+	    error = true;
+	  }
+	}
+	  
+	  	  
+	if(u->is_store and false) {
+	  error |= (machine_state.mem->equal(s->mem)==false);
+	}
+	if(error) {
+	  std::cerr << "bad insn : " << std::hex << u->pc << ":" << std::dec
+		    << getAsmString(u->inst, u->pc)
+		    << " after " << machine_state.icnt << " uarch isns and "
+		    << s->icnt << " arch isns\n";
+	  std::cerr << "known good at pc " << std::hex << machine_state.last_compare_pc
+		    << std::dec << " after " << machine_state.last_compare_icnt
+		    << " isnsns\n";
+	  std::cerr << "execMips call site = " << s->call_site << "\n";
+	  machine_state.terminate_sim = true;
+	  break;
+	}
+	else {
+	  machine_state.last_compare_pc = u->pc;
+	  machine_state.last_compare_icnt = machine_state.icnt;
+	}
+	s->call_site = __LINE__;
+	execMips(s);
+      }
+
+      //std::cerr << "retire for " << *(u->op) << "\n";
+      u->op->retire(machine_state);
+      stuck_cnt = 0;
+	
+      insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
+      machine_state.last_retire_cycle = get_curr_cycle();
+      machine_state.last_retire_pc = u->pc;
+	
+      stop_sim = u->op->stop_sim();
+      delete u;
+      u = nullptr;
+      retire_amt++;
+      rob.pop();
+      if(stop_sim) {
+	break;
+      }
+
+    }
+
+
+    if(u!=nullptr and exception) {
+#if 0
+      std::cerr << (u->branch_exception ? "BRANCH" : "LOAD")
+		<< " EXCEPTION @ cycle " << get_curr_cycle()
+		<< " for " << *(u->op)
+		<< " fetched @ cycle " << u->fetch_cycle
+		<< " with prf idx  " << u->prf_idx
+		<< "\n";
+#endif
+      assert(u->could_cause_exception);
+      machine_state.return_stack.copy(u->shadow_rstack);
+	
+      //while(!u->shadow_rstack.empty()) {
+      //std::cerr << std::hex << u->shadow_rstack.pop() << std::dec << "\n";
+      //}
+	
+      if((retire_amt - retire_bw) < 2) {
+	gthread_yield();
+	retire_amt = 0;
+      }
+	
+      bool is_load_exception = u->load_exception;
+      uint32_t exc_pc = u->pc;
+      bool delay_slot_exception = false;
+      if(u->branch_exception) {
+	if(u->has_delay_slot) {
+	  /* wait for branch delay instr to allocate */
+	  while(rob.peek_next_pop() == nullptr) {
+	    gthread_yield();
+	    retire_amt = 0;
+	  }
+	  sim_op uu = rob.peek_next_pop();
+	  while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
+	    gthread_yield();
+	    retire_amt = 0;
+	  }
+	  if(uu->branch_exception or uu->load_exception) {
+	    delay_slot_exception = true;
+	  }
+	  else {
+	    //std::cerr << "retire for " << *(u->op) << "\n";
+	    u->op->retire(machine_state);
+	    insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
+	    machine_state.last_retire_cycle = get_curr_cycle();
+	    machine_state.last_retire_pc = u->pc;
+	    //std::cout << std::hex << u->pc << ":" << std::hex
+	    //<< getAsmString(u->inst, u->pc) << "\n";
+
+	    //std::cerr << "retire for " << *(uu->op) << "\n";
+	    uu->op->retire(machine_state);
+	    machine_state.last_retire_cycle = get_curr_cycle();
+	    machine_state.last_retire_pc = uu->pc;
+	    insn_lifetime_map[uu->retire_cycle - uu->fetch_cycle]++;
+	    //std::cout << std::hex << uu->pc << ":" << std::hex
+	    //<< getAsmString(uu->inst, uu->pc) << "\n";
+	    if(machine_state.use_interp_check and (s->pc == u->pc)) {
+	      s->call_site = __LINE__;
+	      execMips(s);
+	    }
+	    rob.pop();
+	    rob.pop();
+	    retire_amt+=2;
+	    delete uu;
+	  }
+	}
+	else {
+	  //std::cerr << "retire for " << *(u->op) << "\n";
+	  u->op->retire(machine_state);
+	  insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
+	  machine_state.last_retire_cycle = get_curr_cycle();
+	  machine_state.last_retire_pc = u->pc;
+	  if(machine_state.use_interp_check and (s->pc == u->pc)) {
+	    s->call_site = __LINE__;
+	    execMips(s);
+	  }
+	  rob.pop();
+	  retire_amt++;
+	}
+      }
+      machine_state.nuke = true;
+      stuck_cnt = 0;
+      if(delay_slot_exception) {
+	machine_state.fetch_pc = u->pc;
+      }
+      else {
+	machine_state.fetch_pc = u->branch_exception ? u->correct_pc : u->pc;
+	if(u->branch_exception) {
+	  delete u;
+	}
+      }
+
+      undo_rob_entry undo_rob(machine_state);
+      int64_t c = rob.traverse_and_apply(undo_rob);
+      int64_t sleep_cycles = (c + retire_bw - 1) / retire_bw;
+      for(int64_t i = 0; i < sleep_cycles; i++) {
+	gthread_yield();
+      }
+      rob.clear();
+	
+      std::set<int32_t> gpr_prf_debug;
+      for(int i = 0; i < 34; i++) {
+	auto it = gpr_prf_debug.find(machine_state.gpr_rat[i]);
+	gpr_prf_debug.insert(machine_state.gpr_rat[i]);
+      }
+	
+      if(gpr_prf_debug.size() != 34) {
+	  
+	for(int i = 0; i < machine_state.num_gpr_prf_; i++) {
+	  if(not(machine_state.gpr_freevec.get_bit(i)))
+	    continue;
+	  auto it = gpr_prf_debug.find(i);
+	  if(it == gpr_prf_debug.end()) {
+	    dprintf(log_fd, "no mapping to prf %d\n", i);
+	  }
+	}
+	exit(-1);
+      }
+
+      for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
+	auto f = machine_state.fetch_queue.at(i);
+	if(f) {
+	  delete f;
+	}
+      }
+      for(size_t i = 0; i < machine_state.decode_queue.size(); i++) {
+	auto d = machine_state.decode_queue.at(i);
+	if(d) {
+	  delete d;
+	}
+      }
+      //machine_state.return_stack.clear();
+      machine_state.decode_queue.clear();
+      machine_state.fetch_queue.clear();
+      machine_state.delay_slot_npc = 0;
+      for(int i = 0; i < machine_state.num_alu_rs; i++) {
+	machine_state.alu_rs.at(i).clear();
+      }
+      for(int i = 0; i < machine_state.num_fpu_rs; i++) {
+	machine_state.fpu_rs.at(i).clear();
+      }
+      for(int i = 0; i < machine_state.num_load_rs; i++) {
+	machine_state.load_rs.at(i).clear();
+      }
+      machine_state.jmp_rs.clear();
+      machine_state.store_rs.clear();
+      machine_state.system_rs.clear();
+      machine_state.load_tbl_freevec.clear();
+      machine_state.store_tbl_freevec.clear();
+      for(size_t i = 0; i < machine_state.load_tbl_freevec.size(); i++) {
+	machine_state.load_tbl[i] = nullptr;
+      }
+      for(size_t i = 0; i < machine_state.store_tbl_freevec.size(); i++) {
+	machine_state.store_tbl[i] = nullptr;
+      }
+      machine_state.nuke = false;
+
+      if(enable_oracle) {
+	machine_state.oracle_state->copy(machine_state.ref_state);
+	machine_state.oracle_mem->copy(machine_state.ref_state->mem);
+      }
+	
+      gthread_yield();
+    }
+    else {
+      gthread_yield();
+    }
+    if(machine_state.icnt >= machine_state.maxicnt or stop_sim) {
+      machine_state.terminate_sim = true;
+    }
+  }
+  gthread_terminate();
+}
+
 void initialize_ooo_core(sim_state &machine_state,
+			 bool use_oracle,
 			 uint64_t skipicnt, uint64_t maxicnt,
 			 state_t *s, const sparse_mem *sm) {
-
   while(s->icnt < skipicnt) {
     execMips(s);
   }
+  
   //s->debug = 1;
   machine_state.ref_state = s;
+
+  if(use_oracle) {
+    machine_state.oracle_mem = new sparse_mem(*sm);
+    machine_state.oracle_state = new state_t(*machine_state.oracle_mem);
+    machine_state.oracle_state->copy(s);
+  }
   machine_state.mem = new sparse_mem(*sm);
   machine_state.initialize();
   machine_state.maxicnt = maxicnt;
@@ -100,7 +583,12 @@ void destroy_ooo_core(sim_state &machine_state) {
       delete r;
     }
   }
-
+  if(machine_state.oracle_mem) {
+    delete machine_state.oracle_mem;
+  }
+  if(machine_state.oracle_state) {
+    delete machine_state.oracle_state;
+  }
   delete machine_state.mem;
   gthread::free_threads();
 }
@@ -141,90 +629,12 @@ extern "C" {
   
   void fetch(void *arg) {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
-    auto &fetch_queue = machine_state.fetch_queue;
-    auto &return_stack = machine_state.return_stack;
-    sparse_mem &mem = *(machine_state.mem);
-    while(not(machine_state.terminate_sim)) {
-      int fetch_amt = 0;
-      for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
-
-	if(machine_state.delay_slot_npc) {
-	  uint32_t inst = accessBigEndian(mem.get32(machine_state.delay_slot_npc));
-	  auto f = new mips_meta_op(machine_state.delay_slot_npc, inst,
-				    machine_state.delay_slot_npc+4,
-				    curr_cycle, false, false);
-	  fetch_queue.push(f);
-	  machine_state.delay_slot_npc = 0;
-	  continue;
-	}
-	
-	uint32_t inst = accessBigEndian(mem.get32(machine_state.fetch_pc));
-	uint32_t npc = machine_state.fetch_pc + 4;
-	bool predict_taken = false;
-
-	//std::cout << "return stack has " << machine_state.return_stack.size()
-	// << " entries at cycle " << get_curr_cycle() << "\n";
-	//std::cerr << "jr_map.size() = " << jr_map.size() << "\n";
-	auto it = branch_prediction_map.find(machine_state.fetch_pc);
-	bool used_return_addr_stack = false;
-	bool control_flow = false;
-	
-        mips_meta_op *f = new mips_meta_op(machine_state.fetch_pc, inst, curr_cycle);
-
-	//std::cerr << "FETCH PC " << std::hex << machine_state.fetch_pc << std::dec << "\n";
-	
-	if(is_jr(inst)) {
-	  if(not(return_stack.empty())) {
-#if 0
-	    f->shadow_rstack.copy(return_stack);
-	    std::cerr << "JR SHADOW STACK\n";
-	    while(not(f->shadow_rstack.empty())) {
-	      std::cerr << "\t" << std::hex << f->shadow_rstack.pop() << std::dec << "\n";
-	    }
-#endif
-	    f->shadow_rstack.copy(return_stack);
-	    npc = return_stack.pop();
-	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	    used_return_addr_stack = true;
-	    control_flow = true;
-#if 0
-	    std::cerr << "found jr at fetch pc " << std::hex
-		      << machine_state.fetch_pc << ", pop "
-		      << npc
-		      << std::dec
-		      << " @ cycle " << get_curr_cycle()
-		      << "\n";
-#endif
-	  }
-	}
-	else if(is_jal(inst) or is_j(inst)) {
-	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	  npc = get_jump_target(machine_state.fetch_pc, inst);
-	  predict_taken = true;
-	  control_flow = true;
-	}
-	else if(it != branch_prediction_map.end()) {
-          /* predicted as taken */
-          if(it->second > 1) {
-            machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-            npc = branch_target_map.at(machine_state.fetch_pc);
-            predict_taken = true;
-	    control_flow = true;
-          }
-        }
-
-	f->fetch_npc = npc;
-	f->predict_taken = predict_taken;
-	f->pop_return_stack = used_return_addr_stack;
-
-	fetch_queue.push(f);
-	machine_state.fetch_pc = npc;
-	//if(control_flow)
-	//break;
-      }
-      gthread_yield();
+    if(machine_state.oracle_mem) {
+      fetch<true>(machine_state);
     }
-    gthread_terminate();
+    else {
+      fetch<false>(machine_state);
+    }
   }
   void decode(void *arg) {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
@@ -392,7 +802,7 @@ extern "C" {
 	  exit(-1);
 	}
 #endif
-	
+	//std::cout << "allocated " << *(u->op) << " with prf " << u->prf_idx << "\n";
 	rs_queue->push(u);
 	decode_queue.pop();
 	u->alloc_cycle = curr_cycle;
@@ -506,373 +916,12 @@ extern "C" {
   }
   void retire(void *arg) {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
-    state_t *s = machine_state.ref_state;
-    auto &rob = machine_state.rob;
-    int stuck_cnt = 0, empty_cnt = 0;
-    while(not(machine_state.terminate_sim)) {
-      int retire_amt = 0;
-      sim_op u = nullptr;
-      bool stop_sim = false;
-      bool exception = false;
-
-      
-      if(rob.empty()) {
-	empty_cnt++;
-	if(empty_cnt > 64) {
-	  std::cerr << "empty ROB for 64 cycles at " << get_curr_cycle() << "\n";
-	}
-      }
-      
-      while(not(rob.empty()) and (retire_amt < retire_bw)) {
-	u = rob.peek();
-	empty_cnt = 0;
-	if(not(u->is_complete)) {
-	  if(stuck_cnt > 32) {
-	    std::cerr << "STUCK:" << *(u->op) << "\n";
-	    int64_t i = rob.get_write_idx();
-	    for(int c = 0; (c < rob.size()) and rob.full(); c++) {
-	      if(rob.at(i)) {
-		if(rob.at(i)->op) {
-		  std::cerr << i << " " << *(rob.at(i)->op) << ", alloc cycle ="
-			    << rob.at(i)->alloc_cycle << "\n";
-		}
-		else {
-		  std::cerr << i << " no op for rob slot!\n";
-		}
-	      }
-	      i--;
-	      if(i < 0) i = rob.size()-1;
-	    }
-	    while(!rob.full()) {
-	      if(rob.at(i)) {
-		std::cerr << *(rob.at(i)->op) << "\n";
-	      }
-	      if(i == rob.get_read_idx())
-		break;
-	      i--;
-	      if(i < 0)
-		i = rob.size()-1;
-	    }
-	  }
-	  stuck_cnt++;
-	  u = nullptr;
-	  break;
-	}
-	if(u->complete_cycle == curr_cycle) {
-	  u = nullptr;
-	  break;
-	}
-
-	
-	if(u->branch_exception) {
-	  machine_state.nukes++;
-	  machine_state.branch_nukes++;
-	  exception = true;
-	  break;
-	}
-	else if(u->load_exception) {
-	  //dprintf(2, "got load exception at HOR for pc %x\n", u->pc);
-	  machine_state.nukes++;
-	  machine_state.load_nukes++;
-	  exception = true;
-	  break;
-	}
-
-	//std::cout << std::hex << u->pc << ":" << std::hex
-	//<< getAsmString(u->inst, u->pc) << "\n";
-	if(u->has_delay_slot) {
-	  while(rob.peek_next_pop() == nullptr) {
-	    gthread_yield();
-	  }
-	  sim_op uu = rob.peek_next_pop();
-	  while(not(uu->is_complete)) {
-	    gthread_yield();
-	  }
-	  if(uu->branch_exception or uu->load_exception) {
-	    machine_state.nukes++;
-	    if(uu->branch_exception) {
-	      machine_state.branch_nukes++;
-	    }
-	    else {
-	      machine_state.load_nukes++;
-	    }
-	    exception = true;
-	    break;
-	  }
-	}
-
-	if(machine_state.use_interp_check and (s->pc == u->pc)) {
-	  assert(not(exception));
-	  bool error = false;
-	  for(int i = 0; i < 32; i++) {
-	    if(s->gpr[i] != machine_state.arch_grf[i]) {
-	      std::cerr << "uarch reg " << getGPRName(i) << " : " 
-			<< std::hex << machine_state.arch_grf[i] << std::dec << "\n"; 
-	      std::cerr << "func reg " << getGPRName(i) << " : " 
-			<< std::hex << s->gpr[i] << std::dec << "\n"; 
-	      error = true;
-	    }
-	  }
-	  for(int i = 0; i < 32; i++) {
-	    if(s->cpr1[i] != machine_state.arch_cpr1[i]) {
-	      std::cerr << "uarch cpr1 " << i << " : " 
-			<< std::hex << machine_state.arch_cpr1[i] << std::dec << "\n"; 
-	      std::cerr << "func cpr1 " << i << " : " 
-			<< std::hex << s->cpr1[i] << std::dec << "\n";
-	      error = true;
-	    }
-	  }
-
-	  for(int i = 0; i < 5; i++) {
-	    if(s->fcr1[i] != machine_state.arch_fcr1[i]) {
-	      std::cerr << "uarch fcr1 " << i << " : " 
-			<< std::hex << machine_state.arch_fcr1[i]
-			<< std::dec << "\n"; 
-	      std::cerr << "func fcr1 " << i << " : " 
-			<< std::hex << s->fcr1[i]
-			<< std::dec << "\n";
-
-	      error = true;
-	    }
-	  }
-	  
-	  	  
-	  if(u->is_store and false) {
-	    error |= (machine_state.mem->equal(s->mem)==false);
-	  }
-	  if(error) {
-	    std::cerr << "bad insn : " << std::hex << u->pc << ":" << std::dec
-		      << getAsmString(u->inst, u->pc)
-		      << " after " << machine_state.icnt << " uarch isns and "
-		      << s->icnt << " arch isns\n";
-	    std::cerr << "known good at pc " << std::hex << machine_state.last_compare_pc
-		      << std::dec << " after " << machine_state.last_compare_icnt
-		      << " isnsns\n";
-	    std::cerr << "execMips call site = " << s->call_site << "\n";
-	    machine_state.terminate_sim = true;
-	    break;
-	  }
-	  else {
-	    machine_state.last_compare_pc = u->pc;
-	    machine_state.last_compare_icnt = machine_state.icnt;
-	  }
-	  s->call_site = __LINE__;
-	  execMips(s);
-	}
-
-	//std::cerr << "retire for " << *(u->op) << "\n";
-	u->op->retire(machine_state);
-	stuck_cnt = 0;
-	
-	insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
-	machine_state.last_retire_cycle = get_curr_cycle();
-	machine_state.last_retire_pc = u->pc;
-	
-	stop_sim = u->op->stop_sim();
-	delete u;
-	u = nullptr;
-	retire_amt++;
-	rob.pop();
-	if(stop_sim) {
-	  break;
-	}
-
-      }
-
-
-      if(u!=nullptr and exception) {
-#if 0
-	if(u->branch_exception and u->is_jr) {
-	  std::cerr << (u->branch_exception ? "BRANCH" : "LOAD")
-		    << " EXCEPTION @ cycle " << get_curr_cycle()
-		    << " for " << *(u->op)
-		    << " fetched @ cycle " << u->fetch_cycle
-		    << "\n";
-	}
-#endif
-	assert(u->could_cause_exception);
-	machine_state.return_stack.copy(u->shadow_rstack);
-	
-	//while(!u->shadow_rstack.empty()) {
-	//std::cerr << std::hex << u->shadow_rstack.pop() << std::dec << "\n";
-	//}
-	
-	if((retire_amt - retire_bw) < 2) {
-	  gthread_yield();
-	  retire_amt = 0;
-	}
-	
-	bool is_load_exception = u->load_exception;
-	uint32_t exc_pc = u->pc;
-	bool delay_slot_exception = false;
-	if(u->branch_exception) {
-	  if(u->has_delay_slot) {
-	    /* wait for branch delay instr to allocate */
-	    while(rob.peek_next_pop() == nullptr) {
-	      gthread_yield();
-	      retire_amt = 0;
-	    }
-	    sim_op uu = rob.peek_next_pop();
-	    while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
-	      gthread_yield();
-	      retire_amt = 0;
-	    }
-	    if(uu->branch_exception or uu->load_exception) {
-	      delay_slot_exception = true;
-	    }
-	    else {
-	      //std::cerr << "retire for " << *(u->op) << "\n";
-	      u->op->retire(machine_state);
-	      insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
-	      machine_state.last_retire_cycle = get_curr_cycle();
-	      machine_state.last_retire_pc = u->pc;
-	      //std::cout << std::hex << u->pc << ":" << std::hex
-	      //<< getAsmString(u->inst, u->pc) << "\n";
-
-	      //std::cerr << "retire for " << *(uu->op) << "\n";
-	      uu->op->retire(machine_state);
-	      machine_state.last_retire_cycle = get_curr_cycle();
-	      machine_state.last_retire_pc = uu->pc;
-	      insn_lifetime_map[uu->retire_cycle - uu->fetch_cycle]++;
-	      //std::cout << std::hex << uu->pc << ":" << std::hex
-	      //<< getAsmString(uu->inst, uu->pc) << "\n";
-	      if(machine_state.use_interp_check and (s->pc == u->pc)) {
-		s->call_site = __LINE__;
-		execMips(s);
-	      }
-	      rob.pop();
-	      rob.pop();
-	      retire_amt+=2;
-	      delete uu;
-	    }
-	  }
-	  else {
-	    //std::cerr << "retire for " << *(u->op) << "\n";
-	    u->op->retire(machine_state);
-	    insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
-	    machine_state.last_retire_cycle = get_curr_cycle();
-	    machine_state.last_retire_pc = u->pc;
-	    if(machine_state.use_interp_check and (s->pc == u->pc)) {
-	      s->call_site = __LINE__;
-	      execMips(s);
-	    }
-	    rob.pop();
-	    retire_amt++;
-	  }
-	}
-	machine_state.nuke = true;
-	stuck_cnt = 0;
-	if(delay_slot_exception) {
-	  machine_state.fetch_pc = u->pc;
-	}
-	else {
-	  machine_state.fetch_pc = u->branch_exception ? u->correct_pc : u->pc;
-	  if(u->branch_exception) {
-	    delete u;
-	  }
-	}
-	int64_t i = rob.get_write_idx(), c = 0;
-	bool seen_full = false;
-	while(true) {
-	  auto uu = rob.at(i);
-	  if(uu) {
-	    //std::cerr << "UNDO:" << *(uu->op) << "\n";
-	    uu->op->undo(machine_state);
-	    delete uu;
-	    rob.at(i) = nullptr;
-	  }
-	  
-	  if(i == rob.get_read_idx()) {
-	    if(rob.full()) {
-	      if(seen_full) {
-		break;
-	      }
-	      else {
-		seen_full = true;
-	      }
-	    }
-	    else {
-	      break;
-	    }
-	  }
-	  i--;
-	  if(i < 0) {
-	    i = rob.size()-1;
-	  }
-	  c++;
-	  if(c % retire_bw == 0) {
-	    gthread_yield();
-	  }
-	}
-	rob.clear();
-	
-	std::set<int32_t> gpr_prf_debug;
-	for(int i = 0; i < 34; i++) {
-	  auto it = gpr_prf_debug.find(machine_state.gpr_rat[i]);
-	  gpr_prf_debug.insert(machine_state.gpr_rat[i]);
-	}
-	
-	if(gpr_prf_debug.size() != 34) {
-	  
-	  for(int i = 0; i < machine_state.num_gpr_prf_; i++) {
-	    if(not(machine_state.gpr_freevec.get_bit(i)))
-	      continue;
-	    auto it = gpr_prf_debug.find(i);
-	    if(it == gpr_prf_debug.end()) {
-	      dprintf(log_fd, "no mapping to prf %d\n", i);
-	    }
-	  }
-	  exit(-1);
-	}
-
-	for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
-	  auto f = machine_state.fetch_queue.at(i);
-	  if(f) {
-	    delete f;
-	  }
-	}
-	for(size_t i = 0; i < machine_state.decode_queue.size(); i++) {
-	  auto d = machine_state.decode_queue.at(i);
-	  if(d) {
-	    delete d;
-	  }
-	}
-	//machine_state.return_stack.clear();
-	machine_state.decode_queue.clear();
-	machine_state.fetch_queue.clear();
-	machine_state.delay_slot_npc = 0;
-	for(int i = 0; i < machine_state.num_alu_rs; i++) {
-	  machine_state.alu_rs.at(i).clear();
-	}
-	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
-	  machine_state.fpu_rs.at(i).clear();
-	}
-	for(int i = 0; i < machine_state.num_load_rs; i++) {
-	  machine_state.load_rs.at(i).clear();
-	}
-	machine_state.jmp_rs.clear();
-	machine_state.store_rs.clear();
-	machine_state.system_rs.clear();
-	machine_state.load_tbl_freevec.clear();
-	machine_state.store_tbl_freevec.clear();
-	for(size_t i = 0; i < machine_state.load_tbl_freevec.size(); i++) {
-	  machine_state.load_tbl[i] = nullptr;
-	}
-	for(size_t i = 0; i < machine_state.store_tbl_freevec.size(); i++) {
-	  machine_state.store_tbl[i] = nullptr;
-	}
-	machine_state.nuke = false;
-	gthread_yield();
-      }
-      else {
-	gthread_yield();
-      }
-      if(machine_state.icnt >= machine_state.maxicnt or stop_sim) {
-	machine_state.terminate_sim = true;
-      }
-    }
-    gthread_terminate();
+    if(machine_state.oracle_mem)
+      retire<true>(machine_state);
+    else
+      retire<false>(machine_state);
   }
+
   
 };
 

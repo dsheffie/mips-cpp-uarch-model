@@ -982,7 +982,7 @@ public:
     }
     else {
       m->correct_pc = m->pc + 8;
-      if(is_likely_branch()) {
+      if(is_likely_branch() and (m->fetch_npc != (m->pc+8))) {
 	m->branch_exception = true;
       }
     }
@@ -1061,42 +1061,54 @@ public:
   }
   virtual void execute(sim_state &machine_state) {
     effective_address = machine_state.gpr_prf[m->src0_prf] + imm;
+    switch(lt)
+      {
+      case load_type::lh:
+      case load_type::lhu:
+	m->load_exception |= ((effective_address & 0x1) != 0);
+	break;
+      case load_type::lw:
+	m->load_exception |= ((effective_address & 0x3) != 0);
+	break;
+      default:
+	break;
+      }
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       sparse_mem & mem = *(machine_state.mem);
-      switch(lt)
-	{
-	case load_type::lb:
-	  machine_state.gpr_prf[m->prf_idx] = 
-	    accessBigEndian(*((int8_t*)(mem + effective_address)));
-	  break;
-	case load_type::lbu:
-	  *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
-	    static_cast<uint32_t>(mem.at(effective_address));
-	  break;
-	case load_type::lh:
-	  machine_state.gpr_prf[m->prf_idx] = 
-	    accessBigEndian(*((int16_t*)(mem + effective_address)));
-	  break;
-	case load_type::lhu:
-	  *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
-	    static_cast<uint32_t>(accessBigEndian(*(uint16_t*)(mem + effective_address))); 
-	  break;
-	case load_type::lw:
-	  machine_state.gpr_prf[m->prf_idx] =
-	    accessBigEndian(*((int32_t*)(mem + effective_address))); 
-	  break;
-	default:
-	  std::cerr << std::hex << m->pc << std::dec << ":" <<
-	    getAsmString(m->pc, m->inst) << "\n";
-	  die();
-	}
-      //dprintf(2, "%x : early load ea %x, cycle %llu\n",
-      //m->pc, effective_address, get_curr_cycle());
-      machine_state.gpr_valid.set_bit(m->prf_idx);
+      if(not(m->load_exception)) {
+	switch(lt)
+	  {
+	  case load_type::lb:
+	    machine_state.gpr_prf[m->prf_idx] = 
+	      accessBigEndian(*((int8_t*)(mem + effective_address)));
+	    break;
+	  case load_type::lbu:
+	    *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
+	      static_cast<uint32_t>(mem.at(effective_address));
+	    break;
+	  case load_type::lh:
+	    machine_state.gpr_prf[m->prf_idx] = 
+	      accessBigEndian(*((int16_t*)(mem + effective_address)));
+	    break;
+	  case load_type::lhu:
+	    *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
+	      static_cast<uint32_t>(accessBigEndian(*(uint16_t*)(mem + effective_address)));
+	    break;
+	  case load_type::lw:
+	    machine_state.gpr_prf[m->prf_idx] =
+	      accessBigEndian(*((int32_t*)(mem + effective_address)));
+	    break;
+	  default:
+	    std::cerr << std::hex << m->pc << std::dec << ":" <<
+	      getAsmString(m->pc, m->inst) << "\n";
+	    die();
+	  }
+	machine_state.gpr_valid.set_bit(m->prf_idx);
+      }
     }
   }
   virtual bool retire(sim_state &machine_state) {
@@ -1130,7 +1142,7 @@ public:
 
 class store_op : public mips_store {
 public:
-  enum class store_type {sb, sh, sw}; 
+  enum class store_type {sb, sh, sw, swl, swr}; 
 protected:
   store_type st;
   int32_t store_data = ~0;
@@ -1186,6 +1198,7 @@ public:
 	mem.set<int32_t>(effective_address, accessBigEndian(store_data));
 	break;
       default:
+	std::cerr << *this << "\n";
 	die();
       }
     retired = true;
@@ -1287,33 +1300,49 @@ public:
   }
   virtual void execute(sim_state &machine_state) {
     effective_address = machine_state.gpr_prf[m->src0_prf] + imm;
+    switch(lt)
+      {
+      case load_type::ldc1:
+	m->load_exception |= ((effective_address & 0x7) != 0);
+	break;
+      case load_type::lwc1:
+	m->load_exception |= ((effective_address & 0x3) != 0);
+	break;
+      default:
+	break;
+      }
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       sparse_mem & mem = *(machine_state.mem);
-      switch(lt)
-	{
-	case load_type::ldc1: {
-	  load_thunk<uint64_t> ld(accessBigEndian(*((uint64_t*)(mem + effective_address))));
-	  machine_state.cpr1_prf[m->prf_idx] = ld[0];
-	  machine_state.cpr1_prf[m->aux_prf_idx] = ld[1];
-	  break;
+      if(not(m->load_exception)) {
+	switch(lt)
+	  {
+	  case load_type::ldc1: {
+	    load_thunk<uint64_t> ld(accessBigEndian(*((uint64_t*)(mem + effective_address))));
+	    machine_state.cpr1_prf[m->prf_idx] = ld[0];
+	    machine_state.cpr1_prf[m->aux_prf_idx] = ld[1];
+	    machine_state.cpr1_valid.set_bit(m->prf_idx);
+	    machine_state.cpr1_valid.set_bit(m->aux_prf_idx);
+	    break;
+	  }
+	  case load_type::lwc1:
+	    machine_state.cpr1_prf[m->prf_idx] = accessBigEndian(*((uint32_t*)(mem + effective_address)));
+	    machine_state.cpr1_valid.set_bit(m->prf_idx);
+	    break;
+	  default:
+	    std::cerr << "unimplemented.." << __PRETTY_FUNCTION__ << "\n";
+	    die();
 	}
-	case load_type::lwc1:
-	  machine_state.cpr1_prf[m->prf_idx] = accessBigEndian(*((uint32_t*)(mem + effective_address)));
-	  break;
-	default:
-	  std::cerr << "unimplemented.." << __PRETTY_FUNCTION__ << "\n";
-	  die();
-	}
+      }
     }
   }
   virtual bool retire(sim_state &machine_state) {
     machine_state.load_tbl[m->load_tbl_idx] = nullptr;
     machine_state.load_tbl_freevec.clear_bit(m->load_tbl_idx);
-    machine_state.cpr1_valid.set_bit(m->prf_idx);
+
     machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
 
@@ -1322,7 +1351,6 @@ public:
     machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
     machine_state.arch_cpr1_last_pc[get_dest()] = m->pc;
     if(m->aux_prf_idx != -1) {
-      machine_state.cpr1_valid.set_bit(m->aux_prf_idx);
       machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
       machine_state.cpr1_valid.clear_bit(m->aux_prev_prf_idx);
       machine_state.arch_cpr1[get_dest()+1] = machine_state.cpr1_prf[m->aux_prf_idx];
@@ -1742,6 +1770,15 @@ public:
 	*hi = static_cast<uint32_t>(y>>32);
 	break;
       }
+      case mult_div_types::div: {
+	if(machine_state.gpr_prf[m->src1_prf] != 0) {
+	  *reinterpret_cast<int32_t*>(lo) = machine_state.gpr_prf[m->src0_prf] / machine_state.gpr_prf[m->src1_prf];
+	  *reinterpret_cast<int32_t*>(hi) = machine_state.gpr_prf[m->src0_prf] % machine_state.gpr_prf[m->src1_prf];
+	}
+	latency = 32;
+	break;
+      }
+
       case mult_div_types::divu: {
 	if(machine_state.gpr_prf[m->src1_prf] != 0) {
 	  *lo = (uint32_t)machine_state.gpr_prf[m->src0_prf] /
@@ -2921,18 +2958,26 @@ static mips_op* decode_itype_insn(sim_op m_op) {
       return new load_op(m_op, load_op::load_type::lb);
     case 0x21: /* lh */
       return new load_op(m_op, load_op::load_type::lh);
+    case 0x22:
+      return new load_op(m_op, load_op::load_type::lwl);
     case 0x23: /* lw */
       return new load_op(m_op, load_op::load_type::lw);
     case 0x24: /* lbu */
       return new load_op(m_op, load_op::load_type::lbu);
     case 0x25: /* lbu */
       return new load_op(m_op, load_op::load_type::lhu);
+    case 0x26:
+      return new load_op(m_op, load_op::load_type::lwr);
     case 0x28: /* sb */
       return new store_op(m_op, store_op::store_type::sb);
     case 0x29: /* sh */
       return new store_op(m_op, store_op::store_type::sh);
+    case 0x2A:
+      return new store_op(m_op, store_op::store_type::swl);
     case 0x2B: /* sw */
       return new store_op(m_op, store_op::store_type::sw);
+    case 0x2E:
+      return new store_op(m_op, store_op::store_type::swr);
     case 0x31:
       return new fp_load_op(m_op, fp_load_op::load_type::lwc1);
     case 0x35:
@@ -3004,15 +3049,8 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
       return new mult_div_op(m_op, mult_div_op::mult_div_types::mult);
     case 0x19:  /* multu */
       return new mult_div_op(m_op, mult_div_op::mult_div_types::multu);
-#if 0
     case 0x1A: /* div */
-      if(s->gpr[rt] != 0) {
-	s->lo = s->gpr[rs] / s->gpr[rt];
-	s->hi = s->gpr[rs] % s->gpr[rt];
-      }
-      s->pc += 4;
-      break;
-#endif
+      return new mult_div_op(m_op, mult_div_op::mult_div_types::div);
     case 0x1B: /* divu */
       return new mult_div_op(m_op, mult_div_op::mult_div_types::divu);
     case 0x20: /* add */
@@ -3121,9 +3159,10 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
 	case 0x21:
 	  return new cvtd_op(m_op);
 	default:
-	  std::cerr << std::hex << m_op->pc << ": lowop = " << lowop
-		    << std::dec << "\n";
-	  die();
+	  //std::cerr << std::hex << m_op->pc << ": lowop = " << lowop
+	  //	    << std::dec << "\n";
+	  //die();
+	  return nullptr;
 	  break;
 	}
     }

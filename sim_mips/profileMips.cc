@@ -163,6 +163,7 @@ void mkMonitorVectors(state_t *s) {
 
 void execMips(state_t *s) {
   if(s->brk) return;
+  s->steps++;
   sparse_mem &mem = s->mem;
   uint32_t inst = accessBigEndian(mem.get32(s->pc));
 
@@ -218,6 +219,8 @@ void execMips(state_t *s) {
 	s->pc += 4;
 	break;
       case 0x08: { /* jr */
+	s->was_branch_or_jump = true;
+	s->took_branch_or_jump = true;
 	uint32_t jaddr = s->gpr[rs];
 	s->pc += 4;
 	execMips(s);
@@ -225,6 +228,8 @@ void execMips(state_t *s) {
 	break;
       }
       case 0x09: { /* jalr */
+	s->was_branch_or_jump = true;
+	s->took_branch_or_jump = true;
 	uint32_t jaddr = s->gpr[rs];
 	s->gpr[31] = s->pc+8;
 	s->pc += 4;
@@ -370,9 +375,13 @@ void execMips(state_t *s) {
     uint32_t jaddr = inst & ((1<<26)-1);
     jaddr <<= 2;
     if(opcode==0x2) { /* j */
+      s->was_branch_or_jump = true;
+      s->took_branch_or_jump = true;
       s->pc += 4;
     }
     else if(opcode==0x3) { /* jal */
+      s->was_branch_or_jump = true;
+      s->took_branch_or_jump = true;
       s->gpr[31] = s->pc+8;
       s->pc += 4;
     }
@@ -417,18 +426,23 @@ void execMips(state_t *s) {
     switch(opcode) 
       {
       case 0x01:
+	s->was_branch_or_jump = true;
 	_bgez_bltz(inst, s); 
 	break;
       case 0x04:
+	s->was_branch_or_jump = true;
 	_beq(inst, s); 
 	break;
       case 0x05:
+	s->was_branch_or_jump = true;
 	_bne(inst, s); 
 	break;
       case 0x06:
+	s->was_branch_or_jump = true;
 	_blez(inst, s); 
 	break;
       case 0x07:
+	s->was_branch_or_jump = true;
 	_bgtz(inst, s); 
 	break;
       case 0x08: /* addi */
@@ -465,15 +479,23 @@ void execMips(state_t *s) {
 	s->pc += 4;
 	break;
       case 0x14:
+	s->was_branch_or_jump = true;
+	s->was_likely_branch = true;
 	_beql(inst, s); 
 	break;
       case 0x16:
+	s->was_branch_or_jump = true;
+	s->was_likely_branch = true;
 	_blezl(inst, s);
 	break;
       case 0x15:
+	s->was_branch_or_jump = true;
+	s->was_likely_branch = true;
 	_bnel(inst, s); 
 	break;
       case 0x17:
+	s->was_branch_or_jump = true;
+	s->was_likely_branch = true;
 	_bgtzl(inst, s); 
 	break;
       case 0x20:
@@ -641,15 +663,21 @@ void execCoproc1(uint32_t inst, state_t *s)
       switch(nd_tf)
 	{
 	case 0x0:
+	  s->was_branch_or_jump = true;
 	  _bc1f(inst, s);
 	  break;
 	case 0x1:
+	  s->was_branch_or_jump = true;
 	  _bc1t(inst, s);
 	  break;
 	case 0x2:
+	  s->was_branch_or_jump = true;
+	  s->was_likely_branch = true;
 	  _bc1fl(inst, s);
 	  break;
 	case 0x3:
+	  s->was_branch_or_jump = true;
+	  s->was_likely_branch = true;
 	  _bc1tl(inst, s);
 	  break;
 	}
@@ -828,6 +856,7 @@ static void _beq(uint32_t inst, state_t *s) {
   execMips(s);
   if(takeBranch)
     {
+      s->took_branch_or_jump = true;
       s->pc = (imm+npc);
     }
 }
@@ -845,6 +874,7 @@ static void _beql(uint32_t inst, state_t *s)
   /* execute branch delay */
   if(takeBranch)
     {
+      s->took_branch_or_jump = true;
       execMips(s);
       s->pc = (imm+npc);
     }
@@ -866,8 +896,10 @@ static void _bne(uint32_t inst, state_t *s)
   s->pc +=4;
   execMips(s);
 
-  if(takeBranch)
+  if(takeBranch) {
+    s->took_branch_or_jump = true;
     s->pc = (imm+npc);
+  }
 }
 
 
@@ -885,6 +917,7 @@ static void _bnel(uint32_t inst, state_t *s)
   /* execute branch delay */
   if(takeBranch)
     {
+      s->took_branch_or_jump = true;
       execMips(s);
       s->pc = (imm+npc);
     }
@@ -900,8 +933,10 @@ static void _bgtz(uint32_t inst, state_t *s) {
   bool takeBranch = (s->gpr[rs]>0);
   s->pc += 4;
   execMips(s);
-  if(takeBranch)
+  if(takeBranch) {
+    s->took_branch_or_jump = true;
     s->pc = imm+npc;
+  }
 }
 
 static void _bgtzl(uint32_t inst, state_t *s) {
@@ -913,6 +948,7 @@ static void _bgtzl(uint32_t inst, state_t *s) {
   s->pc +=4;
 
   if(takeBranch) {
+    s->took_branch_or_jump = true;
     execMips(s);
     s->pc = (imm+npc);
   }
@@ -931,6 +967,7 @@ static void _blezl(uint32_t inst, state_t *s)
 
   if(takeBranch)
     {
+      s->took_branch_or_jump = true;
       execMips(s);
       s->pc = (imm+npc);
     }
@@ -947,8 +984,10 @@ static void _blez(uint32_t inst, state_t *s) {
   bool takeBranch = (s->gpr[rs]<=0);
   s->pc += 4;
   execMips(s);
-  if(takeBranch)
+  if(takeBranch) {
+    s->took_branch_or_jump = true;
     s->pc = imm+npc;
+  }
 
   
 }
@@ -966,21 +1005,27 @@ static void _bgez_bltz(uint32_t inst, state_t *s)
     takeBranch = (s->gpr[rs] < 0);
     s->pc += 4;
     execMips(s);
-    if(takeBranch)
+    if(takeBranch) {
+      s->took_branch_or_jump = true;
       s->pc = imm+npc;
+    }
   }
   else if(rt==1) {
     /* bgez : greater than or equal to zero */
     takeBranch = (s->gpr[rs] >= 0);
     s->pc += 4;
     execMips(s);
-    if(takeBranch)
+    if(takeBranch) {
+      s->took_branch_or_jump = true;
       s->pc = imm+npc;
+    }
   }
   else if(rt==2) {
+    s->was_likely_branch = true;
     takeBranch = (s->gpr[rs] < 0);
     s->pc += 4;
     if(takeBranch) {
+      s->took_branch_or_jump = true;
       execMips(s);
       s->pc = imm+npc;
     }
@@ -989,9 +1034,11 @@ static void _bgez_bltz(uint32_t inst, state_t *s)
   }
   else if(rt == 3) {
     /* greater than zero likely */
+    s->was_likely_branch = true;
     takeBranch = (s->gpr[rs] >=0);
     s->pc += 4;
     if(takeBranch) {
+      s->took_branch_or_jump = true;
       execMips(s);
       s->pc = imm+npc;
     }
@@ -1405,6 +1452,8 @@ static void _monitorBody(uint32_t inst, state_t *s) {
       exit(-1);
       break;
     }
+  s->was_branch_or_jump = true;
+  s->took_branch_or_jump = true;
   s->pc = s->gpr[31];
 }
 
@@ -1464,8 +1513,10 @@ static void _bc1f(uint32_t inst, state_t *s) {
   bool takeBranch = getConditionCode(s,cc)==0;
   s->pc += 4;
   execMips(s);
-  if(takeBranch)
+  if(takeBranch) {
+    s->took_branch_or_jump = true;
     s->pc = imm+npc;
+  }
   
 }
 static void _bc1t(uint32_t inst, state_t *s) { 
@@ -1476,8 +1527,10 @@ static void _bc1t(uint32_t inst, state_t *s) {
   bool takeBranch = getConditionCode(s,cc)==1;
   s->pc += 4;
   execMips(s);
-  if(takeBranch)
+  if(takeBranch) {
+    s->took_branch_or_jump = true;
     s->pc = (imm+npc);
+  }
   
 }
 
@@ -1493,6 +1546,7 @@ static void _bc1fl(uint32_t inst, state_t *s)
 
   if(takeBranch)
     {
+      s->took_branch_or_jump = true;
       execMips(s);
       s->pc = (imm+npc);
     }
@@ -1512,7 +1566,7 @@ static void _bc1tl(uint32_t inst, state_t *s)
 
   if(takeBranch)
     {
-      
+      s->took_branch_or_jump = true;
       execMips(s);
       s->pc = (imm+npc);
     }

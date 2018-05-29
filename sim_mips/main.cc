@@ -35,6 +35,7 @@ state_t *s = nullptr;
 int buildArgcArgv(char *filename, char *sysArgs, char ***argv);
 
 void initialize_ooo_core(sim_state & machine_state,
+			 bool use_oracle,
 			 uint64_t skipicnt, uint64_t maxicnt,
 			 state_t *s, const sparse_mem *sm);
 
@@ -53,7 +54,8 @@ int main(int argc, char *argv[]) {
   char *filename = nullptr;
   char *sysArgs = nullptr;
   uint64_t maxicnt = ~(0UL), skipicnt = 0;
-  while((c=getopt(argc,argv,"a:cf:m:k:"))!=-1) {
+  bool use_oracle = false;
+  while((c=getopt(argc,argv,"a:cf:m:k:o:"))!=-1) {
     switch(c) {
     case 'a':
       sysArgs = strdup(optarg);
@@ -69,6 +71,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'k':
       skipicnt = atoi(optarg);
+      break;
+    case 'o':
+      use_oracle = atoi(optarg);
       break;
     default:
       break;
@@ -93,7 +98,7 @@ int main(int argc, char *argv[]) {
   load_elf(filename, s);
   mkMonitorVectors(s);
   sim_state machine_state;
-  initialize_ooo_core(machine_state, skipicnt, maxicnt, s, sm);
+  initialize_ooo_core(machine_state, use_oracle, skipicnt, maxicnt, s, sm);
   run_ooo_core(machine_state);
   destroy_ooo_core(machine_state);
 

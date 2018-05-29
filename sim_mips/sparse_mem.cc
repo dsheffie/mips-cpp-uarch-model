@@ -24,6 +24,30 @@ sparse_mem::sparse_mem(const sparse_mem &other) {
   }
 }
 
+void sparse_mem::copy(const sparse_mem &other) {
+  for(size_t i = 0; i < npages; i++) {
+    if(mem[i]) {
+      free(mem[i]);
+    }
+  }
+  delete [] mem;
+  present_bitvec.clear();
+  
+  npages = other.npages;
+  present_bitvec.clear_and_resize(npages);
+  mem = new uint8_t*[npages];
+  memset(mem, 0, sizeof(uint8_t*)*npages);
+  for(size_t i = 0; i < npages; i++) {
+    if(other.mem[i]) {
+      present_bitvec.set_bit(i);
+      int rc = posix_memalign(reinterpret_cast<void**>(&mem[i]), 4096, pgsize);
+      assert(rc==0);
+      memcpy(mem[i], other.mem[i], pgsize);
+    }
+  }
+}
+
+
 sparse_mem::~sparse_mem() {
   for(size_t i = 0; i < npages; i++) {
     if(mem[i]) {

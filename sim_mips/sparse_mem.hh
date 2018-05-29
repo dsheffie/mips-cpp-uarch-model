@@ -30,6 +30,7 @@ private:
 public:
   sparse_mem(uint64_t nbytes = 1UL<<32);
   sparse_mem(const sparse_mem &other);
+  void copy(const sparse_mem &other);
   ~sparse_mem();
   void mark_pages_as_no_write();
   bool get_pb_addr(uint32_t addr, uint32_t &paddr, uint32_t &baddr) {
