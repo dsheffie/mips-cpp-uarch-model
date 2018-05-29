@@ -344,7 +344,7 @@ public:
 
 class mips_load : public mips_op {
 public:
-  enum class load_type {lb,lbu,lh,lhu,lw,ldc1,lwc1,bogus};
+  enum class load_type {lb,lbu,lh,lhu,lw,ldc1,lwc1,lwl,lwr,bogus};
 protected:
   itype i_;
   load_type lt;

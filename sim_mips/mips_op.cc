@@ -1142,7 +1142,7 @@ public:
 
 class store_op : public mips_store {
 public:
-  enum class store_type {sb, sh, sw}; 
+  enum class store_type {sb, sh, sw, swl, swr}; 
 protected:
   store_type st;
   int32_t store_data = ~0;
@@ -1198,6 +1198,7 @@ public:
 	mem.set<int32_t>(effective_address, accessBigEndian(store_data));
 	break;
       default:
+	std::cerr << *this << "\n";
 	die();
       }
     retired = true;
@@ -2948,18 +2949,26 @@ static mips_op* decode_itype_insn(sim_op m_op) {
       return new load_op(m_op, load_op::load_type::lb);
     case 0x21: /* lh */
       return new load_op(m_op, load_op::load_type::lh);
+    case 0x22:
+      return new load_op(m_op, load_op::load_type::lwl);
     case 0x23: /* lw */
       return new load_op(m_op, load_op::load_type::lw);
     case 0x24: /* lbu */
       return new load_op(m_op, load_op::load_type::lbu);
     case 0x25: /* lbu */
       return new load_op(m_op, load_op::load_type::lhu);
+    case 0x26:
+      return new load_op(m_op, load_op::load_type::lwr);
     case 0x28: /* sb */
       return new store_op(m_op, store_op::store_type::sb);
     case 0x29: /* sh */
       return new store_op(m_op, store_op::store_type::sh);
+    case 0x2A:
+      return new store_op(m_op, store_op::store_type::swl);
     case 0x2B: /* sw */
       return new store_op(m_op, store_op::store_type::sw);
+    case 0x2E:
+      return new store_op(m_op, store_op::store_type::swr);
     case 0x31:
       return new fp_load_op(m_op, fp_load_op::load_type::lwc1);
     case 0x35:
@@ -3148,9 +3157,10 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
 	case 0x21:
 	  return new cvtd_op(m_op);
 	default:
-	  std::cerr << std::hex << m_op->pc << ": lowop = " << lowop
-		    << std::dec << "\n";
-	  die();
+	  //std::cerr << std::hex << m_op->pc << ": lowop = " << lowop
+	  //	    << std::dec << "\n";
+	  //die();
+	  return nullptr;
 	  break;
 	}
     }
