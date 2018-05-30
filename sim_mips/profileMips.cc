@@ -238,8 +238,7 @@ void execMips(state_t *s) {
 	break;
       }
       case 0x0C: /* syscall */
-	printf("syscall()\n");
-	exit(-1);
+	s->syscall = 1;
 	break;
       case 0x0D: /* break */
 	s->brk = 1;
