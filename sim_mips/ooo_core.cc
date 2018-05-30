@@ -52,6 +52,8 @@ static int num_load_sched_entries = 64;
 static int num_store_sched_entries = 64;
 static int num_system_sched_entries = 4;
 
+static int load_tbl_size = 16;
+static int store_tbl_size = 16;
 static int taken_branches_per_cycle = 1;
 
 static uint64_t curr_cycle = 0;
@@ -461,25 +463,6 @@ void retire(sim_state &machine_state) {
       }
       rob.clear();
 	
-      std::set<int32_t> gpr_prf_debug;
-      for(int i = 0; i < 34; i++) {
-	auto it = gpr_prf_debug.find(machine_state.gpr_rat[i]);
-	gpr_prf_debug.insert(machine_state.gpr_rat[i]);
-      }
-	
-      if(gpr_prf_debug.size() != 34) {
-	  
-	for(int i = 0; i < machine_state.num_gpr_prf_; i++) {
-	  if(not(machine_state.gpr_freevec.get_bit(i)))
-	    continue;
-	  auto it = gpr_prf_debug.find(i);
-	  if(it == gpr_prf_debug.end()) {
-	    dprintf(log_fd, "no mapping to prf %d\n", i);
-	  }
-	}
-	exit(-1);
-      }
-
       for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
 	auto f = machine_state.fetch_queue.at(i);
 	if(f) {
@@ -970,7 +953,7 @@ void sim_state::initialize_rat_mappings() {
   for(int i = 32; i < 34; i++) {
     gpr_rat[i] = i;
     gpr_freevec.set_bit(i);
-      gpr_valid.set_bit(i);
+    gpr_valid.set_bit(i);
   }
   for(int i = 0; i < 5; i++) {
     fcr1_rat[i] = i;
@@ -999,11 +982,11 @@ void sim_state::initialize() {
   cpr1_freevec.clear_and_resize(num_cpr1_prf);
   fcr1_freevec.clear_and_resize(num_fcr1_prf);
   
-  load_tbl_freevec.clear_and_resize(8);
-  load_tbl = new mips_meta_op*[8];
+  load_tbl_freevec.clear_and_resize(load_tbl_size);
+  load_tbl = new mips_meta_op*[load_tbl_size];
 
-  store_tbl_freevec.clear_and_resize(64);
-  store_tbl = new mips_meta_op*[64];
+  store_tbl_freevec.clear_and_resize(store_tbl_size);
+  store_tbl = new mips_meta_op*[store_tbl_size];
   
   for(size_t i = 0; i < load_tbl_freevec.size(); i++) {
     load_tbl[i] = nullptr;
