@@ -1105,8 +1105,7 @@ public:
 	      accessBigEndian(*((int32_t*)(mem + effective_address)));
 	    break;
 	  default:
-	    std::cerr << std::hex << m->pc << std::dec << ":" <<
-	      getAsmString(m->pc, m->inst) << "\n";
+	    std::cerr << *this << "\n";
 	    die();
 	  }
 	machine_state.gpr_valid.set_bit(m->prf_idx);
@@ -1927,6 +1926,74 @@ public:
     uint32_t size = ((m->inst >> 11) & 31) + 1;
     machine_state.gpr_prf[m->prf_idx] = (machine_state.gpr_prf[m->src0_prf] >> pos) &
       ((1<<size)-1);
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  virtual void complete(sim_state &machine_state) {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      machine_state.gpr_valid.set_bit(m->prf_idx);
+    }
+  }
+  virtual bool retire(sim_state &machine_state) {
+    machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+    machine_state.icnt++;
+    machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+    machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+    
+    m->retire_cycle = get_curr_cycle();
+    return true;
+  }
+  virtual void undo(sim_state &machine_state) {
+    machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.gpr_freevec.clear_bit(m->prf_idx);
+    machine_state.gpr_valid.clear_bit(m->prf_idx);
+  }
+};
+
+
+class ins_op : public mips_op {
+public:
+  ins_op(sim_op op) : mips_op(op) {
+    this->op_class = mips_op_type::alu;
+  }
+  virtual int get_src0() const {
+    return (m->inst >> 21) & 31; /* rs */
+  }
+  virtual int get_src1() const {
+    return (m->inst >> 16) & 31; /* rt */
+  }
+  virtual int get_dest() const {
+    return (m->inst >> 16) & 31; 
+  }
+  virtual bool allocate(sim_state &machine_state) {
+    m->src0_prf = machine_state.gpr_rat[get_src0()];
+    m->src1_prf = machine_state.gpr_rat[get_src1()];
+    m->prf_idx = machine_state.gpr_freevec.find_first_unset();
+    if(m->prf_idx == -1)
+      return false;
+    m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
+    machine_state.gpr_freevec.set_bit(m->prf_idx);
+    machine_state.gpr_rat[get_dest()] = m->prf_idx;
+    machine_state.gpr_valid.clear_bit(m->prf_idx);
+    return true;
+  }
+  virtual bool ready(sim_state &machine_state) const {
+    if(not(machine_state.gpr_valid.get_bit(m->src0_prf)))
+      return false;
+    if(not(machine_state.gpr_valid.get_bit(m->src1_prf)))
+      return false;
+    return true;
+  }
+  virtual void execute(sim_state &machine_state) {
+    uint32_t op = (m->inst>>6) & 31;
+    uint32_t rd = (m->inst >> 11) & 31;
+    uint32_t size = rd-op+1;
+    uint32_t mask = (1U<<size) -1;
+    uint32_t cmask = ~(mask << op);
+    uint32_t v = (machine_state.gpr_prf[m->src0_prf] & mask) << op;
+    uint32_t c = (machine_state.gpr_prf[m->src1_prf] & cmask) | v;
+    machine_state.gpr_prf[m->prf_idx] = c;
     m->complete_cycle = get_curr_cycle() + 1;
   }
   virtual void complete(sim_state &machine_state) {
@@ -3200,6 +3267,8 @@ static mips_op* decode_special3_insn(sim_op m_op) {
     {
     case 0x0:
       return new ext_op(m_op);
+    case 0x4:
+      return new ins_op(m_op);
     case 0x20:
       switch(op)
 	{
