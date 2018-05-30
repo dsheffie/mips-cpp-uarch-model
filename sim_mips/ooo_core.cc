@@ -52,6 +52,8 @@ static int num_load_sched_entries = 64;
 static int num_store_sched_entries = 64;
 static int num_system_sched_entries = 4;
 
+static int taken_branches_per_cycle = 1;
+
 static uint64_t curr_cycle = 0;
 extern std::map<uint32_t, uint32_t> branch_target_map;
 extern std::map<uint32_t, int32_t> branch_prediction_map;
@@ -85,7 +87,7 @@ void fetch(sim_state &machine_state) {
   sparse_mem &mem = *(machine_state.mem);
   
   while(not(machine_state.terminate_sim)) {
-    int fetch_amt = 0;
+    int fetch_amt = 0, taken_branches = 0;
     for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
       
       if(machine_state.delay_slot_npc) {
@@ -130,17 +132,14 @@ void fetch(sim_state &machine_state) {
 	
       auto it = branch_prediction_map.find(machine_state.fetch_pc);
       bool used_return_addr_stack = false;
-      bool control_flow = false;
       
       mips_meta_op *f = new mips_meta_op(machine_state.fetch_pc, inst, curr_cycle);
       
-      //std::cerr << "FETCH PC " << std::hex << machine_state.fetch_pc << std::dec << "\n";
       if(enable_oracle) {
 	if(oracle_taken) {
 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	  npc = machine_state.oracle_state->pc;
 	  predict_taken = true;
-	  control_flow = true;
 	}
 	else if(oracle_nullify) {
 	  npc = machine_state.fetch_pc + 8;
@@ -160,7 +159,6 @@ void fetch(sim_state &machine_state) {
 	    npc = return_stack.pop();
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	    used_return_addr_stack = true;
-	    control_flow = true;
 #if 0
 	    std::cerr << "found jr at fetch pc " << std::hex
 		      << machine_state.fetch_pc << ", pop "
@@ -175,7 +173,6 @@ void fetch(sim_state &machine_state) {
 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	  npc = get_jump_target(machine_state.fetch_pc, inst);
 	  predict_taken = true;
-	  control_flow = true;
 	}
 	else if(it != branch_prediction_map.end()) {
 	  /* predicted as taken */
@@ -183,14 +180,12 @@ void fetch(sim_state &machine_state) {
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	    npc = branch_target_map.at(machine_state.fetch_pc);
 	    predict_taken = true;
-	    control_flow = true;
 	  }
 	}
 	else if(is_likely_branch(inst)) {
 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	  npc = get_branch_target(machine_state.fetch_pc, inst);
 	  predict_taken = true;
-	  control_flow = true;
 	}
 	else if(is_branch(inst)) {
 	  uint32_t target = get_branch_target(machine_state.fetch_pc, inst);
@@ -198,7 +193,6 @@ void fetch(sim_state &machine_state) {
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	    npc = get_branch_target(machine_state.fetch_pc, inst);
 	    predict_taken = true;
-	    control_flow = true;
 	  }
 	}
       }
@@ -209,8 +203,11 @@ void fetch(sim_state &machine_state) {
       
       fetch_queue.push(f);
       machine_state.fetch_pc = npc;
-      //if(control_flow)
-      //break;
+      if(predict_taken)
+	taken_branches++;
+      
+      if(taken_branches == taken_branches_per_cycle)
+	break;
     }
     gthread_yield();
   }

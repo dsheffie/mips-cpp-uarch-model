@@ -147,6 +147,55 @@ struct mips_meta_op {
   bool push_return_stack = false;
   sim_stack_template<uint32_t> shadow_rstack;
 
+  void reinit(uint32_t pc,
+	      uint32_t inst,
+	      uint32_t fetch_cycle) {
+    this->pc = pc;
+    this->inst = inst;
+    this->fetch_cycle = fetch_cycle;
+
+    fetch_npc = 0;  
+    predict_taken = false;
+    pop_return_stack = false;
+    alloc_id = -1;
+    decode_cycle = -1;
+    alloc_cycle = -1;
+    ready_cycle = -1;
+    complete_cycle = -1;
+    retire_cycle = -1;
+    is_complete = false;
+    could_cause_exception = false;
+    branch_exception = false;
+    load_exception = false;
+    is_branch_or_jump = false;
+    is_jal = false;
+    is_jr = false;
+    has_delay_slot = false;
+    likely_squash = false;
+    correct_pc = 0;
+    is_store = false;
+    is_fp_store = false;
+
+    rob_idx = -1;
+    prf_idx = -1;
+    aux_prf_idx=-1;
+    prev_prf_idx = -1;
+    aux_prev_prf_idx = -1;
+    src0_prf = -1;
+    src1_prf = -1;
+    src2_prf = -1;
+    src3_prf = -1;
+    src4_prf = -1;
+    load_tbl_idx = -1;
+    store_tbl_idx = -1;
+    hi_prf_idx = -1;
+    lo_prf_idx = -1;
+    prev_hi_prf_idx = -1;
+    prev_lo_prf_idx = -1;
+
+    op = nullptr;
+    push_return_stack = false;
+  }
 
   mips_meta_op(uint32_t pc,
 	       uint32_t inst,
@@ -168,6 +217,8 @@ struct mips_meta_op {
     fetch_cycle(fetch_cycle),
     predict_taken(predict_taken),
     pop_return_stack(pop_return_stack)  {}
+  
+  void release();
   ~mips_meta_op();
 };
 
