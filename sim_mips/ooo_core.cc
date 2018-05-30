@@ -542,6 +542,12 @@ void initialize_ooo_core(sim_state &machine_state,
   while(s->icnt < skipicnt) {
     execMips(s);
   }
+  if(false and (skipicnt==0)) {
+    while(s->syscall==0) {
+      execMips(s);
+    }
+    s->pc+=4;
+  }
   
   //s->debug = 1;
   machine_state.ref_state = s;

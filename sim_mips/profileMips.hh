@@ -55,6 +55,7 @@ struct state_t {
   int32_t hi;
   uint64_t icnt;
   uint8_t brk;
+  uint8_t syscall;
   int steps;
   int call_site;
   int32_t gpr[32];
@@ -67,7 +68,8 @@ struct state_t {
   bool took_branch_or_jump = false;
   
   state_t(sparse_mem &mem) : mem(mem), pc(0), lo(0), hi(0),
-			     icnt(0), brk(0), steps(0) {
+			     icnt(0), brk(0),
+			     syscall(0), steps(0) {
     memset(gpr, 0, sizeof(int32_t)*32);
     memset(cpr0, 0, sizeof(uint32_t)*32);
     memset(cpr1, 0, sizeof(uint32_t)*32);
@@ -80,6 +82,7 @@ struct state_t {
     hi = other->hi;
     icnt = other->icnt;
     brk = other->brk;
+    syscall = other->syscall;
     call_site = other->call_site;
     memcpy(gpr, other->gpr, sizeof(int32_t)*32);
     memcpy(cpr0, other->cpr0, sizeof(uint32_t)*32);
