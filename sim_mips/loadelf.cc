@@ -94,6 +94,7 @@ void load_elf(const char* fn, state_t *ms) {
 
   /* Find instruction segments and copy to
    * the memory buffer */
+  //uint32_t code_sz = 0;
   for(int32_t i = 0; i < e_phnum; i++, ph32++) {
     int32_t p_memsz = accessBigEndian(ph32->p_memsz);
     int32_t p_offset = accessBigEndian(ph32->p_offset);
@@ -110,8 +111,9 @@ void load_elf(const char* fn, state_t *ms) {
       for(int32_t cc = 0; cc < p_filesz; cc++) {
 	mem.at(cc+p_vaddr) = reinterpret_cast<uint8_t*>(buf + p_offset)[cc];
       }
+      //code_sz += p_filesz;
     }
   }
-
+  //std::cout << "loaded " << code_sz << " code bytes\n";
   munmap(buf, s.st_size);
 }

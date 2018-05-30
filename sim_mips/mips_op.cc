@@ -3276,6 +3276,13 @@ mips_meta_op::~mips_meta_op() {
   }
 }
 
+void mips_meta_op::release() {
+  if(op) {
+    delete op;
+    op = nullptr;
+  }
+}
+
 bool mips_op::allocate(sim_state &machine_state) {
   dprintf(log_fd, "allocate must be implemented\n");
   die();
