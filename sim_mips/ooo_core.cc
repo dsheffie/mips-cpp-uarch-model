@@ -29,8 +29,8 @@
 
 /* sim parameters */
 static int rob_size = 64;
-static int fetchq_size = 64;
-static int decodeq_size = 64;
+static int fetchq_size = 8;
+static int decodeq_size = 8;
 
 static int fetch_bw = 8;
 static int decode_bw = 6;
