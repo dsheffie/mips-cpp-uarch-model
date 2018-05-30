@@ -6,6 +6,8 @@
 #include <map>
 #include <set>
 
+static const int l1_latency = 3;
+
 std::map<uint32_t, uint32_t> branch_target_map;
 std::map<uint32_t, int32_t> branch_prediction_map;
 
@@ -1073,7 +1075,7 @@ public:
       default:
 	break;
       }
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + l1_latency;
   }
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -1311,7 +1313,7 @@ public:
       default:
 	break;
       }
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + l1_latency;
   }
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
