@@ -183,12 +183,14 @@ int32_t highAssocCache::findLRU(uint32_t w) {
 
 directMappedCache::~directMappedCache(){}
 
-void directMappedCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
+bool directMappedCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
   uint32_t w,t;
   uint32_t b = index(addr, w, t);
+  bool h = false;
   if(tags[w]==t && valid[w]) {
     hits++;
     rw_hits[(opType::WRITE==o) ? 1 : 0]++;
+    h = true;
   }
   else {
     misses++;
@@ -196,6 +198,7 @@ void directMappedCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
     valid[w] = true;
     tags[w] = t;
   }
+  return h;
 }
 
 fullAssocCache::~fullAssocCache() {
@@ -205,9 +208,10 @@ fullAssocCache::~fullAssocCache() {
 }
 
 
-void fullAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
+bool fullAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
   uint32_t w,t;
   uint32_t b = index(addr, w, t);
+  bool h = false;
   auto it = entries.find(t);
   if(it != entries.end()) {
     hits++;
@@ -215,6 +219,7 @@ void fullAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
     hitdepth[d]++;
     rw_hits[(opType::WRITE==o) ? 1 : 0]++;
     entries.move_to_head(it);
+    h = true;
   }
   else {
     misses++;
@@ -224,6 +229,7 @@ void fullAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
     }
     entries.push_front(t);
   }
+  return h;
 }
 
 setAssocCache::setAssocCache(size_t bytes_per_line, size_t assoc, size_t num_sets, 
@@ -244,21 +250,23 @@ setAssocCache::~setAssocCache() {
   print_var(cap);
 }
 
-void setAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
+bool setAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
   uint32_t w,t;
   uint32_t b = index(addr, w, t);
-  sets[w]->access(t,o);
+  return sets[w]->access(t,o);
 }
 
 
-void fullRandAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
+bool fullRandAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
   uint32_t w,t;
   uint32_t b = index(addr, w, t);
+  bool h  = false;
   auto it = std::find(entries.begin(), entries.end(), t);
   if(it != entries.end()) {
     hits++;
     auto d = std::distance(entries.begin(),it);
     rw_hits[(opType::WRITE==o) ? 1 : 0]++;
+    h = true;
   }
   else {
     if(entries.size() != assoc) {
@@ -275,17 +283,17 @@ void fullRandAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
     misses++;
     rw_misses[(opType::WRITE==o) ? 1 : 0]++;
   }
+  return h;
 }
 
 
-void highAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o)
-{
+bool highAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
   
   /* way and tag of current address */
   uint32_t w,t;
   uint32_t a = assoc+1;
   uint32_t b = index(addr, w, t);
-  
+  bool h = false;
   /* search cache ways */
   if((allvalid[w]))
     {
@@ -294,6 +302,7 @@ void highAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o)
 	  if(tag[w][i]==t)
 	    {
 	      a = i;
+	      h = true;
 	      break;
 	    }
 	}
@@ -305,6 +314,7 @@ void highAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o)
 	  if(valid[w][i] && (tag[w][i]==t))
 	    {
 	      a = i;
+	      h = true;
 	      break;
 	    }
 	}
@@ -356,6 +366,7 @@ void highAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o)
       rw_hits[(opType::WRITE==o) ? 1 : 0]++;
       updateLRU(a,w);
     }
+  return h;
 }
 
 void lowAssocCache::updateLRU(uint32_t idx, uint32_t w)
@@ -414,16 +425,17 @@ int32_t lowAssocCache::findLRU(uint32_t w)
   return -1;
 }
 
-void lowAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o){
+bool lowAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o){
   /* way and tag of current address */
   uint32_t w,t;
   uint32_t a = assoc+1;
   uint32_t b = index(addr, w, t);
-  
+  bool h =  false;
   if((allvalid[w])) {
     for(size_t i = 0; i < assoc; i++) {
       if(tag[w][i]==t) {
 	a = i;
+	h = true;
 	break;
       }
     }
@@ -435,6 +447,7 @@ void lowAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o){
 	uint32_t i = __builtin_ffsl(v)-1;
 	if(tag[w][i] == t) {
 	  a = i;
+	  h = true;
 	  break;
 	}
 	v &= ( ~(1UL << i) );
@@ -472,17 +485,16 @@ void lowAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o){
     rw_hits[(opType::WRITE==o) ? 1 : 0]++;
     updateLRU(a,w);
   }
+  return h;
 }
 
 
 
-void simCache::read(uint32_t addr, uint32_t num_bytes)
-{
+void simCache::read(uint32_t addr, uint32_t num_bytes) {
   access(addr,num_bytes,opType::READ);
 }
 
-void simCache::write(uint32_t addr, uint32_t num_bytes)
-{
+void simCache::write(uint32_t addr, uint32_t num_bytes) {
   access(addr,num_bytes,opType::WRITE);
 }
 
@@ -616,23 +628,20 @@ randomReplacementCache::~randomReplacementCache()
   delete [] allvalid;
 }
 
-void randomReplacementCache::access(uint32_t addr, uint32_t num_bytes, opType o)
-{
-  
+bool randomReplacementCache::access(uint32_t addr, uint32_t num_bytes, opType o){
   /* way and tag of current address */
   uint32_t w,t;
   uint32_t a = assoc+1;
   uint32_t b = index(addr, w, t);
-  
+  bool h = false;
   /* search cache ways */
-  for(size_t i = 0; i < assoc; i++)
-    {
-      if(valid[w][i] && (tag[w][i]==t))
-	{
-	  a = i;
-	  break;
-	}
+  for(size_t i = 0; i < assoc; i++) {
+    if(valid[w][i] && (tag[w][i]==t)) {
+      a = i;
+      h = true;
+      break;
     }
+  }
   
   /* cache miss .. handle it */
   if( a == (assoc+1))
@@ -673,29 +682,28 @@ void randomReplacementCache::access(uint32_t addr, uint32_t num_bytes, opType o)
 	  allvalid[w] = allV;
 	}
     }
-  else
-    {
-      hits++;
-      rw_hits[(opType::WRITE==o) ? 1 : 0]++;
-    }
+  else {
+    hits++;
+    rw_hits[(opType::WRITE==o) ? 1 : 0]++;
+  }
+  return h;
 }
 
 
 
-void realLRUCache::access(uint32_t addr, uint32_t num_bytes, opType o)
-{
-  
+bool realLRUCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
   /* way and tag of current address */
   uint32_t w,t;
   uint32_t a = assoc+1;
   uint32_t b = index(addr, w, t);
-  
+  bool h = false;
   /* search cache ways */
   for(size_t i = 0; i < assoc; i++)
     {
       if(valid[w][i] && (tag[w][i]==t))
 	{
 	  a = i;
+	  h = true;
 	  break;
 	}
     }
@@ -756,4 +764,5 @@ void realLRUCache::access(uint32_t addr, uint32_t num_bytes, opType o)
       rw_hits[(o==opType::WRITE)?1:0]++;
       lru[w][a] = get_curr_cycle();
     }
+  return h;
 }
