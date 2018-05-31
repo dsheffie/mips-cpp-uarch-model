@@ -119,10 +119,10 @@ public:
   mtc1(sim_op op) : mips_op(op) {
     this->op_class = mips_op_type::alu;
   }
-  virtual int get_dest() const {
+  int get_dest() const override {
     return (m->inst >> 11) & 31;
   }
-  virtual int get_src0() const {
+  int get_src0() const override {
     return (m->inst >> 16) & 31;
   }
   virtual bool allocate(sim_state &machine_state) {
@@ -148,13 +148,13 @@ public:
     machine_state.cpr1_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf];
     m->complete_cycle = get_curr_cycle() + 1;
   }
-  virtual void complete(sim_state &machine_state) {
+  void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       machine_state.cpr1_valid.set_bit(m->prf_idx);
     }
   }
-  virtual bool retire(sim_state &machine_state) {
+  bool retire(sim_state &machine_state) override {
     machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
     retired = true;
@@ -164,7 +164,7 @@ public:
     m->retire_cycle = get_curr_cycle();
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
+  void undo(sim_state &machine_state) override {
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
     machine_state.cpr1_valid.set_bit(m->prf_idx);
@@ -176,10 +176,10 @@ public:
   mfc1(sim_op op) : mips_op(op) {
     this->op_class = mips_op_type::alu;
   }
-  virtual int get_dest() const {
+  int get_dest() const override {
     return(m->inst>>16) & 31;
   }
-  virtual int get_src0() const {
+  int get_src0() const override {
     return (m->inst >> 11) & 31;
   }
   virtual bool allocate(sim_state &machine_state) {
@@ -207,13 +207,13 @@ public:
     machine_state.gpr_prf[m->prf_idx] = machine_state.cpr1_prf[m->src0_prf];
     m->complete_cycle = get_curr_cycle() + 1;
   }
-  virtual void complete(sim_state &machine_state) {
+  void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       machine_state.gpr_valid.set_bit(m->prf_idx);
     }
   }
-  virtual bool retire(sim_state &machine_state) {
+  bool retire(sim_state &machine_state) override {
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
 
@@ -225,7 +225,7 @@ public:
     m->retire_cycle = get_curr_cycle();
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
+  void undo(sim_state &machine_state) override {
     if(m->prev_prf_idx != -1) {
       machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     }
@@ -246,7 +246,7 @@ public:
   lo_hi_move(sim_op op, lo_hi_type lht) : mips_op(op), lht(lht) {
     this->op_class = mips_op_type::alu;
   }
-  virtual int get_dest() const {
+  int get_dest() const override {
     switch(lht)
       {
       case lo_hi_type::mtlo:
@@ -259,7 +259,7 @@ public:
       }
     return (m->inst >> 11) & 31;
   }
-  virtual int get_src0() const {
+  int get_src0() const override {
     switch(lht)
       {
       case lo_hi_type::mtlo:
@@ -297,13 +297,13 @@ public:
     m->complete_cycle = get_curr_cycle() + 1;
   }
 
-  virtual void complete(sim_state &machine_state) {
+  void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       machine_state.gpr_valid.set_bit(m->prf_idx);
     }
   }
-  virtual bool retire(sim_state &machine_state) {
+  bool retire(sim_state &machine_state) override {
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     retired = true;
@@ -314,7 +314,7 @@ public:
     m->retire_cycle = get_curr_cycle();
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
+  void undo(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
@@ -1831,10 +1831,10 @@ public:
   se_op(sim_op op, se_type st) : mips_op(op), st(st) {
     this->op_class = mips_op_type::system;
   }
-  virtual int get_src0() const {
+  int get_src0() const override {
     return (m->inst >> 16) & 31;
   }
-  virtual int get_dest() const {
+  int get_dest() const override {
     return (m->inst >> 11) & 31; 
   }
   virtual bool allocate(sim_state &machine_state) {
@@ -1865,13 +1865,13 @@ public:
       }
     m->complete_cycle = get_curr_cycle() + 1;
   }
-  virtual void complete(sim_state &machine_state) {
+  void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       machine_state.gpr_valid.set_bit(m->prf_idx);
     }
   }
-  virtual bool retire(sim_state &machine_state) {
+  bool retire(sim_state &machine_state) override {
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     machine_state.icnt++;
@@ -1881,7 +1881,7 @@ public:
     m->retire_cycle = get_curr_cycle();
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
+  void undo(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
@@ -1893,10 +1893,10 @@ public:
   ext_op(sim_op op) : mips_op(op) {
     this->op_class = mips_op_type::alu;
   }
-  virtual int get_src0() const {
+  int get_src0() const override {
     return (m->inst >> 21) & 31;
   }
-  virtual int get_dest() const {
+  int get_dest() const override {
     return (m->inst >> 16) & 31; 
   }
   virtual bool allocate(sim_state &machine_state) {
@@ -1920,13 +1920,13 @@ public:
       ((1<<size)-1);
     m->complete_cycle = get_curr_cycle() + 1;
   }
-  virtual void complete(sim_state &machine_state) {
+  void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       machine_state.gpr_valid.set_bit(m->prf_idx);
     }
   }
-  virtual bool retire(sim_state &machine_state) {
+  bool retire(sim_state &machine_state) override {
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     machine_state.icnt++;
@@ -1936,7 +1936,7 @@ public:
     m->retire_cycle = get_curr_cycle();
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
+  void undo(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
@@ -1949,13 +1949,13 @@ public:
   ins_op(sim_op op) : mips_op(op) {
     this->op_class = mips_op_type::alu;
   }
-  virtual int get_src0() const {
+  int get_src0() const override {
     return (m->inst >> 21) & 31; /* rs */
   }
-  virtual int get_src1() const {
+  int get_src1() const override {
     return (m->inst >> 16) & 31; /* rt */
   }
-  virtual int get_dest() const {
+  int get_dest() const override {
     return (m->inst >> 16) & 31; 
   }
   virtual bool allocate(sim_state &machine_state) {
@@ -1988,13 +1988,13 @@ public:
     machine_state.gpr_prf[m->prf_idx] = c;
     m->complete_cycle = get_curr_cycle() + 1;
   }
-  virtual void complete(sim_state &machine_state) {
+  void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       machine_state.gpr_valid.set_bit(m->prf_idx);
     }
   }
-  virtual bool retire(sim_state &machine_state) {
+  bool retire(sim_state &machine_state) override {
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     machine_state.icnt++;
@@ -2004,7 +2004,7 @@ public:
     m->retire_cycle = get_curr_cycle();
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
+  void undo(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
@@ -2017,13 +2017,13 @@ public:
   movci_op(sim_op op) : mips_op(op) {
     this->op_class = mips_op_type::alu;
   }
-  virtual int get_dest() const {
+  int get_dest() const override {
     return (m->inst >> 11) & 31; 
   }
-  virtual int get_src0() const {
+  int get_src0() const override {
     return (m->inst >> 11) & 31; /* previous value of dest */
   }
-  virtual int get_src1() const {
+  int get_src1() const override {
     return (m->inst >> 21) & 31; /* other register */
   }
   virtual bool allocate(sim_state &machine_state) {
@@ -2062,13 +2062,13 @@ public:
     machine_state.gpr_prf[m->prf_idx] = r;
     m->complete_cycle = get_curr_cycle() + 1;
   }
-  virtual void complete(sim_state &machine_state) {
+  void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       machine_state.gpr_valid.set_bit(m->prf_idx);
     }
   }
-  virtual bool retire(sim_state &machine_state) {
+  bool retire(sim_state &machine_state) override {
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
     machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
     machine_state.icnt++;
@@ -2078,7 +2078,7 @@ public:
     m->retire_cycle = get_curr_cycle();
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
+  void undo(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
@@ -2110,13 +2110,13 @@ public:
   fmovc_op(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {
     this->op_class = mips_op_type::fp; 
   }
-  virtual int get_dest() const {
+  int get_dest() const override {
     return (m->inst >> 6) & 31; /* fd */
   }
-  virtual int get_src0() const {
+  int get_src0() const override {
     return (m->inst >> 11) & 31; /* fs */
   }
-  virtual int get_src1() const {
+  int get_src1() const override {
     return (m->inst >> 6) & 31; /* fd */
   }  
   virtual bool allocate(sim_state &machine_state) {
@@ -2167,7 +2167,7 @@ public:
     }
     return true;
   }
-  virtual void complete(sim_state &machine_state) {
+  void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       machine_state.cpr1_valid.set_bit(m->prf_idx);
@@ -2190,7 +2190,7 @@ public:
       }
     m->complete_cycle = get_curr_cycle() + 1;
   }
-  virtual bool retire(sim_state &machine_state) {
+  bool retire(sim_state &machine_state) override {
     machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
     machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
@@ -2204,7 +2204,7 @@ public:
     m->retire_cycle = get_curr_cycle();
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
+  void undo(sim_state &machine_state) override {
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
@@ -2270,10 +2270,10 @@ public:
   fp_cmp(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {
     this->op_class = mips_op_type::fp; 
   }
-  virtual int get_src0() const {
+  int get_src0() const override {
     return (m->inst >> 11) & 31; /* fs */
   }
-  virtual int get_src1() const {
+  int get_src1() const override {
     return (m->inst >> 16) & 31; /* ft */
   }
   virtual bool allocate(sim_state &machine_state) {
@@ -2316,7 +2316,7 @@ public:
     }
     return true;
   }
-  virtual void complete(sim_state &machine_state) {
+  void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       machine_state.fcr1_valid.set_bit(m->prf_idx);
@@ -2336,7 +2336,7 @@ public:
       }
     m->complete_cycle = get_curr_cycle() + 1;
   }
-  virtual bool retire(sim_state &machine_state) {
+  bool retire(sim_state &machine_state) override {
     machine_state.fcr1_freevec.clear_bit(m->prev_prf_idx);
     machine_state.fcr1_valid.clear_bit(m->prev_prf_idx);
     retired = true;
@@ -2346,7 +2346,7 @@ public:
     machine_state.arch_fcr1_last_pc[CP1_CR25] = m->pc;
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
+  void undo(sim_state &machine_state) override {
     machine_state.fcr1_rat[CP1_CR25] = m->prev_prf_idx;
     machine_state.fcr1_freevec.clear_bit(m->prf_idx);
     machine_state.fcr1_valid.clear_bit(m->prf_idx);
@@ -2479,10 +2479,10 @@ public:
     mips_op(op), fmt((op->inst >> 21) & 31), fot(fot) {
     this->op_class = mips_op_type::fp;
   }
-  virtual int get_src0() const {
+  int get_src0() const override {
     return (m->inst >> 11)&31; /* fs */
   }
-  virtual int get_src1() const {
+  int get_src1() const override {
     switch(fot)
       {
       case fp_op_type::add:
@@ -2495,7 +2495,7 @@ public:
       }
     return -1;
   }
-  virtual int get_dest() const {
+  int get_dest() const override {
     return (m->inst >> 6)&31; 
   }
   virtual bool allocate(sim_state &machine_state) {
@@ -2530,7 +2530,7 @@ public:
     return true;
   }
 
-  virtual void complete(sim_state &machine_state) {
+  void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       machine_state.cpr1_valid.set_bit(m->prf_idx);
@@ -2540,7 +2540,7 @@ public:
     }
   }
 
-  virtual bool retire(sim_state &machine_state) {
+  bool retire(sim_state &machine_state) override {
     machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
     machine_state.icnt++;
@@ -2555,7 +2555,7 @@ public:
     return true;
   }
 
-  virtual void undo(sim_state &machine_state) {
+  void undo(sim_state &machine_state) override {
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
@@ -2612,10 +2612,10 @@ public:
   cvts_truncw_op(sim_op op, op_type ot) : mips_op(op), fmt((op->inst >> 21) & 31), ot(ot) {
     this->op_class = mips_op_type::fp;
   }
-  virtual int get_src0() const {
+  int get_src0() const override {
     return (m->inst >> 11) & 31;
   }
-  virtual int get_dest() const {
+  int get_dest() const override {
     return (m->inst >> 6) & 31; 
   }
   virtual bool allocate(sim_state &machine_state) {
@@ -2653,13 +2653,13 @@ public:
       }
     m->complete_cycle = get_curr_cycle() + 1;
   }
-  virtual void complete(sim_state &machine_state) {
+  void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       machine_state.cpr1_valid.set_bit(m->prf_idx);
     }
   }
-  virtual bool retire(sim_state &machine_state) {
+  bool retire(sim_state &machine_state) override {
     machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
 
@@ -2672,7 +2672,7 @@ public:
     
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
+  void undo(sim_state &machine_state) override {
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
@@ -2687,10 +2687,10 @@ public:
   cvtd_op(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {
     this->op_class = mips_op_type::fp;
   }
-  virtual int get_src0() const {
+  int get_src0() const override {
     return (m->inst >> 11) & 31;
   }
-  virtual int get_dest() const {
+  int get_dest() const override {
     return (m->inst >> 6) & 31; 
   }
   virtual bool allocate(sim_state &machine_state) {
@@ -2737,14 +2737,14 @@ public:
     machine_state.cpr1_prf[m->aux_prf_idx] = dest[1];
     m->complete_cycle = get_curr_cycle() + 1;
   }
-  virtual void complete(sim_state &machine_state) {
+  void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       machine_state.cpr1_valid.set_bit(m->prf_idx);
       machine_state.cpr1_valid.set_bit(m->aux_prf_idx);
     }
   }
-  virtual bool retire(sim_state &machine_state) {
+  bool retire(sim_state &machine_state) override {
     machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
     machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
@@ -2760,7 +2760,7 @@ public:
     
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
+  void undo(sim_state &machine_state) override {
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_rat[get_dest()+1] = m->aux_prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
@@ -2785,12 +2785,12 @@ public:
   virtual void execute(sim_state &machine_state) {
     m->complete_cycle = get_curr_cycle() + 1;
   }
-  virtual void complete(sim_state &machine_state) {
+  void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
     }
   }
-  virtual bool retire(sim_state &machine_state) {
+  bool retire(sim_state &machine_state) override {
     retired = true;
     machine_state.icnt++;
     m->retire_cycle = get_curr_cycle();
@@ -2799,7 +2799,7 @@ public:
   virtual bool stop_sim() const {
     return true;
   }
-  virtual void undo(sim_state &machine_state) {}
+  void undo(sim_state &machine_state) override {}
 };
 
 
@@ -2812,16 +2812,16 @@ public:
     this->op_class = mips_op_type::system;
     op->could_cause_exception = true;
   }
-  virtual int get_dest() const {
+  int get_dest() const override {
     return 2;
   }
-  virtual int get_src0() const {
+  int get_src0() const override {
     return 4;
   }
-  virtual int get_src1() const {
+  int get_src1() const override {
     return 5;
   }
-  virtual int get_src2() const {
+  int get_src2() const override {
     return 6;
   }
   virtual int get_src3() const {
@@ -2867,12 +2867,12 @@ public:
     m->complete_cycle = get_curr_cycle() + 1;
     m->branch_exception = true;
   }
-  virtual void complete(sim_state &machine_state) {
+  void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
     }
   }
-  virtual bool retire(sim_state &machine_state) {
+  bool retire(sim_state &machine_state) override {
     uint32_t reason = ((m->inst >> RSVD_INSTRUCTION_ARG_SHIFT) & RSVD_INSTRUCTION_ARG_MASK) >> 1;
     sparse_mem & mem = *(machine_state.mem);
     machine_state.gpr_prf[m->prf_idx] = 0;
@@ -2931,7 +2931,7 @@ public:
     m->retire_cycle = get_curr_cycle();
     return true;
   }
-  virtual void undo(sim_state &machine_state) {
+  void undo(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
