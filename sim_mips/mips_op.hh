@@ -11,10 +11,9 @@
 #include "sim_list.hh"
 #include "sim_stack.hh"
 #include "mips_encoding.hh"
+#include "sim_cache.hh"
 
 uint64_t get_curr_cycle();
-
-extern int log_fd;
 
 enum class mips_op_type { unknown, alu, fp, jmp, load, store, system };
 
@@ -306,6 +305,9 @@ struct sim_state {
   rs_type store_rs;
   rs_type system_rs;
 
+  simCache *l1d = nullptr;
+  simCache *l2d = nullptr;
+  
   sparse_mem *mem = nullptr;
   uint64_t icnt = 0, maxicnt = ~(0UL), skipicnt = 0;
   uint64_t n_branches = 0, n_jumps = 0;

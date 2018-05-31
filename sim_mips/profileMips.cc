@@ -19,6 +19,8 @@
 static timeval32_t myTimeVal = {0,0};
 static uint32_t myTime = 1<<20;
 
+uint64_t get_curr_cycle();
+
 void execRType(uint32_t inst, state_t *s);
 void execJType(uint32_t inst, state_t *s);
 void execIType(uint32_t inst, state_t *s);
@@ -1432,6 +1434,9 @@ static void _monitorBody(uint32_t inst, state_t *s) {
       path = (char*)(s->mem + (uint32_t)s->gpr[R_a0]);
       //printf("chdir(%s)\n", path);
       s->gpr[R_v0] = chdir(path);
+      break;
+    case 50:
+      s->gpr[R_v0] = get_curr_cycle();
       break;
     case 55: 
       /* void get_mem_info(unsigned int *ptr) */
