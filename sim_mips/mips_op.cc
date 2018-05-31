@@ -125,7 +125,7 @@ public:
   int get_src0() const override {
     return (m->inst >> 16) & 31;
   }
-  virtual bool allocate(sim_state &machine_state) {
+  bool allocate(sim_state &machine_state) override {
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
     int64_t prf_id = machine_state.cpr1_freevec.find_first_unset();
@@ -138,13 +138,13 @@ public:
     machine_state.cpr1_valid.clear_bit(prf_id);
     return true;
   }
-  virtual bool ready(sim_state &machine_state) const {
+  bool ready(sim_state &machine_state) const override {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
     return true;
   }
-  virtual void execute(sim_state &machine_state) {
+  void execute(sim_state &machine_state) override {
     machine_state.cpr1_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf];
     m->complete_cycle = get_curr_cycle() + 1;
   }
@@ -182,7 +182,7 @@ public:
   int get_src0() const override {
     return (m->inst >> 11) & 31;
   }
-  virtual bool allocate(sim_state &machine_state) {
+  bool allocate(sim_state &machine_state) override {
     m->src0_prf = machine_state.cpr1_rat[get_src0()];
     m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
     int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
@@ -194,13 +194,13 @@ public:
     machine_state.gpr_valid.clear_bit(prf_id);
     return true;
   }
-  virtual bool ready(sim_state &machine_state) const {
+  bool ready(sim_state &machine_state) const override {
     if(m->src0_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src0_prf))) {
       return false;
     }
     return true;
   }
-  virtual void execute(sim_state &machine_state) {
+  void execute(sim_state &machine_state) override {
     if(not(ready(machine_state))) {
       die();
     }
@@ -273,7 +273,7 @@ public:
       }
     return (m->inst >> 21) & 31;
   } 
-  virtual bool allocate(sim_state &machine_state) {
+  bool allocate(sim_state &machine_state) override {
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
     int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
@@ -286,13 +286,13 @@ public:
     machine_state.gpr_valid.clear_bit(prf_id);
     return true;
   }
-  virtual bool ready(sim_state &machine_state) const {
+  bool ready(sim_state &machine_state) const override {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
     return true;
   }
-  virtual void execute(sim_state &machine_state) {
+  void execute(sim_state &machine_state) override {
     machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf];
     m->complete_cycle = get_curr_cycle() + 1;
   }
@@ -1837,7 +1837,7 @@ public:
   int get_dest() const override {
     return (m->inst >> 11) & 31; 
   }
-  virtual bool allocate(sim_state &machine_state) {
+  bool allocate(sim_state &machine_state) override {
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->prf_idx = machine_state.gpr_freevec.find_first_unset();
     if(m->prf_idx == -1)
@@ -1848,10 +1848,10 @@ public:
     machine_state.gpr_valid.clear_bit(m->prf_idx);
     return true;
   }
-  virtual bool ready(sim_state &machine_state) const {
+  bool ready(sim_state &machine_state) const override {
     return machine_state.gpr_valid.get_bit(m->src0_prf);
   }
-  virtual void execute(sim_state &machine_state) {
+  void execute(sim_state &machine_state) override {
     switch(st)
       {
       case se_type::seb:
@@ -1899,7 +1899,7 @@ public:
   int get_dest() const override {
     return (m->inst >> 16) & 31; 
   }
-  virtual bool allocate(sim_state &machine_state) {
+  bool allocate(sim_state &machine_state) override {
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->prf_idx = machine_state.gpr_freevec.find_first_unset();
     if(m->prf_idx == -1)
@@ -1910,10 +1910,10 @@ public:
     machine_state.gpr_valid.clear_bit(m->prf_idx);
     return true;
   }
-  virtual bool ready(sim_state &machine_state) const {
+  bool ready(sim_state &machine_state) const override {
     return machine_state.gpr_valid.get_bit(m->src0_prf);
   }
-  virtual void execute(sim_state &machine_state) {
+  void execute(sim_state &machine_state) override {
     uint32_t pos = (m->inst >> 6) & 31;
     uint32_t size = ((m->inst >> 11) & 31) + 1;
     machine_state.gpr_prf[m->prf_idx] = (machine_state.gpr_prf[m->src0_prf] >> pos) &
@@ -1958,7 +1958,7 @@ public:
   int get_dest() const override {
     return (m->inst >> 16) & 31; 
   }
-  virtual bool allocate(sim_state &machine_state) {
+  bool allocate(sim_state &machine_state) override {
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->src1_prf = machine_state.gpr_rat[get_src1()];
     m->prf_idx = machine_state.gpr_freevec.find_first_unset();
@@ -1970,14 +1970,14 @@ public:
     machine_state.gpr_valid.clear_bit(m->prf_idx);
     return true;
   }
-  virtual bool ready(sim_state &machine_state) const {
+  bool ready(sim_state &machine_state) const override {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf)))
       return false;
     if(not(machine_state.gpr_valid.get_bit(m->src1_prf)))
       return false;
     return true;
   }
-  virtual void execute(sim_state &machine_state) {
+  void execute(sim_state &machine_state) override {
     uint32_t op = (m->inst>>6) & 31;
     uint32_t rd = (m->inst >> 11) & 31;
     uint32_t size = rd-op+1;
@@ -2026,7 +2026,7 @@ public:
   int get_src1() const override {
     return (m->inst >> 21) & 31; /* other register */
   }
-  virtual bool allocate(sim_state &machine_state) {
+  bool allocate(sim_state &machine_state) override {
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->src1_prf = machine_state.gpr_rat[get_src1()];
     m->src2_prf = machine_state.fcr1_rat[CP1_CR25];
@@ -2039,7 +2039,7 @@ public:
     machine_state.gpr_valid.clear_bit(m->prf_idx);
     return true;
   }
-  virtual bool ready(sim_state &machine_state) const {
+  bool ready(sim_state &machine_state) const override {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf)))
       return false;
     if(not(machine_state.gpr_valid.get_bit(m->src1_prf)))
@@ -2048,7 +2048,7 @@ public:
       return false;
     return true;
   }
-  virtual void execute(sim_state &machine_state) {
+  void execute(sim_state &machine_state) override {
     uint32_t cc = (m->inst >> 18) & 7;
     uint32_t tf = (m->inst>>16) & 1;
     int32_t r = 0;
@@ -2119,7 +2119,7 @@ public:
   int get_src1() const override {
     return (m->inst >> 6) & 31; /* fd */
   }  
-  virtual bool allocate(sim_state &machine_state) {
+  bool allocate(sim_state &machine_state) override {
     int needed_regs = (fmt==FMT_D) ? 2 : 1;
     if(machine_state.cpr1_freevec.num_free() < needed_regs)
       return false;
@@ -2149,7 +2149,7 @@ public:
     
     return true;
   }
-  virtual bool ready(sim_state &machine_state) const {
+  bool ready(sim_state &machine_state) const override {
     if(not(machine_state.cpr1_valid[m->src0_prf])) {
       return false;
     }
@@ -2176,7 +2176,7 @@ public:
       }
     }
   }
-  virtual void execute(sim_state &machine_state) {
+  void execute(sim_state &machine_state) override {
     switch(fmt)
       {
       case FMT_S:
@@ -2276,7 +2276,7 @@ public:
   int get_src1() const override {
     return (m->inst >> 16) & 31; /* ft */
   }
-  virtual bool allocate(sim_state &machine_state) {
+  bool allocate(sim_state &machine_state) override {
     m->src0_prf = machine_state.cpr1_rat[get_src0()];
     m->src1_prf = machine_state.cpr1_rat[get_src1()];
     m->src4_prf = machine_state.fcr1_rat[CP1_CR25];
@@ -2297,7 +2297,7 @@ public:
 
     return true;
   }
-  virtual bool ready(sim_state &machine_state) const {
+  bool ready(sim_state &machine_state) const override {
     if(not(machine_state.cpr1_valid[m->src0_prf])) {
       return false;
     }
@@ -2322,7 +2322,7 @@ public:
       machine_state.fcr1_valid.set_bit(m->prf_idx);
     }
   }
-  virtual void execute(sim_state &machine_state) {
+  void execute(sim_state &machine_state) override {
     switch(fmt)
       {
       case FMT_S:
@@ -2498,7 +2498,7 @@ public:
   int get_dest() const override {
     return (m->inst >> 6)&31; 
   }
-  virtual bool allocate(sim_state &machine_state) {
+  bool allocate(sim_state &machine_state) override {
     bool allocated = false;
     if(fmt == FMT_D)
       allocated = allocate_double(machine_state);
@@ -2508,13 +2508,13 @@ public:
     return allocated;
 
   }
-  virtual void execute(sim_state &machine_state) {
+  void execute(sim_state &machine_state) override {
     if(fmt == FMT_D)
       execute_double(machine_state);
     else
       execute_float(machine_state);
   }
-  virtual bool ready(sim_state &machine_state) const {
+  bool ready(sim_state &machine_state) const override {
     if(m->src0_prf != -1 and not(machine_state.cpr1_valid[m->src0_prf])) {
       return false;
     }
@@ -2618,7 +2618,7 @@ public:
   int get_dest() const override {
     return (m->inst >> 6) & 31; 
   }
-  virtual bool allocate(sim_state &machine_state) {
+  bool allocate(sim_state &machine_state) override {
     m->src0_prf = machine_state.cpr1_rat[get_src0()];
     if(fmt == FMT_D) {
       m->src1_prf = machine_state.cpr1_rat[get_src0()+1];
@@ -2632,14 +2632,14 @@ public:
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
     return true;
   }
-  virtual bool ready(sim_state &machine_state) const {
+  bool ready(sim_state &machine_state) const override {
     if(not(machine_state.cpr1_valid.get_bit(m->src0_prf)))
       return false;
     if(m->src1_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src1_prf)))
       return false;
     return true;
   }
-  virtual void execute(sim_state &machine_state) {
+  void execute(sim_state &machine_state) override {
     switch(ot)
       {
       case op_type::cvts:
@@ -2693,7 +2693,7 @@ public:
   int get_dest() const override {
     return (m->inst >> 6) & 31; 
   }
-  virtual bool allocate(sim_state &machine_state) {
+  bool allocate(sim_state &machine_state) override {
     if(machine_state.cpr1_freevec.num_free() < 2)
       return false;
     m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
@@ -2711,10 +2711,10 @@ public:
     machine_state.cpr1_rat[get_dest()+1] = m->aux_prf_idx;
     return true;
   }
-  virtual bool ready(sim_state &machine_state) const {
+  bool ready(sim_state &machine_state) const override {
     return machine_state.cpr1_valid.get_bit(m->src0_prf);
   }
-  virtual void execute(sim_state &machine_state) {
+  void execute(sim_state &machine_state) override {
     load_thunk<double> dest;
     switch(fmt)
       {
@@ -2776,13 +2776,13 @@ public:
   break_op(sim_op op) : mips_op(op) {
     this->op_class = mips_op_type::system;
   }
-  virtual bool allocate(sim_state &machine_state) {
+  bool allocate(sim_state &machine_state) override {
     return true;
   }
-  virtual bool ready(sim_state &machine_state) const {
+  bool ready(sim_state &machine_state) const override {
     return true;
   }
-  virtual void execute(sim_state &machine_state) {
+  void execute(sim_state &machine_state) override {
     m->complete_cycle = get_curr_cycle() + 1;
   }
   void complete(sim_state &machine_state) override {
@@ -2796,7 +2796,7 @@ public:
     m->retire_cycle = get_curr_cycle();
     return true;
   }
-  virtual bool stop_sim() const {
+  bool stop_sim() const override {
     return true;
   }
   void undo(sim_state &machine_state) override {}
@@ -2824,10 +2824,10 @@ public:
   int get_src2() const override {
     return 6;
   }
-  virtual int get_src3() const {
+  int get_src3() const override {
     return 31;
   }
-  virtual bool allocate(sim_state &machine_state) {
+  bool allocate(sim_state &machine_state) override {
     m->src0_prf = machine_state.gpr_rat[4];
     m->src1_prf = machine_state.gpr_rat[5];
     m->src2_prf = machine_state.gpr_rat[6];
@@ -2843,7 +2843,7 @@ public:
     machine_state.gpr_valid.clear_bit(prf_id);
     return true;
   }
-  virtual bool ready(sim_state &machine_state) const {
+  bool ready(sim_state &machine_state) const override {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
@@ -2858,7 +2858,7 @@ public:
     }
     return true;
   }
-  virtual void execute(sim_state &machine_state) {
+  void execute(sim_state &machine_state) override {
     src_regs[0] = machine_state.gpr_prf[m->src0_prf];
     src_regs[1] = machine_state.gpr_prf[m->src1_prf];
     src_regs[2] = machine_state.gpr_prf[m->src2_prf];
