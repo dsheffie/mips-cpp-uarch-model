@@ -472,7 +472,6 @@ public:
 	  take_trap = machine_state.gpr_prf[m->src0_prf] == machine_state.gpr_prf[m->src1_prf];
 	  break;
 	default:
-	  dprintf(2, "rtype wtf ((pc = %x)\n", m->pc);
 	  die();
 	}
     }
@@ -481,7 +480,6 @@ public:
   virtual void complete(sim_state &machine_state) {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
-      //dprintf(log_fd, "inst @ %x retiring, prf_idx = %d\n", m->pc, m->prf_idx);
       if(m->prf_idx != -1) {
 	machine_state.gpr_valid.set_bit(m->prf_idx);
       }
@@ -499,7 +497,6 @@ public:
     retired = true;
     machine_state.icnt++;
     if(take_trap) {
-      dprintf(log_fd, "need to trap...\n");
       die();
     }
     m->retire_cycle = get_curr_cycle();
@@ -583,7 +580,6 @@ public:
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] ^ uimm32;
 	break;
       default:
-	dprintf(log_fd, "implement me %x\n", m->pc);
 	die();
       }
     m->complete_cycle = get_curr_cycle() + 1;
@@ -975,7 +971,6 @@ public:
 	m->has_delay_slot = take_br;
 	break;
       default:
-	dprintf(2, "wtf @ %x\n", m->pc);
 	die();
       }
 
@@ -1114,7 +1109,6 @@ public:
   }
   virtual bool retire(sim_state &machine_state) {
     if(m->load_exception) {
-      dprintf(2, "ATTEMPTING TO RETIRE LOAD EXCEPTION @ %x!!\n", m->pc);
       die();
     }
 
@@ -1706,13 +1700,11 @@ public:
 
     m->lo_prf_idx = machine_state.gpr_freevec.find_first_unset();
     if(m->lo_prf_idx==-1) {
-      dprintf(log_fd,"terminal allocation error @ %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
       die();
     }
     machine_state.gpr_freevec.set_bit(m->lo_prf_idx);
     m->hi_prf_idx = machine_state.gpr_freevec.find_first_unset();
     if(m->hi_prf_idx==-1) {
-      dprintf(log_fd,"terminal allocation error @ %s:%d\n", __PRETTY_FUNCTION__, __LINE__);
       die();
     }
     machine_state.gpr_freevec.set_bit(m->hi_prf_idx);
@@ -1792,7 +1784,6 @@ public:
       }
 	
       default:
-	dprintf(2, "implement me @ %s\n", __PRETTY_FUNCTION__);
 	die();
       }
     
@@ -2917,6 +2908,9 @@ public:
 	machine_state.gpr_prf[m->prf_idx] = sysArgc;
 
       }
+      case 50:
+	machine_state.gpr_prf[m->prf_idx] = get_curr_cycle();
+	break;
       case 55:
 	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 0)) = accessBigEndian(K1SIZE);
 	/* No Icache */
@@ -3145,7 +3139,6 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
     case 0x34: /* teq */
       return new rtype_alu_op(m_op, rtype_alu_op::r_type::teq);
     default:
-      dprintf(log_fd,"unknown RType instruction @ %x\n", m_op->pc); 
       return nullptr;
     }
 }
@@ -3355,32 +3348,26 @@ void mips_meta_op::release() {
 }
 
 bool mips_op::allocate(sim_state &machine_state) {
-  dprintf(log_fd, "allocate must be implemented\n");
   die();
   return false;
 }
 
 void mips_op::execute(sim_state &machine_state) {
-  dprintf(log_fd, "execute must be implemented, pc %x\n", m->pc);
   die();
 }
 
 void mips_op::complete(sim_state &machine_state) {
-  dprintf(log_fd, "complete must be implemented, pc %x\n", m->pc);
   die();
 }
 
 bool mips_op::retire(sim_state &machine_state) {
-  dprintf(log_fd, "retire must be implemented, pc %x\n", m->pc);
   return false;
 }
 
 bool mips_op::ready(sim_state &machine_state) const {
-  dprintf(log_fd, "ready must be implemented\n");
   return false;
 }
 
 void mips_op::undo(sim_state &machine_state) {
-  dprintf(log_fd, "implement %x for undo\n", m->pc);
   die();
 }

@@ -525,7 +525,7 @@ void initialize_ooo_core(sim_state &machine_state,
   while(s->icnt < skipicnt) {
     execMips(s);
   }
-  if(false and (skipicnt==0)) {
+  if(true and (skipicnt==0)) {
     while(s->syscall==0) {
       execMips(s);
     }
@@ -587,7 +587,6 @@ extern "C" {
     uint64_t prev_icnt = 0;
     static const uint64_t hinterval = 1UL<<20;
     while(not(machine_state.terminate_sim)) {
-      //dprintf(log_fd, "cycle %llu : icnt %llu\n", curr_cycle, machine_state.icnt);
       curr_cycle++;
       uint64_t delta = curr_cycle - machine_state.last_retire_cycle;
       if(delta > 1024) {
@@ -697,7 +696,6 @@ extern "C" {
 	switch(u->op->get_op_class())
 	  {
 	  case mips_op_type::unknown:
-	    dprintf(log_fd, "want unknown for %x \n", u->pc);
 	    die();
 	  case mips_op_type::alu: {
 	    int64_t p = alu_alloc.find_first_unset();
@@ -771,29 +769,11 @@ extern "C" {
 	  break;
 	}
 	u->alloc_id = alloc_counter++;
-#if 0
-	std::set<int32_t> gpr_prf_debug;
-	for(int i = 0; i < 32; i++) {
-	  //	  dprintf(log_fd, "gpr[%d] maps to prf %d\n", i, machine_state.gpr_rat[i]);
-	  auto it = gpr_prf_debug.find(machine_state.gpr_rat[i]);
-	  gpr_prf_debug.insert(machine_state.gpr_rat[i]);
-	}
-	
-	if(gpr_prf_debug.size() != 32) {
-	  for(int i = 0; i < 32; i++) { 
-	    dprintf(log_fd, "gpr[%d] maps to prf %d\n", i, machine_state.gpr_rat[i]);
-	  }
-	  dprintf(log_fd,"found %zu register mappings after %x allocs\n",
-		  gpr_prf_debug.size(), u->pc);
-	  exit(-1);
-	}
-#endif
-	//std::cout << "allocated " << *(u->op) << " with prf " << u->prf_idx << "\n";
+
 	rs_queue->push(u);
 	decode_queue.pop();
 	u->alloc_cycle = curr_cycle;
 	u->rob_idx = rob.push(u);
-	//dprintf(log_fd, "op at pc %x was allocated\n", u->pc);
 	alloc_amt++;
       }
 

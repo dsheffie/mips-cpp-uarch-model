@@ -26,7 +26,6 @@
 
 #include "mips_op.hh"
 
-int log_fd = 2;
 char **sysArgv = nullptr;
 int sysArgc = 0;
 bool enClockFuncts = false;
@@ -84,8 +83,6 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "INTERP : no file\n");
     exit(-1);
   }
-
-  log_fd = open("/dev/null", O_WRONLY);
 
   /* Build argc and argv */
   sysArgc = buildArgcArgv(filename,sysArgs,&sysArgv);
