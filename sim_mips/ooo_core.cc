@@ -520,16 +520,20 @@ void retire(sim_state &machine_state) {
 
 void initialize_ooo_core(sim_state &machine_state,
 			 bool use_oracle,
+			 bool use_syscall_skip,
 			 uint64_t skipicnt, uint64_t maxicnt,
 			 state_t *s, const sparse_mem *sm) {
-  while(s->icnt < skipicnt) {
-    execMips(s);
-  }
-  if(true and (skipicnt==0)) {
+  
+  if(use_syscall_skip) {
     while(s->syscall==0) {
       execMips(s);
     }
     s->pc+=4;
+  }
+  else if(skipicnt != 0) {
+    while(s->icnt < skipicnt) {
+      execMips(s);
+    }
   }
   
   //s->debug = 1;
