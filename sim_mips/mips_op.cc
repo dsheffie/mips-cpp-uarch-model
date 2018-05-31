@@ -6,7 +6,7 @@
 #include <map>
 #include <set>
 
-static const int l1_latency = 8;
+static const int l1_latency = 3;
 
 std::map<uint32_t, uint32_t> branch_target_map;
 std::map<uint32_t, int32_t> branch_prediction_map;

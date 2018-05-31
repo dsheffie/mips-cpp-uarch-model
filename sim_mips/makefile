@@ -1,6 +1,6 @@
 UNAME_S = $(shell uname -s)
 
-OBJ = main.o loadelf.o parseMips.o helper.o profileMips.o gthread.o sparse_mem.o ooo_core.o mips_op.o sim_cache.o
+OBJ = main.o loadelf.o parseMips.o helper.o profileMips.o gthread.o sparse_mem.o ooo_core.o mips_op.o
 
 ifeq ($(UNAME_S),Linux)
 	CXX = g++ -march=native

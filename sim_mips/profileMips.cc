@@ -1355,12 +1355,6 @@ static void _monitorBody(uint32_t inst, state_t *s) {
       fd = s->gpr[R_a0];
       nr = s->gpr[R_a2];
       s->gpr[R_v0] = per_page_rdwr<true>(s->mem, fd, s->gpr[R_a1], nr);
-#ifndef __FreeBSD__
-      if(fd==1)
-	fflush(stdout);
-      else if(fd==2)
-	fflush(stderr);
-#endif
       break;
     case 9:
       /* off_t lseek(int fd, off_t offset, int whence); */

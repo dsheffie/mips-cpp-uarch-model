@@ -546,6 +546,7 @@ void initialize_ooo_core(sim_state &machine_state,
   machine_state.skipicnt = s->icnt;
   machine_state.use_interp_check = true;
   machine_state.copy_state(s);
+
   //u_arch_mem->mark_pages_as_no_write();
 }
 

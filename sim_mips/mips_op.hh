@@ -11,7 +11,6 @@
 #include "sim_list.hh"
 #include "sim_stack.hh"
 #include "mips_encoding.hh"
-#include "sim_cache.hh"
 
 uint64_t get_curr_cycle();
 
@@ -304,9 +303,6 @@ struct sim_state {
   std::vector<rs_type> load_rs;
   rs_type store_rs;
   rs_type system_rs;
-
-  simCache *l1d = nullptr;
-  simCache *l2d = nullptr;
   
   sparse_mem *mem = nullptr;
   uint64_t icnt = 0, maxicnt = ~(0UL), skipicnt = 0;
