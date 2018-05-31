@@ -2876,6 +2876,7 @@ public:
     uint32_t reason = ((m->inst >> RSVD_INSTRUCTION_ARG_SHIFT) & RSVD_INSTRUCTION_ARG_MASK) >> 1;
     sparse_mem & mem = *(machine_state.mem);
     machine_state.gpr_prf[m->prf_idx] = 0;
+    //std::cout << "monitor reason " << reason << "\n";
     switch(reason)
       {
       case 8: {
@@ -2901,7 +2902,7 @@ public:
 	  strcpy((char*)(mem + ptr), sysArgv[i]);
 	}
 	machine_state.gpr_prf[m->prf_idx] = sysArgc;
-
+	break;
       }
       case 50:
 	machine_state.gpr_prf[m->prf_idx] = get_curr_cycle();
