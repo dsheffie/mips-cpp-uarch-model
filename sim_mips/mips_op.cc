@@ -1107,7 +1107,7 @@ public:
 	  {
 	  case load_type::lb:
 	    machine_state.gpr_prf[m->prf_idx] = 
-	      accessBigEndian(*((int8_t*)(mem + effective_address)));
+	      bswap(*((int8_t*)(mem + effective_address)));
 	    break;
 	  case load_type::lbu:
 	    *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
@@ -1115,19 +1115,19 @@ public:
 	    break;
 	  case load_type::lh:
 	    machine_state.gpr_prf[m->prf_idx] = 
-	      accessBigEndian(*((int16_t*)(mem + effective_address)));
+	      bswap(*((int16_t*)(mem + effective_address)));
 	    break;
 	  case load_type::lhu:
 	    *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
-	      static_cast<uint32_t>(accessBigEndian(*(uint16_t*)(mem + effective_address)));
+	      static_cast<uint32_t>(bswap(*(uint16_t*)(mem + effective_address)));
 	    break;
 	  case load_type::lw:
 	    machine_state.gpr_prf[m->prf_idx] =
-	      accessBigEndian(*((int32_t*)(mem + effective_address)));
+	      bswap(*((int32_t*)(mem + effective_address)));
 	    break;
 	  case load_type::lwl: {
 	    uint32_t ea = effective_address & 0xfffffffc;
-	    uint32_t r = accessBigEndian(*((uint32_t*)(mem + ea)));
+	    uint32_t r = bswap(*((uint32_t*)(mem + ea)));
 	    uint32_t x = *reinterpret_cast<uint32_t*>(&prev_value);
 	    uint32_t *d = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]);
 	    switch(effective_address & 3)
@@ -1149,7 +1149,7 @@ public:
 	  }
 	  case load_type::lwr: {
 	    uint32_t ea = effective_address & 0xfffffffc;
-	    uint32_t r = accessBigEndian(*((uint32_t*)(mem + ea)));
+	    uint32_t r = bswap(*((uint32_t*)(mem + ea)));
 	    uint32_t x = *reinterpret_cast<uint32_t*>(&prev_value);
 	    uint32_t *d = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]);
 	    switch(effective_address & 3)
@@ -1257,10 +1257,10 @@ public:
 	break;
       case store_type::sh:
 	mem.set<int16_t>(effective_address,
-			 accessBigEndian(static_cast<int16_t>(store_data)));
+			 bswap(static_cast<int16_t>(store_data)));
 	break;
       case store_type::sw:
-	mem.set<int32_t>(effective_address, accessBigEndian(store_data));
+	mem.set<int32_t>(effective_address, bswap(store_data));
 	break;
       default:
 	std::cerr << *this << "\n";
@@ -1386,7 +1386,7 @@ public:
 	switch(lt)
 	  {
 	  case load_type::ldc1: {
-	    load_thunk<uint64_t> ld(accessBigEndian(*((uint64_t*)(mem + effective_address))));
+	    load_thunk<uint64_t> ld(bswap(*((uint64_t*)(mem + effective_address))));
 	    machine_state.cpr1_prf[m->prf_idx] = ld[0];
 	    machine_state.cpr1_prf[m->aux_prf_idx] = ld[1];
 	    machine_state.cpr1_valid.set_bit(m->prf_idx);
@@ -1394,7 +1394,7 @@ public:
 	    break;
 	  }
 	  case load_type::lwc1:
-	    machine_state.cpr1_prf[m->prf_idx] = accessBigEndian(*((uint32_t*)(mem + effective_address)));
+	    machine_state.cpr1_prf[m->prf_idx] = bswap(*((uint32_t*)(mem + effective_address)));
 	    machine_state.cpr1_valid.set_bit(m->prf_idx);
 	    break;
 	  default:
@@ -1507,13 +1507,13 @@ public:
     switch(st)
       {
       case store_type::swc1:
-	mem.set<uint32_t>(effective_address, accessBigEndian(store_data[0]));
+	mem.set<uint32_t>(effective_address, bswap(store_data[0]));
 	break;
       case store_type::sdc1: {
 	load_thunk<uint64_t> ld;
 	ld[0] = store_data[0];
 	ld[1] = store_data[1];
-	mem.set<uint64_t>(effective_address, accessBigEndian(ld.DT()));
+	mem.set<uint64_t>(effective_address, bswap(ld.DT()));
 	break;
       }
       default:
@@ -2965,7 +2965,7 @@ public:
       case 35: {
 	for(int i = 0; i < std::min(20, sysArgc); i++) {
 	  uint32_t arrayAddr = static_cast<uint32_t>(src_regs[0])+4*i;
-	  uint32_t ptr = accessBigEndian(*((uint32_t*)(mem + arrayAddr)));
+	  uint32_t ptr = bswap(*((uint32_t*)(mem + arrayAddr)));
 	  strcpy((char*)(mem + ptr), sysArgv[i]);
 	}
 	machine_state.gpr_prf[m->prf_idx] = sysArgc;
@@ -2975,7 +2975,7 @@ public:
 	machine_state.gpr_prf[m->prf_idx] = get_curr_cycle();
 	break;
       case 55:
-	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 0)) = accessBigEndian(K1SIZE);
+	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 0)) = bswap(K1SIZE);
 	/* No Icache */
 	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 4)) = 0;
 	/* No Dcache */
