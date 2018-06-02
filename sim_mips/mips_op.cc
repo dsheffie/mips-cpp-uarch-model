@@ -2980,18 +2980,26 @@ public:
     uint32_t reason = ((m->inst >> RSVD_INSTRUCTION_ARG_SHIFT) & RSVD_INSTRUCTION_ARG_MASK) >> 1;
     sparse_mem & mem = *(machine_state.mem);
     machine_state.gpr_prf[m->prf_idx] = 0;
-    //std::cout << "monitor reason " << reason << "\n";
+    //std::cout << "monitor reason " << reason << " @ " << get_curr_cycle() << "\n";
     switch(reason)
       {
       case 8: {
       /* int write(int file, char *ptr, int len) */
 	int fd = src_regs[0];
 	int nr = src_regs[2];
-	machine_state.gpr_prf[m->prf_idx] = per_page_rdwr<true>(mem, fd, src_regs[1], nr);
+	if(fd < 2) {
+	  machine_state.gpr_prf[m->prf_idx] = per_page_rdwr<true>(mem, fd, src_regs[1], nr);
+	}
+	else {
+	  die();
+	}
       }
       case 10: /* close */
 	if(src_regs[0] > 2) {
 	  machine_state.gpr_prf[m->prf_idx] = close(src_regs[0]);
+	}
+	else {
+	  die();
 	}
 	break;	
       case 33: {
