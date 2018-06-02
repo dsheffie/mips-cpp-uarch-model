@@ -1107,7 +1107,7 @@ public:
 	  {
 	  case load_type::lb:
 	    machine_state.gpr_prf[m->prf_idx] = 
-	      bswap(*((int8_t*)(mem + effective_address)));
+	      bswap(*reinterpret_cast<int8_t*>(mem + effective_address));
 	    break;
 	  case load_type::lbu:
 	    *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
@@ -1115,19 +1115,19 @@ public:
 	    break;
 	  case load_type::lh:
 	    machine_state.gpr_prf[m->prf_idx] = 
-	      bswap(*((int16_t*)(mem + effective_address)));
+	      bswap(*reinterpret_cast<int16_t*>(mem + effective_address));
 	    break;
 	  case load_type::lhu:
 	    *reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]) = 
-	      static_cast<uint32_t>(bswap(*(uint16_t*)(mem + effective_address)));
+	      static_cast<uint32_t>(bswap(*reinterpret_cast<uint16_t*>(mem + effective_address)));
 	    break;
 	  case load_type::lw:
 	    machine_state.gpr_prf[m->prf_idx] =
-	      bswap(*((int32_t*)(mem + effective_address)));
+	      bswap(*reinterpret_cast<int32_t*>(mem + effective_address));
 	    break;
 	  case load_type::lwl: {
 	    uint32_t ea = effective_address & 0xfffffffc;
-	    uint32_t r = bswap(*((uint32_t*)(mem + ea)));
+	    uint32_t r = bswap(*reinterpret_cast<uint32_t*>(mem + ea));
 	    uint32_t x = *reinterpret_cast<uint32_t*>(&prev_value);
 	    uint32_t *d = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]);
 	    switch(effective_address & 3)
@@ -1149,7 +1149,7 @@ public:
 	  }
 	  case load_type::lwr: {
 	    uint32_t ea = effective_address & 0xfffffffc;
-	    uint32_t r = bswap(*((uint32_t*)(mem + ea)));
+	    uint32_t r = bswap(*reinterpret_cast<uint32_t*>(mem + ea));
 	    uint32_t x = *reinterpret_cast<uint32_t*>(&prev_value);
 	    uint32_t *d = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]);
 	    switch(effective_address & 3)
@@ -1262,6 +1262,43 @@ public:
       case store_type::sw:
 	mem.set<int32_t>(effective_address, bswap(store_data));
 	break;
+      case store_type::swl: {
+	uint32_t ea = effective_address & 0xfffffffc;
+	uint32_t ma = effective_address & 3;
+	switch(ma)
+	  {
+	  case 0:
+	    mem.set<int32_t>(ea, bswap(store_data));
+	    break;
+	  case 1:
+	    die();
+	    break;
+	  case 2:
+	    die();
+	    break;
+	  case 3:
+	    die();
+	    break;
+	  }
+	break;
+      }
+      case store_type::swr: {
+	uint32_t ea = effective_address & 0xfffffffc;
+	uint32_t ma = effective_address & 3;
+	switch(ma)
+	  {
+	  case 0:
+	  case 1:
+	  case 2:
+	    die();
+	    break;
+	  case 3:
+	    mem.set<int32_t>(ea, bswap(store_data));
+	    break;
+	  }
+	break;
+      }
+	
       default:
 	std::cerr << *this << "\n";
 	die();

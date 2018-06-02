@@ -1197,6 +1197,10 @@ static void _swl(uint32_t inst, state_t *s)
   
   uint32_t xs = x >> (8*ma);
   uint32_t m = ~((1U << (8*(4 - ma))) - 1);
+#if 0
+  std::cout << "swl ma = " << ma << ", mask = "
+	    << std::hex << m << std::dec << "\n";
+#endif
   xx = (r & m) | xs;
   *((uint32_t*)(s->mem + ea)) = bswap(xx);
   s->pc += 4;
@@ -1220,7 +1224,11 @@ static void _swr(uint32_t inst, state_t *s)
   
   uint32_t xs = 8*(3-ma);
   uint32_t rm = (1U << xs) - 1;
-
+#if 0
+  std::cout << "swr ma = " << ma << ", mask = "
+	    << std::hex << rm << std::dec << "\n";
+#endif
+  
   xx = (x << xs) | (rm & r);
   *((uint32_t*)(s->mem + ea)) = bswap(xx);
   s->pc += 4;
