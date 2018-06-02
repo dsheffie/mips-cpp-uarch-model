@@ -1126,7 +1126,8 @@ public:
 	      accessBigEndian(*((int32_t*)(mem + effective_address)));
 	    break;
 	  case load_type::lwl: {
-	    uint32_t r = accessBigEndian(*((uint32_t*)(mem + effective_address)));
+	    uint32_t ea = effective_address & 0xfffffffc;
+	    uint32_t r = accessBigEndian(*((uint32_t*)(mem + ea)));
 	    uint32_t x = *reinterpret_cast<uint32_t*>(&prev_value);
 	    uint32_t *d = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]);
 	    switch(effective_address & 3)
@@ -1147,7 +1148,8 @@ public:
 	    break;
 	  }
 	  case load_type::lwr: {
-	    uint32_t r = accessBigEndian(*((uint32_t*)(mem + effective_address)));
+	    uint32_t ea = effective_address & 0xfffffffc;
+	    uint32_t r = accessBigEndian(*((uint32_t*)(mem + ea)));
 	    uint32_t x = *reinterpret_cast<uint32_t*>(&prev_value);
 	    uint32_t *d = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]);
 	    switch(effective_address & 3)
