@@ -1343,11 +1343,6 @@ static void _monitorBody(uint32_t inst, state_t *s) {
       path = get_open_string(s, (uint32_t)s->gpr[R_a0]);
       flags = remapIOFlags(s->gpr[R_a1]);
       fd = open(path, flags, S_IRUSR|S_IWUSR);
-      //std::cout << "OPEN FD " << fd << "@ icnt " << s->icnt << "\n";
-      if(fd == -1) {
-	perror("open");
-	exit(-1);
-      }
       s->num_open_fd++;
       delete [] path;
       s->gpr[R_v0] = fd;
