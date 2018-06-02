@@ -1024,18 +1024,34 @@ public:
 
 
 class load_op : public mips_load {
+protected:
+  int32_t prev_value;
 public:
-  load_op(sim_op op, load_type lt) : mips_load(op) {
+  load_op(sim_op op, load_type lt) : mips_load(op), prev_value(0) {
     this->lt = lt;
   }
   int get_src0() const override {
     return i_.ii.rs;
+  }
+  int get_src1() const override {
+    switch(lt)
+      {
+      case load_type::lwr:
+      case load_type::lwl:
+	return  i_.ii.rt;
+      default:
+	break;
+      }
+    return -1;
   }
   int get_dest() const override {
     return  i_.ii.rt;
   }
   bool allocate(sim_state &machine_state) override {
     m->src0_prf = machine_state.gpr_rat[get_src0()];
+    if(get_src1() != -1) {
+      m->src1_prf = machine_state.gpr_rat[get_src1()];
+    }
     m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
     m->prf_idx = machine_state.gpr_freevec.find_first_unset();
     m->load_tbl_idx = machine_state.load_tbl_freevec.find_first_unset();
@@ -1054,6 +1070,9 @@ public:
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
+    if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+      return false;
+    }
     if(stall_for_load(machine_state)) {
       return false;
     }
@@ -1069,6 +1088,10 @@ public:
 	break;
       case load_type::lw:
 	m->load_exception |= ((effective_address & 0x3) != 0);
+	break;
+      case load_type::lwl:
+      case load_type::lwr:
+	prev_value = machine_state.gpr_prf[m->src1_prf];
 	break;
       default:
 	break;
@@ -1102,6 +1125,48 @@ public:
 	    machine_state.gpr_prf[m->prf_idx] =
 	      accessBigEndian(*((int32_t*)(mem + effective_address)));
 	    break;
+	  case load_type::lwl: {
+	    uint32_t r = accessBigEndian(*((uint32_t*)(mem + effective_address)));
+	    uint32_t x = *reinterpret_cast<uint32_t*>(&prev_value);
+	    uint32_t *d = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]);
+	    switch(effective_address & 3)
+	      {
+	      case 0:
+		*d = r;
+		break;
+	      case 1:
+		*d = ((r & 0x00ffffff) << 8) | (x & 0x000000ff) ;
+		break;
+	      case 2:
+		*d = ((r & 0x0000ffff) << 16) | (x & 0x0000ffff) ;
+		break;
+	      case 3:
+		*d = ((r & 0x00ffffff) << 24) | (x & 0x00ffffff);
+		break;
+	      }
+	    break;
+	  }
+	  case load_type::lwr: {
+	    uint32_t r = accessBigEndian(*((uint32_t*)(mem + effective_address)));
+	    uint32_t x = *reinterpret_cast<uint32_t*>(&prev_value);
+	    uint32_t *d = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->prf_idx]);
+	    switch(effective_address & 3)
+	      {
+	      case 0:
+		*d = (x & 0xffffff00) | (r>>24);
+		break;
+	      case 1:
+		*d = (x & 0xffff0000) | (r>>16);
+		break;
+	      case 2:
+	        *d = (x & 0xff000000) | (r>>8);
+		break;
+	      case 3:
+		*d = r;
+		break;
+	      }
+	    break;
+	  }
 	  default:
 	    std::cerr << *this << "\n";
 	    die();
