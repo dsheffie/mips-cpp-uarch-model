@@ -1,8 +1,9 @@
-.data
-saved_rsp:
-	.long 0x0
-	
 .text
+	
+.type saved_rsp,@object
+.comm saved_rsp,8,8
+
+	
 .globl start_gthread_asm
 .type start_gthread_asm,@function
 
