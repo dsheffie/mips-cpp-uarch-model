@@ -19,6 +19,7 @@
 #include <cassert>
 
 #include "loadelf.hh"
+#include "save_state.hh"
 #include "helper.hh"
 #include "parseMips.hh"
 #include "profileMips.hh"
@@ -45,14 +46,15 @@ void destroy_ooo_core(sim_state &machine_state);
 int main(int argc, char *argv[]) {
   std::cerr << "MIPS UARCH SIM: built " << __DATE__
 	    << " " << __TIME__ << "\n";
-
+  sim_state machine_state;
   int c;
   size_t pgSize = getpagesize();
   char *filename = nullptr;
   char *sysArgs = nullptr;
   uint64_t maxicnt = ~(0UL), skipicnt = 0;
-  bool use_oracle = false, use_syscall_skip = false;
-  while((c=getopt(argc,argv,"a:cf:m:k:o:s:"))!=-1) {
+  bool use_checkpoint = false, use_oracle = false, use_syscall_skip = false;
+  
+  while((c=getopt(argc,argv,"a:cf:m:k:o:p:s:"))!=-1) {
     switch(c) {
     case 'a':
       sysArgs = strdup(optarg);
@@ -72,6 +74,9 @@ int main(int argc, char *argv[]) {
     case 'o':
       use_oracle = atoi(optarg);
       break;
+    case 'p':
+      use_checkpoint = atoi(optarg);
+      break;
     case 's':
       use_syscall_skip = atoi(optarg);
       break;
@@ -81,8 +86,8 @@ int main(int argc, char *argv[]) {
   }
 
   if(filename==nullptr) {
-    fprintf(stderr, "INTERP : no file\n");
-    exit(-1);
+    std::cerr << "UARCH SIM : no file\n";
+    return -1;
   }
 
   /* Build argc and argv */
@@ -93,9 +98,14 @@ int main(int argc, char *argv[]) {
   s = new state_t(*sm);
   initState(s);
 
-  load_elf(filename, s);
-  mkMonitorVectors(s);
-  sim_state machine_state;
+  if(not(use_checkpoint)) {
+    load_elf(filename, s);
+    mkMonitorVectors(s);
+  }
+  else {
+    loadState(*s, filename);
+  }
+
   initialize_ooo_core(machine_state, use_oracle, use_syscall_skip, skipicnt, maxicnt, s, sm);
   run_ooo_core(machine_state);
   destroy_ooo_core(machine_state);
