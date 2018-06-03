@@ -76,13 +76,18 @@ static const int32_t hostIOFlags[] =
     O_NOCTTY
   };
 
+#ifdef __amd64__
+__attribute__ ((target ("sse4.2")))
 uint32_t update_crc(uint32_t crc, uint8_t *buf, size_t len) {
   uint32_t c = crc;
-#ifdef __amd64__
   for(size_t n=0;n<len;n++) {
     c = _mm_crc32_u8(c, buf[n]);
   }
+  return c;
+}
 #else
+uint32_t update_crc(uint32_t crc, uint8_t *buf, size_t len) {
+  uint32_t c = crc;
   /* http://stackoverflow.com/questions/29174349/mm-crc32-u8-gives-different-result-than-reference-code */
   static const uint32_t POLY = 0x82f63b78;
   for(size_t n=0;n<len;n++) {
@@ -92,9 +97,9 @@ uint32_t update_crc(uint32_t crc, uint8_t *buf, size_t len) {
       c = c & 1 ? (c>>1) ^ POLY : c>>1;
     }
   }
-#endif  
   return c;
 }
+#endif  
 
 uint32_t crc32(uint8_t *buf, size_t len) {
   return update_crc(~0x0, buf, len) ^ (~0x0);
