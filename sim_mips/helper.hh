@@ -62,19 +62,19 @@ std::string toStringHex(T x) {
 
 #define BS_PRED(SZ) (std::is_integral<T>::value && (sizeof(T)==SZ))
 template <typename T, typename std::enable_if<BS_PRED(1),T>::type* = nullptr>
-T accessBigEndian(T x) {
+T bswap(T x) {
   return x;
 }
 template <typename T, typename std::enable_if<BS_PRED(2),T>::type* = nullptr>
-T accessBigEndian(T x) {
+T bswap(T x) {
   return __builtin_bswap16(x);
 }
 template <typename T, typename std::enable_if<BS_PRED(4),T>::type* = nullptr>
-T accessBigEndian(T x) {
+T bswap(T x) {
   return __builtin_bswap32(x);
 }
 template <typename T, typename std::enable_if<BS_PRED(8),T>::type* = nullptr>
-T accessBigEndian(T x) {
+T bswap(T x) {
   return __builtin_bswap64(x);
 }
 

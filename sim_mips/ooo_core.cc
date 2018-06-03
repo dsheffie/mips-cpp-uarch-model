@@ -93,7 +93,7 @@ void fetch(sim_state &machine_state) {
     for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
       
       if(machine_state.delay_slot_npc) {
-	uint32_t inst = accessBigEndian(mem.get32(machine_state.delay_slot_npc));
+	uint32_t inst = bswap(mem.get32(machine_state.delay_slot_npc));
 	auto f = new mips_meta_op(machine_state.delay_slot_npc, inst,
 				  machine_state.delay_slot_npc+4,
 				  curr_cycle, false, false);
@@ -105,7 +105,7 @@ void fetch(sim_state &machine_state) {
 	continue;
       }
       
-      uint32_t inst = accessBigEndian(mem.get32(machine_state.fetch_pc));
+      uint32_t inst = bswap(mem.get32(machine_state.fetch_pc));
       uint32_t npc = machine_state.fetch_pc + 4;
       bool predict_taken = false;
       bool oracle_taken = false, oracle_nullify = false;
