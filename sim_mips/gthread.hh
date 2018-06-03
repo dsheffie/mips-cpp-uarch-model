@@ -10,10 +10,19 @@ void start_gthreads();
 void gthread_yield();
 void gthread_terminate();
 
+
+
+
 class gthread {
  public:
   typedef gthread* gthread_ptr;
 private:
+#ifdef __aarch64__
+  static const int num_saved_regs = 13;
+#endif
+#ifdef __amd64__
+  static const int num_saved_regs = 7;
+#endif
   typedef void (*callback_t)(void*);
   static const size_t stack_sz = 1<<20;
   enum class thread_status {uninitialized,ready,run};
@@ -27,7 +36,7 @@ private:
   thread_status status = thread_status::uninitialized;
   gthread_ptr next = nullptr;
   gthread_ptr prev = nullptr;
-  uint64_t state[13] = {0};
+  uint64_t state[num_saved_regs] = {0};
   uint8_t stack_alloc[stack_sz] __attribute__((aligned(16))) = {0};
   int64_t get_id() const {
     return id;

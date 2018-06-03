@@ -37,8 +37,8 @@ $(EXE) : $(OBJ)
 %.o: %.cc
 	$(CXX) -MMD $(CXXFLAGS) -c $< 
 
-%.o : %.s
-	as $< -o $@
+%.o : %.S
+	$(CXX) -c $< -o $@
 
 -include $(DEP)
 
