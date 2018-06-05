@@ -25,7 +25,7 @@ LIBS =  $(EXTRA_LD) -lpthread -lffi -lcurses -lz -lsigsegv #-lunwind -lboost_sys
 
 DEP = $(OBJ:.o=.d)
 OPT = -O3 -g -std=c++11
-EXE = sim_mips
+EXE = sim_ooo
 
 .PHONY : all clean
 
