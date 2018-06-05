@@ -102,6 +102,9 @@ void fetch(sim_state &machine_state) {
 	if(enable_oracle) {
 	  machine_state.oracle_state->steps--;
 	}
+
+	if(taken_branches == taken_branches_per_cycle)
+	  break;
 	continue;
       }
       
@@ -150,25 +153,12 @@ void fetch(sim_state &machine_state) {
       else {
 	if(is_jr(inst)) {
 	  if(not(return_stack.empty())) {
-#if 0
-	    f->shadow_rstack.copy(return_stack);
-	    std::cerr << "JR SHADOW STACK\n";
-	    while(not(f->shadow_rstack.empty())) {
-	      std::cerr << "\t" << std::hex << f->shadow_rstack.pop() << std::dec << "\n";
-	    }
-#endif
+
 	    f->shadow_rstack.copy(return_stack);
 	    npc = return_stack.pop();
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	    used_return_addr_stack = true;
-#if 0
-	    std::cerr << "found jr at fetch pc " << std::hex
-		      << machine_state.fetch_pc << ", pop "
-		      << npc
-		      << std::dec
-		      << " @ cycle " << get_curr_cycle()
-		      << "\n";
-#endif
+
 	  }
 	}
 	else if(is_jal(inst) or is_j(inst)) {
@@ -207,9 +197,6 @@ void fetch(sim_state &machine_state) {
       machine_state.fetch_pc = npc;
       if(predict_taken)
 	taken_branches++;
-      
-      if(taken_branches == taken_branches_per_cycle)
-	break;
     }
     gthread_yield();
   }
