@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <cstring>
+#include <cassert>
 #include "helper.hh"
 
 #ifndef __sim_stack_hh__
@@ -12,9 +13,13 @@ protected:
   int64_t idx;
   T *stack;
 public:
-  sim_stack_template(int64_t stack_sz=8) : stack_sz(stack_sz), idx(stack_sz-1) {
+  sim_stack_template(int64_t stack_sz=32) : stack_sz(stack_sz), idx(stack_sz-1) {
+    assert(isPow2(stack_sz));
     stack = new T[stack_sz];
     memset(stack, 0, sizeof(T)*stack_sz);
+  }
+  void set_tos_idx(int64_t idx) {
+    this->idx = idx;
   }
   void copy(const sim_stack_template &other) {
     if(stack) {
@@ -39,22 +44,19 @@ public:
     memset(stack, 0, sizeof(T)*stack_sz);
     idx = stack_sz-1;
   }
-  bool full() const {
-    return idx==-1;
-  }
-  bool empty() const {
-    return idx==(stack_sz-1);
-  }
   int64_t size() const {
     return idx+1;
   }
   void push(const T &val) {
-    assert(not(full()));
-    stack[idx--]=val;
+    stack[idx]=val;
+    idx = (idx - 1) & (stack_sz-1);
   }
   T pop() {
-    assert(not(empty()));
-    return stack[++idx];
+    idx = (idx + 1) & (stack_sz - 1);
+    return stack[idx];
+  }
+  int64_t get_tos_idx() const {
+    return idx;
   }
 };
 

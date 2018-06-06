@@ -152,16 +152,19 @@ void fetch(sim_state &machine_state) {
       }
       else {
 	if(is_jr(inst)) {
-	  if(not(return_stack.empty())) {
-
-	    f->shadow_rstack.copy(return_stack);
-	    npc = return_stack.pop();
-	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	    used_return_addr_stack = true;
-
-	  }
+	  f->return_stack_idx = return_stack.get_tos_idx();
+	  npc = return_stack.pop();
+	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	  used_return_addr_stack = true;
 	}
-	else if(is_jal(inst) or is_j(inst)) {
+	else if(is_jal(inst)) {
+	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	  npc = get_jump_target(machine_state.fetch_pc, inst);
+	  predict_taken = true;
+	  f->return_stack_idx = return_stack.get_tos_idx();
+	  return_stack.push(machine_state.fetch_pc + 8);
+	}
+	else if(is_j(inst)) {
 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	  npc = get_jump_target(machine_state.fetch_pc, inst);
 	  predict_taken = true;
@@ -361,11 +364,6 @@ void retire(sim_state &machine_state) {
 		<< "\n";
 #endif
       assert(u->could_cause_exception);
-      machine_state.return_stack.copy(u->shadow_rstack);
-	
-      //while(!u->shadow_rstack.empty()) {
-      //std::cerr << std::hex << u->shadow_rstack.pop() << std::dec << "\n";
-      //}
 	
       if((retire_amt - retire_bw) < 2) {
 	gthread_yield();
@@ -629,27 +627,7 @@ extern "C" {
 	u->decode_cycle = curr_cycle;
 	u->op = decode_insn(u);
 	decode_queue.push(u);
-	if(u->is_jal) {
-	  if(not(return_stack.full())) {
-#if 0
-	    std::cerr << std::hex
-		      << u->pc 
-		      << " : push return address " 
-		      << u->pc+8 
-		      << std::dec
-		      << " @ cycle " << get_curr_cycle()
-		      << "\n";
-#endif
-	    u->push_return_stack = true;
-	    return_stack.push(u->pc + 8);
-	  }
-	}
-	if(u->could_cause_exception and not u->is_jr) {
-	  u->shadow_rstack.copy(return_stack);
-	}
-	if(u->is_branch_or_jump) {
-	  break;
-	}
+	decode_amt++;
       }
       gthread_yield();
     }

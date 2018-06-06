@@ -782,6 +782,11 @@ public:
 	machine_state.gpr_valid.clear_bit(m->prf_idx);
       }
     }
+    if( ((jt == jump_type::jal) or (jt == jump_type::jr)) and
+	(m->return_stack_idx != -1)) {
+      machine_state.return_stack.set_tos_idx(m->return_stack_idx);
+    }
+
   }
 };
 
