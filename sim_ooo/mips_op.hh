@@ -310,6 +310,8 @@ struct sim_state {
   uint64_t n_branches = 0, n_jumps = 0;
   uint64_t mispredicted_branches = 0;
   uint64_t mispredicted_jumps = 0;
+  uint64_t mispredicted_jrs = 0;
+  uint64_t mispredicted_jalrs = 0;
   uint64_t nukes = 0, branch_nukes = 0, load_nukes = 0;
 
   sim_stack_template<uint32_t> return_stack;

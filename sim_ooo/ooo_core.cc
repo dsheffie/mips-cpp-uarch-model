@@ -1037,7 +1037,11 @@ void run_ooo_core(sim_state &machine_state) {
   std::cout << machine_state.n_jumps << " jumps\n";
   std::cout << machine_state.mispredicted_jumps 
 	    << " mispredicted jumps\n";
-  
+  std::cout << machine_state.mispredicted_jrs 
+	    << " mispredicted jrs\n";
+  std::cout << machine_state.mispredicted_jalrs 
+	    << " mispredicted jalrs\n";
+
   std::cout << machine_state.nukes << " nukes\n";
   std::cout << machine_state.branch_nukes << " branch nukes\n";
   std::cout << machine_state.load_nukes << " load nukes\n";

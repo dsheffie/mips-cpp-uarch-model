@@ -766,8 +766,21 @@ public:
     branch_target_map[m->pc] = m->correct_pc;
     branch_prediction_map[m->pc] = 3;
 
-    
-    machine_state.mispredicted_jumps += m->branch_exception;
+
+    if(m->branch_exception) {
+      machine_state.mispredicted_jumps++;
+      switch(jt)
+	{
+	case jump_type::jr:
+	  machine_state.mispredicted_jrs++;
+	  break;
+	case jump_type::jalr:
+	  machine_state.mispredicted_jalrs++;
+	  break;
+	default:
+	  break;
+	}
+    }
     m->retire_cycle = get_curr_cycle();
 
     return true;
