@@ -3016,9 +3016,6 @@ public:
 	if(src_regs[0] > 2) {
 	  machine_state.gpr_prf[m->prf_idx] = close(src_regs[0]);
 	}
-	else {
-	  die();
-	}
 	break;	
       case 33: {
 	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 0)) = 0;

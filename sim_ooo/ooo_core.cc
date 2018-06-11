@@ -652,8 +652,10 @@ extern "C" {
 	    (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
 	if(u->op == nullptr) {
+#if 0
 	  std::cout << "decode failed : " << std::hex << u->pc << ":" << std::dec
 		    << getAsmString(u->inst, u->pc) << "\n";
+#endif
 	  break;
 	}
 	if(u->decode_cycle == curr_cycle) {
