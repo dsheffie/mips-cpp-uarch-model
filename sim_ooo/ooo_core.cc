@@ -43,7 +43,9 @@ static int num_cpr1_prf = 64;
 static int num_fcr1_prf = 16;
 static int num_fpu_ports = 2;
 static int num_alu_ports = 2;
+
 static int num_load_ports = 2;
+static int num_store_ports = 1;
 
 static int num_alu_sched_entries = 64;
 static int num_fpu_sched_entries = 64;
@@ -474,7 +476,9 @@ void retire(sim_state &machine_state) {
 	machine_state.load_rs.at(i).clear();
       }
       machine_state.jmp_rs.clear();
-      machine_state.store_rs.clear();
+      for(int i = 0; i < machine_state.num_store_rs;i++) {
+	machine_state.store_rs.at(i).clear();
+      }
       machine_state.system_rs.clear();
       machine_state.load_tbl_freevec.clear();
       machine_state.store_tbl_freevec.clear();
@@ -641,6 +645,7 @@ extern "C" {
     auto &alu_alloc = machine_state.alu_alloc;
     auto &fpu_alloc = machine_state.fpu_alloc;
     auto &load_alloc = machine_state.load_alloc;
+    auto &store_alloc = machine_state.store_alloc;
     int64_t alloc_counter = 0;
     while(not(machine_state.terminate_sim)) {
       int alloc_amt = 0;
@@ -648,6 +653,7 @@ extern "C" {
       alu_alloc.clear();
       fpu_alloc.clear();
       load_alloc.clear();
+      store_alloc.clear();
       while(not(decode_queue.empty()) and not(rob.full()) and
 	    (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
@@ -707,14 +713,17 @@ extern "C" {
 	    }
 	    break;
 	  }
-	  case mips_op_type::store:
-	    if(store_avail and not(machine_state.store_rs.full())) {
+	  case mips_op_type::store: {
+	    int64_t p = store_alloc.find_first_unset();
+	    if(p!=-1 and not(machine_state.store_rs.at(p).full())) {
 	      rs_available = true;
-	      rs_queue = &(machine_state.store_rs);
+	      rs_queue = &(machine_state.store_rs.at(p));
+	      store_alloc.set_bit(p);
 	      alloc_histo[u->op->get_op_class()]++;
 	      store_avail = false;
 	    }
 	    break;
+	  }
 	  case mips_op_type::system:
 	    if(system_avail and not(machine_state.system_rs.full())) {
 	      rs_available = true;
@@ -817,7 +826,9 @@ extern "C" {
 	}
 	/* not really out-of-order as stores are processed
 	 * at retirement */
-	OOO_SCHED(store_rs);
+	for(int i = 0; i < machine_state.num_store_rs; i++) {
+	  OOO_SCHED(store_rs.at(i));
+	}
 	
 	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
 	  OOO_SCHED(fpu_rs.at(i));
@@ -959,6 +970,7 @@ void sim_state::initialize() {
   num_alu_rs = num_alu_ports;
   num_fpu_rs = num_fpu_ports;
   num_load_rs = num_load_ports;
+  num_store_rs = num_store_ports;
   
   alu_rs.resize(num_alu_ports);
   for(int i = 0; i < num_alu_ports; i++) {
@@ -974,13 +986,18 @@ void sim_state::initialize() {
   for(int i = 0; i < num_load_ports; i++) {
     load_rs.at(i).resize(num_load_sched_entries);
   }
+  store_rs.resize(num_store_ports);
+  for(int i = 0; i < num_store_ports; i++) {
+    store_rs.at(i).resize(num_store_sched_entries);
+  }
+  
   jmp_rs.resize(num_jmp_sched_entries);
-  store_rs.resize(num_store_sched_entries);
   system_rs.resize(num_system_sched_entries);
 
   alu_alloc.clear_and_resize(num_alu_rs);
   fpu_alloc.clear_and_resize(num_fpu_rs);
   load_alloc.clear_and_resize(num_load_rs);
+  store_alloc.clear_and_resize(num_store_rs);
   initialize_rat_mappings();
 }
 
