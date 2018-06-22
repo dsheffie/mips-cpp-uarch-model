@@ -92,6 +92,10 @@ public:
     }
     return *reinterpret_cast<T*>(mem[paddr]+baddr);
   }
+  template <typename T>
+  T load(uint32_t byte_addr) {
+    return get<T>(byte_addr);
+  }      
   template<typename T>
   void set(uint32_t byte_addr, T v) {
     uint32_t paddr = byte_addr / pgsize;
@@ -104,7 +108,10 @@ public:
     }
     *reinterpret_cast<T*>(mem[paddr]+baddr) = v;
   }
-
+  template<typename T>
+  void store(uint32_t byte_addr, T v) {
+    set<T>(byte_addr, v);
+  }
   uint32_t get32(uint32_t byte_addr)  {
     return get<uint32_t>(byte_addr);
   }
