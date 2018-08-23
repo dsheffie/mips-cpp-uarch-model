@@ -1,36 +1,36 @@
 #ifndef sim_parameters_hh
 #define sim_parameters_hh
 
-#define SIM_PARAM_LIST(X)			\
-  X(rob_size)					\
-  X(fetchq_size)				\
-  X(decodeq_size)				\
-  X(fetch_bw)					\
-  X(decode_bw)					\
-  X(alloc_bw)					\
-  X(retire_bw)					\
-  X(num_gpr_prf)				\
-  X(num_cpr0_prf)				\
-  X(num_cpr1_prf)				\
-  X(num_fcr1_prf)				\
-  X(num_fpu_ports)				\
-  X(num_alu_ports)				\
-  X(num_load_ports)				\
-  X(num_store_ports)				\
-  X(num_alu_sched_entries)			\
-  X(num_fpu_sched_entries)			\
-  X(num_jmp_sched_entries)			\
-  X(num_load_sched_entries)			\
-  X(num_store_sched_entries)			\
-  X(num_system_sched_entries)			\
-  X(load_tbl_size)				\
-  X(store_tbl_size)				\
-  X(taken_branches_per_cycle)
+#define SIM_PARAM_LIST				\
+  SIM_PARAM(rob_size,64)			\
+  SIM_PARAM(fetchq_size,8)			\
+  SIM_PARAM(decodeq_size,8)			\
+  SIM_PARAM(fetch_bw,8)				\
+  SIM_PARAM(decode_bw,6)			\
+  SIM_PARAM(alloc_bw,6)				\
+  SIM_PARAM(retire_bw,6)			\
+  SIM_PARAM(num_gpr_prf,128)			\
+  SIM_PARAM(num_cpr0_prf,64)			\
+  SIM_PARAM(num_cpr1_prf,64)			\
+  SIM_PARAM(num_fcr1_prf,16)			\
+  SIM_PARAM(num_fpu_ports,2)			\
+  SIM_PARAM(num_alu_ports,2)			\
+  SIM_PARAM(num_load_ports,2)			\
+  SIM_PARAM(num_store_ports,1)			\
+  SIM_PARAM(num_alu_sched_entries,64)		\
+  SIM_PARAM(num_fpu_sched_entries,64)		\
+  SIM_PARAM(num_jmp_sched_entries,64)		\
+  SIM_PARAM(num_load_sched_entries,64)		\
+  SIM_PARAM(num_store_sched_entries,64)		\
+  SIM_PARAM(num_system_sched_entries,4)		\
+  SIM_PARAM(load_tbl_size,16)			\
+  SIM_PARAM(store_tbl_size,16)			\
+  SIM_PARAM(taken_branches_per_cycle,1)
 
 namespace sim_param {
-#define ENTRY(X) extern int X;
-  SIM_PARAM_LIST(ENTRY);
-#undef ENTRY
+#define SIM_PARAM(A,B) extern int A;
+  SIM_PARAM_LIST;
+#undef SIM_PARAM
 }
 
 #ifndef SAVE_SIM_PARAM_LIST
@@ -38,3 +38,5 @@ namespace sim_param {
 #endif
 
 #endif
+
+
