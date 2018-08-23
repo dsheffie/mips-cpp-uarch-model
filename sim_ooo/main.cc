@@ -3,7 +3,6 @@
 #include <set>
 #include <fstream>
 #include <map>
-
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <fcntl.h>
@@ -11,13 +10,12 @@
 #include <sys/mman.h>
 #include <signal.h>
 #include <cxxabi.h>
-
 #include <cstdint>
 #include <cstdlib>
 #include <string>
 #include <cstring>
 #include <cassert>
-
+#include <boost/program_options.hpp>
 
 #include "loadelf.hh"
 #include "save_state.hh"
@@ -40,7 +38,7 @@ state_t *s = nullptr;
 SIM_PARAM_LIST;
 #undef SIM_PARAM
 
-int buildArgcArgv(char *filename, char *sysArgs, char ***argv);
+int buildArgcArgv(const char *filename, const char *sysArgs, char ***argv);
 
 void initialize_ooo_core(sim_state & machine_state,
 			 bool use_oracle,
@@ -52,70 +50,48 @@ void run_ooo_core(sim_state &machine_state);
 void destroy_ooo_core(sim_state &machine_state);
 
 int main(int argc, char *argv[]) {
+  namespace po = boost::program_options;
+  
   std::cerr << "MIPS UARCH SIM: built " << __DATE__
 	    << " " << __TIME__ << "\n";
   sim_state machine_state;
-  int c;
-  size_t pgSize = getpagesize();
-  char *filename = nullptr;
-  char *sysArgs = nullptr;
+
+  std::string filename, sysArgs;
   uint64_t maxicnt = ~(0UL), skipicnt = 0;
   bool use_checkpoint = false, use_oracle = false, use_syscall_skip = false;
-  
-  while((c=getopt(argc,argv,"a:cf:m:k:o:p:s:"))!=-1) {
-    switch(c) {
-    case 'a':
-      sysArgs = strdup(optarg);
-      break;
-    case 'c':
-      enClockFuncts = true;
-      break;
-    case 'f':
-      filename = optarg;
-      break;
-    case 'm':
-      maxicnt = atoi(optarg);
-      break;
-    case 'k':
-      skipicnt = atoi(optarg);
-      break;
-    case 'o':
-      use_oracle = atoi(optarg);
-      break;
-    case 'p':
-      use_checkpoint = atoi(optarg);
-      break;
-    case 's':
-      use_syscall_skip = atoi(optarg);
-      break;
-    default:
-      break;
-    }
-  }
 
-  for(int a = 0; a < argc; ) {
-#define STRING(Z) #Z
-#define SIM_PARAM(A,B) if(strcmp("--" STRING(A), argv[a]) == 0) {	\
-      sim_param::A = atoi(argv[a+1]);					\
-      std::cout << #A << " : " << sim_param::A << "\n";			\
-      a+=2;								\
-      continue;								\
-    }
-    
-  SIM_PARAM_LIST;
-  
+  try {
+    po::options_description desc("Options");
+    desc.add_options() 
+      ("help,h", "Print help messages") 
+      ("args,a", po::value<std::string>(&sysArgs), "arguments to mips binary")
+      ("clock,c", po::value<bool>(&enClockFuncts), "enable wall-clock")
+      ("file,f", po::value<std::string>(&filename), "mips binary")
+      ("skipicnt,k", po::value<uint64_t>(&skipicnt), "instruction skip count")
+      ("maxicnt,m", po::value<uint64_t>(&maxicnt), "maximum instruction count")
+      ("oracle,o", po::value<bool>(&use_oracle), "use branch oracle")
+      ("checkpoint,p", po::value<bool>(&use_checkpoint), "use a machine checkpoint")
+      ("syscallskip,s", po::value<bool>(&use_syscall_skip), "skip syscalls")
+#define SIM_PARAM(A,B) (#A,po::value<int>(&sim_param::A), #A)
+      SIM_PARAM_LIST;
 #undef SIM_PARAM
-#undef STRING
-    a++;
+      ; 
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm); 
+  }
+  catch(po::error &e) {
+    std::cerr << KRED << "command-line error : " << e.what() << KNRM << "\n";
+    return -1;
   }
   
-  if(filename==nullptr) {
+  if(filename.size()==0) {
     std::cerr << "UARCH SIM : no file\n";
     return -1;
   }
 
   /* Build argc and argv */
-  sysArgc = buildArgcArgv(filename,sysArgs,&sysArgv);
+  sysArgc = buildArgcArgv(filename.c_str(),sysArgs.c_str(),&sysArgv);
   initParseTables();
 
   sparse_mem *sm = new sparse_mem(1UL<<32);
@@ -123,7 +99,7 @@ int main(int argc, char *argv[]) {
   initState(s);
 
   if(not(use_checkpoint)) {
-    load_elf(filename, s);
+    load_elf(filename.c_str(), s);
     mkMonitorVectors(s);
   }
   else {
@@ -138,8 +114,6 @@ int main(int argc, char *argv[]) {
   delete s;
   delete sm;
   
-  if(sysArgs)
-    free(sysArgs);
   if(sysArgv) {
     for(int i = 0; i < sysArgc; i++) {
       delete [] sysArgv[i];
@@ -151,32 +125,34 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-int buildArgcArgv(char *filename, char *sysArgs, char ***argv)
-{
+int buildArgcArgv(const char *filename, const char *sysArgs, char ***argv) {
   int cnt = 0;
   std::vector<std::string> args;
   char **largs = 0;
   args.push_back(std::string(filename));
 
-  char *ptr = 0;
-  if(sysArgs)
-    ptr = strtok(sysArgs, " ");
+  char *ptr = nullptr, *sa = nullptr;
+  if(sysArgs) {
+    sa = strdup(sysArgs);
+    ptr = strtok(sa, " ");
+  }
 
-  while(ptr && (cnt<MARGS))
-    {
-      args.push_back(std::string(ptr));
-      ptr = strtok(nullptr, " ");
-      cnt++;
-    }
+  while(ptr && (cnt<MARGS)) {
+    args.push_back(std::string(ptr));
+    ptr = strtok(nullptr, " ");
+    cnt++;
+  }
   largs = new char*[args.size()];
-  for(size_t i = 0; i < args.size(); i++)
-    {
-      std::string s = args[i];
-      size_t l = strlen(s.c_str());
-      largs[i] = new char[l+1];
-      memset(largs[i],0,sizeof(char)*(l+1));
-      memcpy(largs[i],s.c_str(),sizeof(char)*l);
-    }
+  for(size_t i = 0; i < args.size(); i++) {
+    std::string s = args[i];
+    size_t l = strlen(s.c_str());
+    largs[i] = new char[l+1];
+    memset(largs[i],0,sizeof(char)*(l+1));
+    memcpy(largs[i],s.c_str(),sizeof(char)*l);
+  }
   *argv = largs;
+  if(sysArgs) {
+    free(sa);
+  }
   return (int)args.size();
 }
