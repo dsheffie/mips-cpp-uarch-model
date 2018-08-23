@@ -18,6 +18,7 @@
 #include <cstring>
 #include <cassert>
 
+#include "sim_parameters.hh"
 #include "loadelf.hh"
 #include "save_state.hh"
 #include "helper.hh"
@@ -32,6 +33,37 @@ int sysArgc = 0;
 bool enClockFuncts = false;
 
 state_t *s = nullptr;
+
+int sim_param::rob_size = 64;
+int sim_param::fetchq_size = 8;
+int sim_param::decodeq_size = 8;
+  
+int sim_param::fetch_bw = 8;
+int sim_param::decode_bw = 6;
+int sim_param::alloc_bw = 6;
+int sim_param::retire_bw = 6;
+  
+int sim_param::num_gpr_prf = 128;
+int sim_param::num_cpr0_prf = 64;
+int sim_param::num_cpr1_prf = 64;
+int sim_param::num_fcr1_prf = 16;
+int sim_param::num_fpu_ports = 2;
+int sim_param::num_alu_ports = 2;
+  
+int sim_param::num_load_ports = 2;
+int sim_param::num_store_ports = 1;
+  
+int sim_param::num_alu_sched_entries = 64;
+int sim_param::num_fpu_sched_entries = 64;
+int sim_param::num_jmp_sched_entries = 64;
+int sim_param::num_load_sched_entries = 64;
+int sim_param::num_store_sched_entries = 64;
+int sim_param::num_system_sched_entries = 4;
+  
+int sim_param::load_tbl_size = 16;
+int sim_param::store_tbl_size = 16;
+int sim_param::taken_branches_per_cycle = 1;
+
 int buildArgcArgv(char *filename, char *sysArgs, char ***argv);
 
 void initialize_ooo_core(sim_state & machine_state,

@@ -24,39 +24,8 @@
 #include "profileMips.hh"
 #include "globals.hh"
 #include "gthread.hh"
-
 #include "mips_op.hh"
-
-/* sim parameters */
-static int rob_size = 64;
-static int fetchq_size = 8;
-static int decodeq_size = 8;
-
-static int fetch_bw = 8;
-static int decode_bw = 6;
-static int alloc_bw = 6;
-static int retire_bw = 6;
-
-static int num_gpr_prf = 128;
-static int num_cpr0_prf = 64;
-static int num_cpr1_prf = 64;
-static int num_fcr1_prf = 16;
-static int num_fpu_ports = 2;
-static int num_alu_ports = 2;
-
-static int num_load_ports = 2;
-static int num_store_ports = 1;
-
-static int num_alu_sched_entries = 64;
-static int num_fpu_sched_entries = 64;
-static int num_jmp_sched_entries = 64;
-static int num_load_sched_entries = 64;
-static int num_store_sched_entries = 64;
-static int num_system_sched_entries = 4;
-
-static int load_tbl_size = 16;
-static int store_tbl_size = 16;
-static int taken_branches_per_cycle = 1;
+#include "sim_parameters.hh"
 
 static uint64_t curr_cycle = 0;
 extern std::map<uint32_t, uint32_t> branch_target_map;
@@ -92,7 +61,7 @@ void fetch(sim_state &machine_state) {
   
   while(not(machine_state.terminate_sim)) {
     int fetch_amt = 0, taken_branches = 0;
-    for(; not(fetch_queue.full()) and (fetch_amt < fetch_bw) and not(machine_state.nuke); fetch_amt++) {
+    for(; not(fetch_queue.full()) and (fetch_amt < sim_param::fetch_bw) and not(machine_state.nuke); fetch_amt++) {
       
       if(machine_state.delay_slot_npc) {
 	uint32_t inst = bswap(mem.get32(machine_state.delay_slot_npc));
@@ -105,7 +74,7 @@ void fetch(sim_state &machine_state) {
 	  machine_state.oracle_state->steps--;
 	}
 
-	if(taken_branches == taken_branches_per_cycle)
+	if(taken_branches == sim_param::taken_branches_per_cycle)
 	  break;
 	continue;
       }
@@ -226,7 +195,7 @@ void retire(sim_state &machine_state) {
       }
     }
       
-    while(not(rob.empty()) and (retire_amt < retire_bw)) {
+    while(not(rob.empty()) and (retire_amt < sim_param::retire_bw)) {
       u = rob.peek();
       empty_cnt = 0;
       if(not(u->is_complete)) {
@@ -367,7 +336,7 @@ void retire(sim_state &machine_state) {
 #endif
       assert(u->could_cause_exception);
 	
-      if((retire_amt - retire_bw) < 2) {
+      if((retire_amt - sim_param::retire_bw) < 2) {
 	gthread_yield();
 	retire_amt = 0;
       }
@@ -444,7 +413,7 @@ void retire(sim_state &machine_state) {
 
       undo_rob_entry undo_rob(machine_state);
       int64_t c = rob.traverse_and_apply(undo_rob);
-      int64_t sleep_cycles = (c + retire_bw - 1) / retire_bw;
+      int64_t sleep_cycles = (c + sim_param::retire_bw - 1) / sim_param::retire_bw;
       for(int64_t i = 0; i < sleep_cycles; i++) {
 	gthread_yield();
       }
@@ -622,7 +591,7 @@ extern "C" {
     auto &return_stack = machine_state.return_stack;
     while(not(machine_state.terminate_sim)) {
       int decode_amt = 0;
-      while(not(fetch_queue.empty()) and not(decode_queue.full()) and (decode_amt < decode_bw) and not(machine_state.nuke)) {
+      while(not(fetch_queue.empty()) and not(decode_queue.full()) and (decode_amt < sim_param::decode_bw) and not(machine_state.nuke)) {
 	auto u = fetch_queue.peek();
 	if(not((u->fetch_cycle+1) < curr_cycle)) {
 	  break;
@@ -655,7 +624,7 @@ extern "C" {
       load_alloc.clear();
       store_alloc.clear();
       while(not(decode_queue.empty()) and not(rob.full()) and
-	    (alloc_amt < alloc_bw) and not(machine_state.nuke)) {
+	    (alloc_amt < sim_param::alloc_bw) and not(machine_state.nuke)) {
 	auto u = decode_queue.peek();
 	if(u->op == nullptr) {
 #if 0
@@ -926,10 +895,10 @@ void sim_state::initialize_rat_mappings() {
 }
 
 void sim_state::initialize() {
-  num_gpr_prf_ = num_gpr_prf;
-  num_cpr0_prf_ = num_cpr0_prf;
-  num_cpr1_prf_ = num_cpr1_prf;
-  num_fcr1_prf_ = num_fcr1_prf;
+  num_gpr_prf_ = sim_param::num_gpr_prf;
+  num_cpr0_prf_ = sim_param::num_cpr0_prf;
+  num_cpr1_prf_ = sim_param::num_cpr1_prf;
+  num_fcr1_prf_ = sim_param::num_fcr1_prf;
   
   gpr_prf = new int32_t[num_gpr_prf_];
   memset(gpr_prf, 0, sizeof(int32_t)*num_gpr_prf_);
@@ -940,16 +909,16 @@ void sim_state::initialize() {
   fcr1_prf = new uint32_t[num_fcr1_prf_];
   memset(fcr1_prf, 0, sizeof(uint32_t)*num_fcr1_prf_);
   
-  gpr_freevec.clear_and_resize(num_gpr_prf);
-  cpr0_freevec.clear_and_resize(num_cpr0_prf);
-  cpr1_freevec.clear_and_resize(num_cpr1_prf);
-  fcr1_freevec.clear_and_resize(num_fcr1_prf);
+  gpr_freevec.clear_and_resize(sim_param::num_gpr_prf);
+  cpr0_freevec.clear_and_resize(sim_param::num_cpr0_prf);
+  cpr1_freevec.clear_and_resize(sim_param::num_cpr1_prf);
+  fcr1_freevec.clear_and_resize(sim_param::num_fcr1_prf);
   
-  load_tbl_freevec.clear_and_resize(load_tbl_size);
-  load_tbl = new mips_meta_op*[load_tbl_size];
+  load_tbl_freevec.clear_and_resize(sim_param::load_tbl_size);
+  load_tbl = new mips_meta_op*[sim_param::load_tbl_size];
 
-  store_tbl_freevec.clear_and_resize(store_tbl_size);
-  store_tbl = new mips_meta_op*[store_tbl_size];
+  store_tbl_freevec.clear_and_resize(sim_param::store_tbl_size);
+  store_tbl = new mips_meta_op*[sim_param::store_tbl_size];
   
   for(size_t i = 0; i < load_tbl_freevec.size(); i++) {
     load_tbl[i] = nullptr;
@@ -958,41 +927,41 @@ void sim_state::initialize() {
     store_tbl[i] = nullptr;
   }
   
-  gpr_valid.clear_and_resize(num_gpr_prf);
-  cpr0_valid.clear_and_resize(num_cpr0_prf);
-  cpr1_valid.clear_and_resize(num_cpr1_prf);
-  fcr1_valid.clear_and_resize(num_fcr1_prf);
+  gpr_valid.clear_and_resize(sim_param::num_gpr_prf);
+  cpr0_valid.clear_and_resize(sim_param::num_cpr0_prf);
+  cpr1_valid.clear_and_resize(sim_param::num_cpr1_prf);
+  fcr1_valid.clear_and_resize(sim_param::num_fcr1_prf);
   
-  fetch_queue.resize(fetchq_size);
-  decode_queue.resize(decodeq_size);
-  rob.resize(rob_size);
+  fetch_queue.resize(sim_param::fetchq_size);
+  decode_queue.resize(sim_param::decodeq_size);
+  rob.resize(sim_param::rob_size);
 
-  num_alu_rs = num_alu_ports;
-  num_fpu_rs = num_fpu_ports;
-  num_load_rs = num_load_ports;
-  num_store_rs = num_store_ports;
+  num_alu_rs = sim_param::num_alu_ports;
+  num_fpu_rs = sim_param::num_fpu_ports;
+  num_load_rs = sim_param::num_load_ports;
+  num_store_rs = sim_param::num_store_ports;
   
-  alu_rs.resize(num_alu_ports);
-  for(int i = 0; i < num_alu_ports; i++) {
-    alu_rs.at(i).resize(num_alu_sched_entries);
-  }
-
-  fpu_rs.resize(num_fpu_ports);
-  for(int i = 0; i < num_fpu_ports; i++) {
-    fpu_rs.at(i).resize(num_fpu_sched_entries);
+  alu_rs.resize(sim_param::num_alu_ports);
+  for(int i = 0; i < sim_param::num_alu_ports; i++) {
+    alu_rs.at(i).resize(sim_param::num_alu_sched_entries);
   }
 
-  load_rs.resize(num_load_ports);
-  for(int i = 0; i < num_load_ports; i++) {
-    load_rs.at(i).resize(num_load_sched_entries);
+  fpu_rs.resize(sim_param::num_fpu_ports);
+  for(int i = 0; i < sim_param::num_fpu_ports; i++) {
+    fpu_rs.at(i).resize(sim_param::num_fpu_sched_entries);
   }
-  store_rs.resize(num_store_ports);
-  for(int i = 0; i < num_store_ports; i++) {
-    store_rs.at(i).resize(num_store_sched_entries);
+
+  load_rs.resize(sim_param::num_load_ports);
+  for(int i = 0; i < sim_param::num_load_ports; i++) {
+    load_rs.at(i).resize(sim_param::num_load_sched_entries);
+  }
+  store_rs.resize(sim_param::num_store_ports);
+  for(int i = 0; i < sim_param::num_store_ports; i++) {
+    store_rs.at(i).resize(sim_param::num_store_sched_entries);
   }
   
-  jmp_rs.resize(num_jmp_sched_entries);
-  system_rs.resize(num_system_sched_entries);
+  jmp_rs.resize(sim_param::num_jmp_sched_entries);
+  system_rs.resize(sim_param::num_system_sched_entries);
 
   alu_alloc.clear_and_resize(num_alu_rs);
   fpu_alloc.clear_and_resize(num_fpu_rs);
