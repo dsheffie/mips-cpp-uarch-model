@@ -39,7 +39,6 @@ state_t *s = nullptr;
 #define SIM_PARAM(A,B) int sim_param::A =  B;
 SIM_PARAM_LIST;
 #undef SIM_PARAM
-#undef SIM_PARAM_LIST
 
 int buildArgcArgv(char *filename, char *sysArgs, char ***argv);
 
@@ -94,6 +93,22 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  for(int a = 0; a < argc; ) {
+#define STRING(Z) #Z
+#define SIM_PARAM(A,B) if(strcmp("--" STRING(A), argv[a]) == 0) {	\
+      sim_param::A = atoi(argv[a+1]);					\
+      std::cout << #A << " : " << sim_param::A << "\n";			\
+      a+=2;								\
+      continue;								\
+    }
+    
+  SIM_PARAM_LIST;
+  
+#undef SIM_PARAM
+#undef STRING
+    a++;
+  }
+  
   if(filename==nullptr) {
     std::cerr << "UARCH SIM : no file\n";
     return -1;
