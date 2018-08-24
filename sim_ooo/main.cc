@@ -34,7 +34,8 @@ bool enClockFuncts = false;
 
 state_t *s = nullptr;
 
-#define SIM_PARAM(A,B) int sim_param::A =  B;
+/* linkage */
+#define SIM_PARAM(A,B) int sim_param::A = B;
 SIM_PARAM_LIST;
 #undef SIM_PARAM
 
@@ -59,30 +60,35 @@ int main(int argc, char *argv[]) {
   std::string filename, sysArgs;
   uint64_t maxicnt = ~(0UL), skipicnt = 0;
   bool use_checkpoint = false, use_oracle = false, use_syscall_skip = false;
-
-  try {
-    po::options_description desc("Options");
-    desc.add_options() 
-      ("help,h", "Print help messages") 
-      ("args,a", po::value<std::string>(&sysArgs), "arguments to mips binary")
-      ("clock,c", po::value<bool>(&enClockFuncts), "enable wall-clock")
-      ("file,f", po::value<std::string>(&filename), "mips binary")
-      ("skipicnt,k", po::value<uint64_t>(&skipicnt), "instruction skip count")
-      ("maxicnt,m", po::value<uint64_t>(&maxicnt), "maximum instruction count")
-      ("oracle,o", po::value<bool>(&use_oracle), "use branch oracle")
-      ("checkpoint,p", po::value<bool>(&use_checkpoint), "use a machine checkpoint")
-      ("syscallskip,s", po::value<bool>(&use_syscall_skip), "skip syscalls")
-#define SIM_PARAM(A,B) (#A,po::value<int>(&sim_param::A), #A)
-      SIM_PARAM_LIST;
+  po::options_description desc("Options");
+  po::variables_map vm;
+  desc.add_options() 
+    ("help,h", "Print help messages") 
+    ("args,a", po::value<std::string>(&sysArgs), "arguments to mips binary")
+    ("clock,c", po::value<bool>(&enClockFuncts)->default_value(false), "enable wall-clock")
+    ("file,f", po::value<std::string>(&filename), "mips binary")
+    ("skipicnt,k", po::value<uint64_t>(&skipicnt)->default_value(0), "instruction skip count")
+    ("maxicnt,m", po::value<uint64_t>(&maxicnt)->default_value(~0UL), "maximum instruction count")
+    ("oracle,o", po::value<bool>(&use_oracle)->default_value(false), "use branch oracle")
+    ("checkpoint,p", po::value<bool>(&use_checkpoint)->default_value(false), "use a machine checkpoint")
+    ("syscallskip,s", po::value<bool>(&use_syscall_skip)->default_value(false), "skip syscalls")
+#define SIM_PARAM(A,B) (#A,po::value<int>(&sim_param::A)->default_value(B), #A)
+    SIM_PARAM_LIST;
 #undef SIM_PARAM
-      ; 
-    po::variables_map vm;
+  ; 
+  
+  try {
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm); 
   }
   catch(po::error &e) {
     std::cerr << KRED << "command-line error : " << e.what() << KNRM << "\n";
     return -1;
+  }
+
+  if(vm.count("help")) {
+    std::cout << desc << "\n";
+    return 0;
   }
   
   if(filename.size()==0) {
