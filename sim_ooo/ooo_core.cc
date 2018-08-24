@@ -1054,6 +1054,7 @@ void run_ooo_core(sim_state &machine_state) {
   
   std::cout << ((machine_state.icnt-machine_state.skipicnt)/now)
 	    << " simulated instructions per second\n";
+  std::cout << "simulation took " << now << " seconds\n";
 
   
 }  
