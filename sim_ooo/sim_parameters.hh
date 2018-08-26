@@ -25,7 +25,8 @@
   SIM_PARAM(num_system_sched_entries,4)		\
   SIM_PARAM(load_tbl_size,16)			\
   SIM_PARAM(store_tbl_size,16)			\
-  SIM_PARAM(taken_branches_per_cycle,1)
+  SIM_PARAM(taken_branches_per_cycle,1)		\
+  SIM_PARAM(l1d_latency,3)
 
 namespace sim_param {
 #define SIM_PARAM(A,B) extern int A;

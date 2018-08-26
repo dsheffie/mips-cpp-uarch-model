@@ -2,11 +2,10 @@
 #include "mips_op.hh"
 #include "helper.hh"
 #include "parseMips.hh"
+#include "sim_parameters.hh"
 #include <cmath>
 #include <map>
 #include <set>
-
-static const int l1_latency = 3;
 
 std::map<uint32_t, uint32_t> branch_target_map;
 std::map<uint32_t, int32_t> branch_prediction_map;
@@ -1114,7 +1113,7 @@ public:
       default:
 	break;
       }
-    m->complete_cycle = get_curr_cycle() + l1_latency;
+    m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -1431,7 +1430,7 @@ public:
       default:
 	break;
       }
-    m->complete_cycle = get_curr_cycle() + l1_latency;
+    m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
