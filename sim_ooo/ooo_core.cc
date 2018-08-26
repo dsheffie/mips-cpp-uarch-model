@@ -755,7 +755,9 @@ extern "C" {
 #define OOO_SCHED(RS) {							\
 	  for(auto it = RS.begin(); it != RS.end(); it++) {		\
 	    sim_op u = *it;						\
-	    if((u->ready_cycle==-1) and u->op->ready(machine_state)) {	\
+	    bool r = u->op->ready(machine_state);			\
+	    if(r) machine_state.total_ready_insns++;			\
+	    if((u->ready_cycle==-1) and r) {				\
 	      u->ready_cycle = get_curr_cycle();			\
 	    }								\
 	  }								\
@@ -773,7 +775,9 @@ extern "C" {
 #define INORDER_SCHED(RS) {						\
 	  for(auto it = RS.begin(); it != RS.end(); it++) {		\
 	    sim_op u = *it;						\
-	    if((u->ready_cycle==-1) and u->op->ready(machine_state)) {	\
+	    bool r = u->op->ready(machine_state);			\
+	    if(r) machine_state.total_ready_insns++;			\
+	    if((u->ready_cycle==-1) and r) {				\
 	      u->ready_cycle = get_curr_cycle();			\
 	    }								\
 	  }								\
@@ -989,6 +993,11 @@ void run_ooo_core(sim_state &machine_state) {
   double ipc = static_cast<double>(machine_state.icnt-machine_state.skipicnt) /
     get_curr_cycle();
 
+  double ready_insns_per_cycle =
+    static_cast<double>(machine_state.total_ready_insns) / get_curr_cycle();
+
+  std::cout << ready_insns_per_cycle << " insns ready per cycle\n";
+  
 #if 0
   for(int i = 0; i < 32; i++) {
     std::cout << "reg " << getGPRName(i) << " : " 
