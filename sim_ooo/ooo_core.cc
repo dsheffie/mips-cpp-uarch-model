@@ -741,11 +741,12 @@ extern "C" {
     auto & load_rs = machine_state.load_rs;
     auto & store_rs = machine_state.store_rs;
     auto & system_rs = machine_state.system_rs;
+    
     while(not(machine_state.terminate_sim)) {
       int exec_cnt = 0;
       if(not(machine_state.nuke)) {
 	//alu loop (OoO scheduler)
-#define OOO_SCHED(RS) {							\
+#define OOO_SCHED(RS,RST) {						\
 	  for(auto it = RS.begin(); it != RS.end(); it++) {		\
 	    sim_op u = *it;						\
 	    bool r = u->op->ready(machine_state);			\
@@ -760,7 +761,6 @@ extern "C" {
 	       (get_curr_cycle() >= (sim_param::ready_to_dispatch_latency+u->ready_cycle)) ) { \
 	      RS.erase(it);						\
 	      u->op->execute(machine_state);				\
-	      assert(u->dispatch_cycle==-1);				\
 	      u->dispatch_cycle = get_curr_cycle();			\
 	      exec_cnt++;						\
 	      break;							\
@@ -768,7 +768,7 @@ extern "C" {
 	  }								\
 	}
 	
-#define INORDER_SCHED(RS) {						\
+#define INORDER_SCHED(RS,RST) {						\
 	  for(auto it = RS.begin(); it != RS.end(); it++) {		\
 	    sim_op u = *it;						\
 	    bool r = u->op->ready(machine_state);			\
@@ -782,29 +782,30 @@ extern "C" {
 	       (get_curr_cycle() >= (sim_param::ready_to_dispatch_latency+RS.peek()->ready_cycle)) ) { \
 	      sim_op u = RS.pop();					\
 	      u->op->execute(machine_state);				\
+	      u->dispatch_cycle = get_curr_cycle();			\
 	      exec_cnt++;						\
 	    }								\
 	  }								\
 	}
 	
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
-	  OOO_SCHED(alu_rs.at(i));
+	  OOO_SCHED(alu_rs.at(i),mips_op_type::alu);
 	}
-	OOO_SCHED(jmp_rs);
+	OOO_SCHED(jmp_rs,mips_op_type::jmp);
 	for(int i = 0; i < machine_state.num_load_rs; i++) {
-	  OOO_SCHED(load_rs.at(i));
+	  OOO_SCHED(load_rs.at(i),mips_op_type::load);
 	}
 	/* not really out-of-order as stores are processed
 	 * at retirement */
 	for(int i = 0; i < machine_state.num_store_rs; i++) {
-	  OOO_SCHED(store_rs.at(i));
+	  OOO_SCHED(store_rs.at(i),mips_op_type::store);
 	}
 	
 	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
-	  OOO_SCHED(fpu_rs.at(i));
+	  OOO_SCHED(fpu_rs.at(i),mips_op_type::fp);
 	}
 
-	INORDER_SCHED(system_rs);
+	INORDER_SCHED(system_rs,mips_op_type::system);
 
 #undef OOO_SCHED
 #undef INORDER_SCHED
@@ -1001,7 +1002,7 @@ void run_ooo_core(sim_state &machine_state) {
 
   double dispatched_insns_per_cycle =
     static_cast<double>(machine_state.total_dispatched_insns) / get_curr_cycle();
-  std::cout << ready_insns_per_cycle << " insns dispatched per cycle\n";
+  std::cout << dispatched_insns_per_cycle << " insns dispatched per cycle\n";
   
 #if 0
   for(int i = 0; i < 32; i++) {
