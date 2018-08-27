@@ -26,7 +26,8 @@
   SIM_PARAM(load_tbl_size,16,1)			\
   SIM_PARAM(store_tbl_size,16,1)		\
   SIM_PARAM(taken_branches_per_cycle,1,1)	\
-  SIM_PARAM(l1d_latency,3,1)
+  SIM_PARAM(l1d_latency,3,1)			\
+  SIM_PARAM(ready_to_dispatch_latency,1,0)
 
 namespace sim_param {
 #define SIM_PARAM(A,B,C) extern int A;

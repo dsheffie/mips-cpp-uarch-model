@@ -117,6 +117,7 @@ struct mips_meta_op {
   int64_t decode_cycle = -1;
   int64_t alloc_cycle = -1;
   int64_t ready_cycle = -1;
+  int64_t dispatch_cycle = -1;
   int64_t complete_cycle = -1;
   int64_t retire_cycle = -1;
   /* finished execution */
@@ -159,6 +160,7 @@ struct mips_meta_op {
     decode_cycle = -1;
     alloc_cycle = -1;
     ready_cycle = -1;
+    dispatch_cycle = -1;
     complete_cycle = -1;
     retire_cycle = -1;
     is_complete = false;

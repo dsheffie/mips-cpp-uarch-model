@@ -756,9 +756,12 @@ extern "C" {
 	  }								\
 	  for(auto it = RS.begin(); it != RS.end(); it++) {		\
 	    sim_op u = *it;						\
-	    if(u->op->ready(machine_state)) {				\
+	    if(u->op->ready(machine_state) and				\
+	       (get_curr_cycle() >= (sim_param::ready_to_dispatch_latency+u->ready_cycle)) ) { \
 	      RS.erase(it);						\
 	      u->op->execute(machine_state);				\
+	      assert(u->dispatch_cycle==-1);				\
+	      u->dispatch_cycle = get_curr_cycle();			\
 	      exec_cnt++;						\
 	      break;							\
 	    }								\
@@ -775,7 +778,8 @@ extern "C" {
 	    }								\
 	  }								\
 	  if(not(RS.empty())) {						\
-	    if(RS.peek()->op->ready(machine_state)) {			\
+	    if(RS.peek()->op->ready(machine_state) and			\
+	       (get_curr_cycle() >= (sim_param::ready_to_dispatch_latency+RS.peek()->ready_cycle)) ) { \
 	      sim_op u = RS.pop();					\
 	      u->op->execute(machine_state);				\
 	      exec_cnt++;						\
