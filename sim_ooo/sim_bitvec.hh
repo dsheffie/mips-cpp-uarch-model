@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include "helper.hh"
 
 template <typename E>
@@ -43,6 +44,9 @@ public:
   }
   void set_bit(size_t idx) {
     if(idx >= n_bits) {
+      std::cerr << "fatal : trying to access bit "
+		<< idx << " array of length "
+		<< n_bits << "!\n";
       die();
     }
     uint64_t w_idx = idx / bpw;

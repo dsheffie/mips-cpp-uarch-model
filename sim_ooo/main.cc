@@ -35,7 +35,7 @@ bool enClockFuncts = false;
 state_t *s = nullptr;
 
 /* linkage */
-#define SIM_PARAM(A,B) int sim_param::A = B;
+#define SIM_PARAM(A,B,C) int sim_param::A = C;
 SIM_PARAM_LIST;
 #undef SIM_PARAM
 
@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
     ("oracle,o", po::value<bool>(&use_oracle)->default_value(false), "use branch oracle")
     ("checkpoint,p", po::value<bool>(&use_checkpoint)->default_value(false), "use a machine checkpoint")
     ("syscallskip,s", po::value<bool>(&use_syscall_skip)->default_value(false), "skip syscalls")
-#define SIM_PARAM(A,B) (#A,po::value<int>(&sim_param::A)->default_value(B), #A)
+#define SIM_PARAM(A,B,C) (#A,po::value<int>(&sim_param::A)->default_value(B), #A)
     SIM_PARAM_LIST;
 #undef SIM_PARAM
   ; 
@@ -96,6 +96,17 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
+#define SIM_PARAM(A,B,C) if(sim_param::A < C) {		\
+    std::cout << #A << " has out of range value "	\
+	      << sim_param::A				\
+	      <<" -> reset to default value "		\
+	      << B << "\n";				\
+    sim_param::A = B;					\
+  }
+  SIM_PARAM_LIST;
+#undef SIM_PARAM
+
+  
   /* Build argc and argv */
   sysArgc = buildArgcArgv(filename.c_str(),sysArgs.c_str(),&sysArgv);
   initParseTables();
