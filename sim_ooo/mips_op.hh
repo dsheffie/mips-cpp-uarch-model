@@ -317,6 +317,9 @@ struct sim_state {
   uint64_t nukes = 0, branch_nukes = 0, load_nukes = 0;
 
   uint64_t total_ready_insns = 0;
+  uint64_t total_allocated_insns = 0;
+  uint64_t total_dispatched_insns = 0;
+  uint64_t total_sched_insns = 0;
   
   sim_stack_template<uint32_t> return_stack;
 

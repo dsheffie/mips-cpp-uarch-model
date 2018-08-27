@@ -726,14 +726,7 @@ extern "C" {
 	u->rob_idx = rob.push(u);
 	alloc_amt++;
       }
-
-      if(false and get_curr_cycle()%8192 == 0 and alloc_amt != 0) {
-	std::cout << "alloc amt " << alloc_amt << "\n";
-	for(auto &ap : alloc_histo) {
-	  std::cout << "\talloc'd " << ap.second << " of " << ap.first << "\n";
-	}
-      }
-
+      machine_state.total_allocated_insns += alloc_amt;
 
       gthread_yield();
     }
@@ -812,6 +805,7 @@ extern "C" {
 #undef OOO_SCHED
 #undef INORDER_SCHED
       }
+      machine_state.total_dispatched_insns += exec_cnt;
       gthread_yield();
     }
     gthread_terminate();
@@ -993,10 +987,17 @@ void run_ooo_core(sim_state &machine_state) {
   double ipc = static_cast<double>(machine_state.icnt-machine_state.skipicnt) /
     get_curr_cycle();
 
+  double allocd_insns_per_cycle =
+    static_cast<double>(machine_state.total_allocated_insns) / get_curr_cycle();
+  std::cout << allocd_insns_per_cycle << " insns allocated per cycle\n";
+  
   double ready_insns_per_cycle =
     static_cast<double>(machine_state.total_ready_insns) / get_curr_cycle();
-
   std::cout << ready_insns_per_cycle << " insns ready per cycle\n";
+
+  double dispatched_insns_per_cycle =
+    static_cast<double>(machine_state.total_dispatched_insns) / get_curr_cycle();
+  std::cout << ready_insns_per_cycle << " insns dispatched per cycle\n";
   
 #if 0
   for(int i = 0; i < 32; i++) {
