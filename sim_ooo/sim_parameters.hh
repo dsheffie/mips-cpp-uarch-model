@@ -26,10 +26,19 @@
   SIM_PARAM(load_tbl_size,16,1,false)					\
   SIM_PARAM(store_tbl_size,16,1,false)					\
   SIM_PARAM(taken_branches_per_cycle,1,1,false)				\
-  SIM_PARAM(l1d_latency,3,1,false)						\
-  SIM_PARAM(l2d_latency,10,1,false)						\
-  SIM_PARAM(l3d_latency,25,1,false)						\
-  SIM_PARAM(mem_latency,100,1,false)						\
+  SIM_PARAM(l1d_latency,3,1,false)					\
+  SIM_PARAM(l1d_assoc,8,1,true)						\
+  SIM_PARAM(l1d_sets,64,1,true)						\
+  SIM_PARAM(l1d_linesize,64,64,true)					\
+  SIM_PARAM(l2d_latency,10,1,false)					\
+  SIM_PARAM(l2d_assoc,16,1,true)					\
+  SIM_PARAM(l2d_sets,256,1,true)					\
+  SIM_PARAM(l2d_linesize,64,64,true)					\
+  SIM_PARAM(l3d_latency,25,1,false)					\
+  SIM_PARAM(l3d_assoc,32,1,true)					\
+  SIM_PARAM(l3d_sets,4096,1,true)					\
+  SIM_PARAM(l3d_linesize,64,64,true)					\
+  SIM_PARAM(mem_latency,100,1,false)					\
   SIM_PARAM(ready_to_dispatch_latency,1,0,false)
 
 namespace sim_param {

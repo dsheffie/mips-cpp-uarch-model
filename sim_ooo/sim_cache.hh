@@ -258,7 +258,9 @@ public:
   const size_t &getMisses() const {
     return misses;
   }
-  
+  size_t capacity() const {
+    return bytes_per_line*assoc*num_sets;
+  }
   std::string getStats(std::string &fName);
   void getStats();
   double computeAMAT();

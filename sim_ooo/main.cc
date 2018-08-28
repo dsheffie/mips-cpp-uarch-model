@@ -138,9 +138,25 @@ int main(int argc, char *argv[]) {
   }
 
   if(use_mem_model) {
-    l3d = new setAssocCache(64, 1<<8, 1<<9, "l3d", sim_param::l3d_latency, nullptr);
-    l2d = new setAssocCache(64, 1<<6, 1<<6, "l2d", sim_param::l2d_latency, l3d);
-    l1d = new setAssocCache(64, 1<<4, 1<<6, "l1d", sim_param::l1d_latency, l2d);
+    l3d = new setAssocCache(sim_param::l3d_linesize,
+			    sim_param::l3d_assoc,
+			    sim_param::l3d_sets,
+			    "l3d",
+			    sim_param::l3d_latency,
+			    nullptr);
+    l2d = new setAssocCache(sim_param::l2d_linesize,
+			    sim_param::l2d_assoc,
+			    sim_param::l2d_sets,
+			    "l2d",
+			    sim_param::l2d_latency, l3d);
+    l1d = new setAssocCache(sim_param::l1d_linesize,
+			    sim_param::l1d_assoc,
+			    sim_param::l1d_sets,
+			    "l1d",
+			    sim_param::l1d_latency, l2d);
+    std::cout << "l1d capacity = " << l1d->capacity() << "\n";
+    std::cout << "l2d capacity = " << l2d->capacity() << "\n";
+    std::cout << "l3d capacity = " << l3d->capacity() << "\n";
   }
 
   initialize_ooo_core(machine_state, l1d, use_oracle,
