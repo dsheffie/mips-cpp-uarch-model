@@ -1,11 +1,13 @@
+#include <cmath>
+#include <map>
+#include <set>
+
 #include "globals.hh"
 #include "mips_op.hh"
 #include "helper.hh"
 #include "parseMips.hh"
 #include "sim_parameters.hh"
-#include <cmath>
-#include <map>
-#include <set>
+#include "sim_cache.hh"
 
 std::map<uint32_t, uint32_t> branch_target_map;
 std::map<uint32_t, int32_t> branch_prediction_map;
@@ -1113,6 +1115,7 @@ public:
       default:
 	break;
       }
+    
     m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
   }
   void complete(sim_state &machine_state) override {
@@ -3022,12 +3025,12 @@ public:
 	break;
       }
       case 35: {
-	for(int i = 0; i < std::min(20, sysArgc); i++) {
+	for(int i = 0; i < std::min(20, global::sysArgc); i++) {
 	  uint32_t arrayAddr = static_cast<uint32_t>(src_regs[0])+4*i;
 	  uint32_t ptr = bswap(*((uint32_t*)(mem + arrayAddr)));
-	  strcpy((char*)(mem + ptr), sysArgv[i]);
+	  strcpy((char*)(mem + ptr), global::sysArgv[i]);
 	}
-	machine_state.gpr_prf[m->prf_idx] = sysArgc;
+	machine_state.gpr_prf[m->prf_idx] = global::sysArgc;
 	break;
       }
       case 50:

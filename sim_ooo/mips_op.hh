@@ -310,6 +310,7 @@ struct sim_state {
   rs_type system_rs;
   
   sparse_mem *mem = nullptr;
+  
   uint64_t icnt = 0, maxicnt = ~(0UL), skipicnt = 0;
   uint64_t n_branches = 0, n_jumps = 0;
   uint64_t mispredicted_branches = 0;

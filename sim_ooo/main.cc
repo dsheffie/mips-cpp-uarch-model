@@ -28,9 +28,9 @@
 #define SAVE_SIM_PARAM_LIST
 #include "sim_parameters.hh"
 
-char **sysArgv = nullptr;
-int sysArgc = 0;
-bool enClockFuncts = false;
+char **global::sysArgv = nullptr;
+int global::sysArgc = 0;
+bool global::enClockFuncts = false;
 
 state_t *s = nullptr;
 
@@ -59,19 +59,23 @@ int main(int argc, char *argv[]) {
 
   std::string filename, sysArgs;
   uint64_t maxicnt = ~(0UL), skipicnt = 0;
-  bool use_checkpoint = false, use_oracle = false, use_syscall_skip = false;
+  bool use_checkpoint = false, use_oracle = false;
+  bool use_syscall_skip = false, use_mem_model = false;
+  
   po::options_description desc("Options");
   po::variables_map vm;
+  
   desc.add_options() 
     ("help,h", "Print help messages") 
     ("args,a", po::value<std::string>(&sysArgs), "arguments to mips binary")
-    ("clock,c", po::value<bool>(&enClockFuncts)->default_value(false), "enable wall-clock")
+    ("clock,c", po::value<bool>(&global::enClockFuncts)->default_value(false), "enable wall-clock")
     ("file,f", po::value<std::string>(&filename), "mips binary")
     ("skipicnt,k", po::value<uint64_t>(&skipicnt)->default_value(0), "instruction skip count")
     ("maxicnt,m", po::value<uint64_t>(&maxicnt)->default_value(~0UL), "maximum instruction count")
     ("oracle,o", po::value<bool>(&use_oracle)->default_value(false), "use branch oracle")
     ("checkpoint,p", po::value<bool>(&use_checkpoint)->default_value(false), "use a machine checkpoint")
     ("syscallskip,s", po::value<bool>(&use_syscall_skip)->default_value(false), "skip syscalls")
+    ("mem_model", po::value<bool>(&use_mem_model)->default_value(false), "use memory model")
 #define SIM_PARAM(A,B,C) (#A,po::value<int>(&sim_param::A)->default_value(B), #A)
     SIM_PARAM_LIST;
 #undef SIM_PARAM
@@ -108,7 +112,7 @@ int main(int argc, char *argv[]) {
 
   
   /* Build argc and argv */
-  sysArgc = buildArgcArgv(filename.c_str(),sysArgs.c_str(),&sysArgv);
+  global::sysArgc = buildArgcArgv(filename.c_str(),sysArgs.c_str(),&global::sysArgv);
   initParseTables();
 
   sparse_mem *sm = new sparse_mem(1UL<<32);
@@ -131,11 +135,11 @@ int main(int argc, char *argv[]) {
   delete s;
   delete sm;
   
-  if(sysArgv) {
-    for(int i = 0; i < sysArgc; i++) {
-      delete [] sysArgv[i];
+  if(global::sysArgv) {
+    for(int i = 0; i < global::sysArgc; i++) {
+      delete [] global::sysArgv[i];
     }
-    delete [] sysArgv;
+    delete [] global::sysArgv;
   }
 
 

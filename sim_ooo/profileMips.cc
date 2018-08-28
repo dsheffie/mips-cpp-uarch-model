@@ -1398,13 +1398,14 @@ static void _monitorBody(uint32_t inst, state_t *s) {
       s->gpr[R_v0] = 0;
       break;
     case 34:
-      if(enClockFuncts) {
+      if(global::enClockFuncts) {
 	*((uint32_t*)(&s->gpr[R_v0])) = times(&tms_buf);
 	tms32_buf.tms_utime = bswap((uint32_t)tms_buf.tms_utime);
 	tms32_buf.tms_stime = bswap((uint32_t)tms_buf.tms_stime);
 	tms32_buf.tms_cutime = bswap((uint32_t)tms_buf.tms_cutime);
 	tms32_buf.tms_cstime = bswap((uint32_t)tms_buf.tms_cstime);
-      } else {
+      }
+      else {
 	*((uint32_t*)(&s->gpr[R_v0])) = myTime;
 	myTime += 100;
 	memset(&tms32_buf, 0, sizeof(tms32_buf));
@@ -1413,12 +1414,12 @@ static void _monitorBody(uint32_t inst, state_t *s) {
       break;
     case 35:
       /* int getargs(char **argv) */
-      for(int i = 0; i < std::min(MARGS, sysArgc); i++) {
+      for(int i = 0; i < std::min(MARGS, global::sysArgc); i++) {
 	uint32_t arrayAddr = ((uint32_t)s->gpr[R_a0])+4*i;
 	uint32_t ptr = bswap(*((uint32_t*)(s->mem + arrayAddr)));
-	strcpy((char*)(s->mem + ptr), sysArgv[i]);
+	strcpy((char*)(s->mem + ptr), global::sysArgv[i]);
       }
-      s->gpr[R_v0] = sysArgc;
+      s->gpr[R_v0] = global::sysArgc;
       break;
     case 37:
       /*char *getcwd(char *buf, uint32_t size) */
