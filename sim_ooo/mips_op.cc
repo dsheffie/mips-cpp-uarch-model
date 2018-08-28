@@ -1118,7 +1118,7 @@ public:
 
     uint32_t lat = sim_param::l1d_latency;
     if(machine_state.l1d) {
-      lat = machine_state.l1d->read(effective_address, 4);
+      lat = machine_state.l1d->read(effective_address & (~3U), 4);
     }
     
     m->complete_cycle = get_curr_cycle() + lat;
@@ -1266,7 +1266,11 @@ public:
   void execute(sim_state &machine_state) override {
     effective_address = machine_state.gpr_prf[m->src1_prf] + imm;
     store_data = machine_state.gpr_prf[m->src0_prf];
-    m->complete_cycle = get_curr_cycle() + 1;
+    uint32_t lat = sim_param::l1d_latency;
+    if(machine_state.l1d) {
+      lat = machine_state.l1d->write(effective_address & (~3U), 4);
+    }
+    m->complete_cycle = get_curr_cycle() + lat;
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -1553,18 +1557,23 @@ public:
   }
   void execute(sim_state &machine_state) override {
     effective_address = machine_state.gpr_prf[m->src1_prf] + imm;
+    int b = 4;
     switch(st)
       {
       case store_type::sdc1:
 	store_data[0] = *reinterpret_cast<uint64_t*>(&machine_state.cpr1_prf[m->src0_prf]);
 	store_data[1] = *reinterpret_cast<uint64_t*>(&machine_state.cpr1_prf[m->src2_prf]);
+	b = 8;
 	break;
       case store_type::swc1:
 	store_data[0] = *reinterpret_cast<uint32_t*>(&machine_state.cpr1_prf[m->src0_prf]);
 	break;
       }
-    
-    m->complete_cycle = get_curr_cycle() + 1;
+    uint32_t lat = sim_param::l1d_latency;
+    if(machine_state.l1d) {
+      lat = machine_state.l1d->write(effective_address, b);
+    }
+    m->complete_cycle = get_curr_cycle() + lat;
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {

@@ -573,8 +573,10 @@ extern "C" {
 	if(l1d) {
 	  uint64_t hits = l1d->getHits()-last_hits;
 	  uint64_t misses = l1d->getMisses()-last_misses;
-	  double hit_rate = static_cast<double>(hits) / (hits+misses);
-	  std::cout << ", dcu hit rate " << hit_rate ;
+	  double w_hit_rate = static_cast<double>(hits) / (hits+misses);
+	  double hit_rate = static_cast<double>(l1d->getHits()) / (l1d->getHits()+l1d->getMisses());
+	  std::cout << ", dcu hit rate " << hit_rate
+		    << ", window dcu hit rate " << w_hit_rate ;
 	  last_hits = l1d->getHits();
 	  last_misses = l1d->getMisses();
 	}
