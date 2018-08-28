@@ -26,6 +26,7 @@
 #include "gthread.hh"
 #include "mips_op.hh"
 #include "sim_parameters.hh"
+#include "sim_cache.hh"
 
 static uint64_t curr_cycle = 0;
 extern std::map<uint32_t, uint32_t> branch_target_map;
@@ -551,6 +552,8 @@ extern "C" {
   void cycle_count(void *arg) {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     uint64_t prev_icnt = 0;
+    simCache *l1d = machine_state.l1d;
+    uint64_t last_hits = 0, last_misses = 0;
     static const uint64_t hinterval = 1UL<<20;
     while(not(machine_state.terminate_sim)) {
       curr_cycle++;
@@ -565,9 +568,17 @@ extern "C" {
 	double ipc = static_cast<double>(curr_icnt) / curr_cycle;
 	double wipc = static_cast<double>(curr_icnt-prev_icnt) / hinterval;
 	std::cout << "heartbeat : " << curr_cycle << " cycles, "
-		  << curr_icnt << " insns retired, avg ipc "
-		  << ipc << ", window ipc "
-		  << wipc <<"\n";
+		  << curr_icnt << " insns retired, avg ipc "<< ipc
+		  << ", window ipc " << wipc;
+	if(l1d) {
+	  uint64_t hits = l1d->getHits()-last_hits;
+	  uint64_t misses = l1d->getMisses()-last_misses;
+	  double hit_rate = static_cast<double>(hits) / (hits+misses);
+	  std::cout << ", dcu hit rate " << hit_rate ;
+	  last_hits = l1d->getHits();
+	  last_misses = l1d->getMisses();
+	}
+	std::cout <<"\n";
 	prev_icnt = curr_icnt;
       }
       //if(curr_cycle >= 256) {

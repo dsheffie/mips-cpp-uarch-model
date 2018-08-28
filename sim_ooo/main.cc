@@ -38,7 +38,7 @@ static simCache* l1d = nullptr, *l2d = nullptr, *l3d = nullptr;
 state_t *s = nullptr;
 
 /* linkage */
-#define SIM_PARAM(A,B,C) int sim_param::A = C;
+#define SIM_PARAM(A,B,C,D) int sim_param::A = C;
 SIM_PARAM_LIST;
 #undef SIM_PARAM
 
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
     ("checkpoint,p", po::value<bool>(&use_checkpoint)->default_value(false), "use a machine checkpoint")
     ("syscallskip,s", po::value<bool>(&use_syscall_skip)->default_value(false), "skip syscalls")
     ("mem_model", po::value<bool>(&use_mem_model)->default_value(false), "use memory model")
-#define SIM_PARAM(A,B,C) (#A,po::value<int>(&sim_param::A)->default_value(B), #A)
+#define SIM_PARAM(A,B,C,D) (#A,po::value<int>(&sim_param::A)->default_value(B), #A)
     SIM_PARAM_LIST;
 #undef SIM_PARAM
   ; 
@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-#define SIM_PARAM(A,B,C) if(sim_param::A < C) {		\
+#define SIM_PARAM(A,B,C,D) if(sim_param::A < C) {	\
     std::cout << #A << " has out of range value "	\
 	      << sim_param::A				\
 	      <<" -> reset to default value "		\
@@ -114,6 +114,12 @@ int main(int argc, char *argv[]) {
   SIM_PARAM_LIST;
 #undef SIM_PARAM
 
+#define SIM_PARAM(A,B,C,D) if(D and not(isPow2(sim_param::A))) {	\
+    std::cerr << KRED << #A << " must be a power of 2" << KNRM <<"\n";	\
+    return -1;								\
+  }
+  SIM_PARAM_LIST;
+#undef SIM_PARAM
   
   /* Build argc and argv */
   global::sysArgc = buildArgcArgv(filename.c_str(),sysArgs.c_str(),&global::sysArgv);
@@ -131,11 +137,12 @@ int main(int argc, char *argv[]) {
     loadState(*s, filename);
   }
 
-  l3d = new setAssocCache(64, 1<<8, 1<<9, "l3d", sim_param::l3d_latency, nullptr);
-  l2d = new setAssocCache(64, 1<<6, 1<<6, "l2d", sim_param::l2d_latency, l3d);
-  l1d = new setAssocCache(64, 1<<4, 1<<6, "l1d", sim_param::l1d_latency, l2d);
+  if(use_mem_model) {
+    l3d = new setAssocCache(64, 1<<8, 1<<9, "l3d", sim_param::l3d_latency, nullptr);
+    l2d = new setAssocCache(64, 1<<6, 1<<6, "l2d", sim_param::l2d_latency, l3d);
+    l1d = new setAssocCache(64, 1<<4, 1<<6, "l1d", sim_param::l1d_latency, l2d);
+  }
 
-  
   initialize_ooo_core(machine_state, l1d, use_oracle,
 		      use_syscall_skip, skipicnt, maxicnt, s, sm);
   run_ooo_core(machine_state);

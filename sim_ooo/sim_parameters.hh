@@ -2,38 +2,38 @@
 #define sim_parameters_hh
 
 #define SIM_PARAM_LIST				\
-  SIM_PARAM(rob_size,64,1)			\
-  SIM_PARAM(fetchq_size,8,1)			\
-  SIM_PARAM(decodeq_size,8,1)			\
-  SIM_PARAM(fetch_bw,8,1)			\
-  SIM_PARAM(decode_bw,6,1)			\
-  SIM_PARAM(alloc_bw,6,1)			\
-  SIM_PARAM(retire_bw,6,1)			\
-  SIM_PARAM(num_gpr_prf,128,64)			\
-  SIM_PARAM(num_cpr0_prf,64,32)			\
-  SIM_PARAM(num_cpr1_prf,64,32)			\
-  SIM_PARAM(num_fcr1_prf,16,8)			\
-  SIM_PARAM(num_fpu_ports,2,1)			\
-  SIM_PARAM(num_alu_ports,2,1)			\
-  SIM_PARAM(num_load_ports,2,1)			\
-  SIM_PARAM(num_store_ports,1,1)		\
-  SIM_PARAM(num_alu_sched_entries,64,1)		\
-  SIM_PARAM(num_fpu_sched_entries,64,1)		\
-  SIM_PARAM(num_jmp_sched_entries,64,1)		\
-  SIM_PARAM(num_load_sched_entries,64,1)	\
-  SIM_PARAM(num_store_sched_entries,64,1)	\
-  SIM_PARAM(num_system_sched_entries,4,1)	\
-  SIM_PARAM(load_tbl_size,16,1)			\
-  SIM_PARAM(store_tbl_size,16,1)		\
-  SIM_PARAM(taken_branches_per_cycle,1,1)	\
-  SIM_PARAM(l1d_latency,3,1)			\
-  SIM_PARAM(l2d_latency,10,1)			\
-  SIM_PARAM(l3d_latency,25,1)			\
-  SIM_PARAM(mem_latency,100,1)			\
-  SIM_PARAM(ready_to_dispatch_latency,1,0)
+  SIM_PARAM(rob_size,64,1,true)			\
+  SIM_PARAM(fetchq_size,8,1,true)			\
+  SIM_PARAM(decodeq_size,8,1,true)			\
+  SIM_PARAM(fetch_bw,8,1,false)			\
+  SIM_PARAM(decode_bw,6,1,false)			\
+  SIM_PARAM(alloc_bw,6,1,false)			\
+  SIM_PARAM(retire_bw,6,1,false)			\
+  SIM_PARAM(num_gpr_prf,128,64,true)		\
+  SIM_PARAM(num_cpr0_prf,64,32,true)		\
+  SIM_PARAM(num_cpr1_prf,64,32,true)		\
+  SIM_PARAM(num_fcr1_prf,16,8,true)			\
+  SIM_PARAM(num_fpu_ports,2,1,false)				\
+  SIM_PARAM(num_alu_ports,2,1,false)					\
+  SIM_PARAM(num_load_ports,2,1,false)					\
+  SIM_PARAM(num_store_ports,1,1,false)					\
+  SIM_PARAM(num_alu_sched_entries,64,1,false)				\
+  SIM_PARAM(num_fpu_sched_entries,64,1,false)				\
+  SIM_PARAM(num_jmp_sched_entries,64,1,false)				\
+  SIM_PARAM(num_load_sched_entries,64,1,false)				\
+  SIM_PARAM(num_store_sched_entries,64,1,false)				\
+  SIM_PARAM(num_system_sched_entries,4,1,false)				\
+  SIM_PARAM(load_tbl_size,16,1,false)					\
+  SIM_PARAM(store_tbl_size,16,1,false)					\
+  SIM_PARAM(taken_branches_per_cycle,1,1,false)				\
+  SIM_PARAM(l1d_latency,3,1,false)						\
+  SIM_PARAM(l2d_latency,10,1,false)						\
+  SIM_PARAM(l3d_latency,25,1,false)						\
+  SIM_PARAM(mem_latency,100,1,false)						\
+  SIM_PARAM(ready_to_dispatch_latency,1,0,false)
 
 namespace sim_param {
-#define SIM_PARAM(A,B,C) extern int A;
+#define SIM_PARAM(A,B,C,D) extern int A;
   SIM_PARAM_LIST;
 #undef SIM_PARAM
 }
