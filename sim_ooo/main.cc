@@ -17,6 +17,7 @@
 #include <cassert>
 #include <boost/program_options.hpp>
 
+#include "sim_cache.hh"
 #include "loadelf.hh"
 #include "save_state.hh"
 #include "helper.hh"
@@ -32,6 +33,8 @@ char **global::sysArgv = nullptr;
 int global::sysArgc = 0;
 bool global::enClockFuncts = false;
 
+static simCache* l1d = nullptr, *l2d = nullptr, *l3d = nullptr;
+
 state_t *s = nullptr;
 
 /* linkage */
@@ -42,6 +45,7 @@ SIM_PARAM_LIST;
 int buildArgcArgv(const char *filename, const char *sysArgs, char ***argv);
 
 void initialize_ooo_core(sim_state & machine_state,
+			 simCache *l1d,
 			 bool use_oracle,
 			 bool use_syscall_skip,
 			 uint64_t skipicnt, uint64_t maxicnt,
@@ -127,13 +131,23 @@ int main(int argc, char *argv[]) {
     loadState(*s, filename);
   }
 
-  initialize_ooo_core(machine_state, use_oracle, use_syscall_skip, skipicnt, maxicnt, s, sm);
+  l3d = new setAssocCache(64, 1<<8, 1<<9, "l3d", sim_param::l3d_latency, nullptr);
+  l2d = new setAssocCache(64, 1<<6, 1<<6, "l2d", sim_param::l2d_latency, l3d);
+  l1d = new setAssocCache(64, 1<<4, 1<<6, "l1d", sim_param::l1d_latency, l2d);
+
+  
+  initialize_ooo_core(machine_state, l1d, use_oracle,
+		      use_syscall_skip, skipicnt, maxicnt, s, sm);
   run_ooo_core(machine_state);
   destroy_ooo_core(machine_state);
 
 
   delete s;
   delete sm;
+
+  delete l3d;
+  delete l2d;
+  delete l1d;
   
   if(global::sysArgv) {
     for(int i = 0; i < global::sysArgc; i++) {

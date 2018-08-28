@@ -234,6 +234,7 @@ protected:
 };
 
 struct state_t;
+class simCache;
 
 struct sim_state {
   bool terminate_sim = false;
@@ -330,6 +331,9 @@ struct sim_state {
   
   sparse_mem *oracle_mem = nullptr;
   state_t *oracle_state = nullptr;
+
+  simCache *l1d = nullptr;
+
   
   bool log_execution = false;
   bool use_interp_check = false;

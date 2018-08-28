@@ -247,10 +247,10 @@ public:
   void set_next_level(simCache *next_level);
   
   uint32_t index(uint32_t addr, uint32_t &l, uint32_t &t);
-  virtual bool access(uint32_t addr, uint32_t num_bytes, opType o)=0;
+  virtual bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat)=0;
   
-  void read(uint32_t addr, uint32_t num_bytes);
-  void write(uint32_t addr, uint32_t num_bytes);
+  uint32_t read(uint32_t addr, uint32_t num_bytes);
+  uint32_t write(uint32_t addr, uint32_t num_bytes);
 
   const size_t &getHits() const {
     return hits;
@@ -272,7 +272,7 @@ public:
   randomReplacementCache(size_t bytes_per_line, size_t assoc, size_t num_sets, 
 			 std::string name, int latency, simCache *next_level);
   ~randomReplacementCache();
-  bool access(uint32_t addr, uint32_t num_bytes, opType o) override;
+  bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
   
 private:
   /* all bits are valid */
@@ -296,7 +296,7 @@ public:
     valid.resize(num_sets, false);
   }
   ~directMappedCache();
-  bool access(uint32_t addr, uint32_t num_bytes, opType o) override;
+  bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
 };
 
 class fullAssocCache: public simCache {
@@ -311,7 +311,7 @@ public:
     std::fill(hitdepth.begin(), hitdepth.end(), 0);
   }
   ~fullAssocCache();
-  bool access(uint32_t addr, uint32_t num_bytes, opType o) override;
+  bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
 };
 
 class lowAssocCache : public simCache {
@@ -319,7 +319,7 @@ class lowAssocCache : public simCache {
   lowAssocCache(size_t bytes_per_line, size_t assoc, size_t num_sets, 
 		 std::string name, int latency, simCache *next_level);
   ~lowAssocCache();
-  bool access(uint32_t addr, uint32_t num_bytes, opType o) override;
+  bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
 
  private:
   void updateLRU(uint32_t idx,uint32_t w);
@@ -390,7 +390,7 @@ public:
   setAssocCache(size_t bytes_per_line, size_t assoc, size_t num_sets, 
 		std::string name, int latency, simCache *next_level);
   ~setAssocCache();
-  bool access(uint32_t addr, uint32_t num_bytes, opType o) override;
+  bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
 };
 
 
@@ -404,7 +404,7 @@ public:
     simCache(bytes_per_line, assoc, num_sets, name, latency, next_level) {
   }
   ~fullRandAssocCache() {}
-  bool access(uint32_t addr, uint32_t num_bytes, opType o) override;
+  bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
 };
 
 
@@ -413,16 +413,16 @@ class realLRUCache : public simCache {
   realLRUCache(size_t bytes_per_line, size_t assoc, size_t num_sets, 
 		 std::string name, int latency, simCache *next_level);
   ~realLRUCache();
-  bool access(uint32_t addr, uint32_t num_bytes, opType o) override;
+  bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
 private:
   /* all bits are valid */
   uint8_t *allvalid;
   /* cache valid bits */
-   uint8_t **valid;
-   /* tree-lru bits */
+  uint8_t **valid;
+  /* tree-lru bits */
    uint64_t **lru;
-   /* cache tag bits */
-   uint32_t **tag;
+  /* cache tag bits */
+  uint32_t **tag;
 };
 
 /* This is too expensive to be used in practice */
@@ -431,7 +431,7 @@ class highAssocCache : public simCache {
   highAssocCache(size_t bytes_per_line, size_t assoc, size_t num_sets, 
 		 std::string name, int latency, simCache *next_level);
   ~highAssocCache();
-  bool access(uint32_t addr, uint32_t num_bytes, opType o) override;
+  bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
 
  private:
   void updateLRU(uint32_t idx,uint32_t w);

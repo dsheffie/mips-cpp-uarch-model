@@ -1115,8 +1115,13 @@ public:
       default:
 	break;
       }
+
+    uint32_t lat = sim_param::l1d_latency;
+    if(machine_state.l1d) {
+      lat = machine_state.l1d->read(effective_address, 4);
+    }
     
-    m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
+    m->complete_cycle = get_curr_cycle() + lat;
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -1422,10 +1427,12 @@ public:
   }
   void execute(sim_state &machine_state) override {
     effective_address = machine_state.gpr_prf[m->src0_prf] + imm;
+    uint32_t b = 4;
     switch(lt)
       {
       case load_type::ldc1:
 	m->load_exception |= ((effective_address & 0x7) != 0);
+	b = 8;
 	break;
       case load_type::lwc1:
 	m->load_exception |= ((effective_address & 0x3) != 0);
@@ -1433,7 +1440,12 @@ public:
       default:
 	break;
       }
-    m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
+
+    uint32_t lat = sim_param::l1d_latency;
+    if(machine_state.l1d) {
+      lat = machine_state.l1d->read(effective_address, b);
+    }
+    m->complete_cycle = get_curr_cycle() + lat;
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {

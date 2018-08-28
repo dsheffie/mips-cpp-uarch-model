@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <algorithm>
 #include "sim_cache.hh"
+#include "sim_parameters.hh"
 #include "helper.hh"
 
 uint64_t get_curr_cycle();
@@ -183,7 +184,7 @@ int32_t highAssocCache::findLRU(uint32_t w) {
 
 directMappedCache::~directMappedCache(){}
 
-bool directMappedCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
+bool directMappedCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) {
   uint32_t w,t;
   uint32_t b = index(addr, w, t);
   bool h = false;
@@ -201,14 +202,10 @@ bool directMappedCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
   return h;
 }
 
-fullAssocCache::~fullAssocCache() {
-  for(size_t i =0; i < assoc; i++) {
-    std::cerr << "hitdepth[" << i << "] = " << hitdepth[i] << "\n";
-  }
-}
+fullAssocCache::~fullAssocCache() {}
 
 
-bool fullAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
+bool fullAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) {
   uint32_t w,t;
   uint32_t b = index(addr, w, t);
   bool h = false;
@@ -250,14 +247,26 @@ setAssocCache::~setAssocCache() {
   print_var(cap);
 }
 
-bool setAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
+bool setAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) {
   uint32_t w,t;
+  lat += latency;
   uint32_t b = index(addr, w, t);
-  return sets[w]->access(t,o);
+  bool hit = sets[w]->access(t,o);
+  if(not(hit)) {
+    if(next_level) {
+      size_t reload_addr = addr & (~(bytes_per_line-1));
+      next_level->access(reload_addr, bytes_per_line, o, lat);
+    }
+    else {
+      lat += sim_param::mem_latency;
+    }
+  }
+  return hit;
+  
 }
 
 
-bool fullRandAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
+bool fullRandAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) {
   uint32_t w,t;
   uint32_t b = index(addr, w, t);
   bool h  = false;
@@ -287,13 +296,13 @@ bool fullRandAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
 }
 
 
-bool highAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
-  
+bool highAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) {
   /* way and tag of current address */
   uint32_t w,t;
   uint32_t a = assoc+1;
   uint32_t b = index(addr, w, t);
   bool h = false;
+  lat += latency;
   /* search cache ways */
   if((allvalid[w]))
     {
@@ -327,7 +336,7 @@ bool highAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
 	{
 	  /* mask off to align */
 	  size_t reload_addr = addr & (~(bytes_per_line-1));
-	  next_level->access(reload_addr, bytes_per_line, o);
+	  next_level->access(reload_addr, bytes_per_line, o, lat);
 	}
       
       misses++;
@@ -425,12 +434,13 @@ int32_t lowAssocCache::findLRU(uint32_t w)
   return -1;
 }
 
-bool lowAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o){
+bool lowAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat){
   /* way and tag of current address */
   uint32_t w,t;
   uint32_t a = assoc+1;
   uint32_t b = index(addr, w, t);
   bool h =  false;
+  lat += latency;
   if((allvalid[w])) {
     for(size_t i = 0; i < assoc; i++) {
       if(tag[w][i]==t) {
@@ -461,7 +471,7 @@ bool lowAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o){
 	{
 	  /* mask off to align */
 	  size_t reload_addr = addr & (~(bytes_per_line-1));
-	  next_level->access(reload_addr, bytes_per_line, o);
+	  next_level->access(reload_addr, bytes_per_line, o, lat);
 	}
       
       misses++;
@@ -490,12 +500,16 @@ bool lowAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o){
 
 
 
-void simCache::read(uint32_t addr, uint32_t num_bytes) {
-  access(addr,num_bytes,opType::READ);
+uint32_t simCache::read(uint32_t addr, uint32_t num_bytes) {
+  uint32_t lat = 0;
+  access(addr,num_bytes,opType::READ,lat);
+  return lat;
 }
 
-void simCache::write(uint32_t addr, uint32_t num_bytes) {
-  access(addr,num_bytes,opType::WRITE);
+uint32_t simCache::write(uint32_t addr, uint32_t num_bytes) {
+  uint32_t lat = 0;
+  access(addr,num_bytes,opType::WRITE,lat);
+  return lat;
 }
 
 
@@ -543,8 +557,7 @@ std::string simCache::getStats(std::string &fName)
 }
 
 
-double simCache::computeAMAT()
-{
+double simCache::computeAMAT() {
   size_t total = hits+misses;
   double rate = ((double)misses) / ((double)total);
   double nextLevelLat = 100.0;
@@ -582,14 +595,12 @@ realLRUCache::realLRUCache(size_t bytes_per_line, size_t assoc, size_t num_sets,
     }
 }
 
-realLRUCache::~realLRUCache()
-{
-  for(size_t i =0; i < num_sets; i++)
-    {
-      delete [] valid[i];
-      delete [] tag[i];
-      delete [] lru[i];
-    }
+realLRUCache::~realLRUCache() {
+  for(size_t i =0; i < num_sets; i++) {
+    delete [] valid[i];
+    delete [] tag[i];
+    delete [] lru[i];
+  }
   delete [] lru;
   delete [] tag;
   delete [] valid;
@@ -600,40 +611,37 @@ randomReplacementCache::randomReplacementCache(size_t bytes_per_line,
 					       size_t assoc, size_t num_sets, 
 					       std::string name, int latency, 
 					       simCache *next_level) :
-  simCache(bytes_per_line, assoc, num_sets, name, latency, next_level)
-{
+  simCache(bytes_per_line, assoc, num_sets, name, latency, next_level) {
   valid = new uint8_t*[num_sets];
   tag = new uint32_t*[num_sets];
   allvalid = new uint8_t[num_sets];
 
-  for(size_t i =0; i < num_sets; i++)
-    {
-      valid[i] = new uint8_t[assoc];
-      tag[i] = new uint32_t[assoc];
-      allvalid[i] = 0;
-      memset(valid[i],0,sizeof(uint8_t)*assoc);
-      memset(tag[i],0,sizeof(uint32_t)*assoc);
-    }
+  for(size_t i =0; i < num_sets; i++) {
+    valid[i] = new uint8_t[assoc];
+    tag[i] = new uint32_t[assoc];
+    allvalid[i] = 0;
+    memset(valid[i],0,sizeof(uint8_t)*assoc);
+    memset(tag[i],0,sizeof(uint32_t)*assoc);
+  }
 }
 
-randomReplacementCache::~randomReplacementCache()
-{
-  for(size_t i =0; i < num_sets; i++)
-    {
-      delete [] valid[i];
-      delete [] tag[i];
-    }
+randomReplacementCache::~randomReplacementCache() {
+  for(size_t i =0; i < num_sets; i++) {
+    delete [] valid[i];
+    delete [] tag[i];
+  }
   delete [] tag;
   delete [] valid;
   delete [] allvalid;
 }
 
-bool randomReplacementCache::access(uint32_t addr, uint32_t num_bytes, opType o){
+bool randomReplacementCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat){
   /* way and tag of current address */
   uint32_t w,t;
   uint32_t a = assoc+1;
   uint32_t b = index(addr, w, t);
   bool h = false;
+  lat += latency;
   /* search cache ways */
   for(size_t i = 0; i < assoc; i++) {
     if(valid[w][i] && (tag[w][i]==t)) {
@@ -646,12 +654,11 @@ bool randomReplacementCache::access(uint32_t addr, uint32_t num_bytes, opType o)
   /* cache miss .. handle it */
   if( a == (assoc+1))
     {
-      if(next_level)
-	{
-	  /* mask off to align */
-	  size_t reload_addr = addr & (~(bytes_per_line-1));
-	  next_level->access(reload_addr, bytes_per_line, o);
-	}
+      if(next_level) {
+	/* mask off to align */
+	size_t reload_addr = addr & (~(bytes_per_line-1));
+	next_level->access(reload_addr, bytes_per_line, o, lat);
+      }
       
       misses++;
       rw_misses[(o==opType::WRITE) ? 1 : 0]++;
@@ -691,12 +698,13 @@ bool randomReplacementCache::access(uint32_t addr, uint32_t num_bytes, opType o)
 
 
 
-bool realLRUCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
+bool realLRUCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) {
   /* way and tag of current address */
   uint32_t w,t;
   uint32_t a = assoc+1;
   uint32_t b = index(addr, w, t);
   bool h = false;
+  lat += latency;
   /* search cache ways */
   for(size_t i = 0; i < assoc; i++)
     {
@@ -715,7 +723,7 @@ bool realLRUCache::access(uint32_t addr, uint32_t num_bytes, opType o) {
 	{
 	  /* mask off to align */
 	  size_t reload_addr = addr & (~(bytes_per_line-1));
-	  next_level->access(reload_addr, bytes_per_line, o);
+	  next_level->access(reload_addr, bytes_per_line, o, lat);
 	}
       
       misses++;

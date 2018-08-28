@@ -199,9 +199,9 @@ void retire(sim_state &machine_state) {
       u = rob.peek();
       empty_cnt = 0;
       if(not(u->is_complete)) {
-	if(stuck_cnt > 32) {
-	  std::cerr << "STUCK:" << *(u->op) << "\n";
-	}
+	//if(stuck_cnt > 32) {
+	//std::cerr << "STUCK:" << *(u->op) << "\n";
+	//}
 	stuck_cnt++;
 	u = nullptr;
 	break;
@@ -477,10 +477,13 @@ void retire(sim_state &machine_state) {
 }
 
 void initialize_ooo_core(sim_state &machine_state,
+			 simCache *l1d,
 			 bool use_oracle,
 			 bool use_syscall_skip,
 			 uint64_t skipicnt, uint64_t maxicnt,
 			 state_t *s, const sparse_mem *sm) {
+
+  machine_state.l1d = l1d;
   
   if(use_syscall_skip) {
     while(s->syscall==0) {
