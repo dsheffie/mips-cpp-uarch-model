@@ -56,6 +56,7 @@ simCache::simCache(size_t bytes_per_line, size_t assoc, size_t num_sets,
   
   ln2_offset_bits = ln2_num_sets + ln2_bytes_per_line;
   ln2_tag_bits = 8*sizeof(uint32_t) - ln2_offset_bits;
+  inflight.resize(sim_param::rob_size);
 }
 
 simCache::~simCache() {}

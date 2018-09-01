@@ -266,6 +266,9 @@ public:
   size_t capacity() const {
     return bytes_per_line*assoc*num_sets;
   }
+  bool miss_handlers_available() const {
+    return not(inflight.full());
+  }
   std::string getStats(std::string &fName);
   void getStats();
   double computeAMAT();
