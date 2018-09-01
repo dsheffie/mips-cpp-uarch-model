@@ -120,6 +120,7 @@ struct mips_meta_op {
   int64_t dispatch_cycle = -1;
   int64_t complete_cycle = -1;
   int64_t retire_cycle = -1;
+  int64_t aux_cycle = -1;
   /* finished execution */
   bool is_complete = false;
   bool could_cause_exception = false;
@@ -163,6 +164,7 @@ struct mips_meta_op {
     dispatch_cycle = -1;
     complete_cycle = -1;
     retire_cycle = -1;
+    aux_cycle = -1;
     is_complete = false;
     could_cause_exception = false;
     branch_exception = false;

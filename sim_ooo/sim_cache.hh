@@ -14,6 +14,7 @@
 #include <iterator>
 #include <boost/pool/object_pool.hpp>
 #include <boost/dynamic_bitset.hpp>
+#include "sim_list.hh"
 
 class mips_meta_op;
 
@@ -240,6 +241,7 @@ protected:
   std::array<size_t,2> rw_hits;
   std::array<size_t,2> rw_misses;
 
+  sim_list<mips_meta_op*> inflight;
 public:
   friend std::ostream &operator<<(std::ostream &out, const simCache &cache);
   simCache(size_t bytes_per_line, size_t assoc, size_t num_sets, 
@@ -253,7 +255,8 @@ public:
   
   uint32_t read(mips_meta_op *op, uint32_t addr, uint32_t num_bytes);
   uint32_t write(mips_meta_op *op, uint32_t addr, uint32_t num_bytes);
-
+  void nuke_inflight();
+  virtual void tick();
   const size_t &getHits() const {
     return hits;
   }

@@ -499,19 +499,46 @@ bool lowAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t
   return h;
 }
 
+void simCache::tick() {
+  if(next_level) {
+    next_level->tick();
+  }
+  
+  for(auto it = inflight.begin(); it != inflight.end(); /* nil */) {
+    sim_op o = *it;
+    if(o->aux_cycle == get_curr_cycle()) {
+      size_t was = inflight.size();
+      o->complete_cycle = o->aux_cycle + 1;
+      it = inflight.erase(it);
+    }
+    else {
+      it++;
+    }
+  }
+}
 
+void simCache::nuke_inflight() {
+  if(next_level) {
+    next_level->nuke_inflight();
+  }
+  inflight.clear();
+}
 
 uint32_t simCache::read(sim_op op, uint32_t addr, uint32_t num_bytes) {
   uint32_t lat = 0;
   access(addr,num_bytes,opType::READ,lat);
-  op->complete_cycle = lat + get_curr_cycle();
+  op->aux_cycle = lat + get_curr_cycle();
+  assert(not(inflight.full()));
+  inflight.push(op);
   return lat;
 }
 
 uint32_t simCache::write(sim_op op, uint32_t addr, uint32_t num_bytes) {
   uint32_t lat = 0;
   access(addr,num_bytes,opType::WRITE,lat);
-  op->complete_cycle = lat + get_curr_cycle();
+  op->aux_cycle = lat + get_curr_cycle();
+  assert(not(inflight.full()));
+  inflight.push(op);
   return lat;
 }
 

@@ -153,10 +153,9 @@ public:
   protected:
     friend class sim_list;
     entry *ptr;
-    ssize_t dist;
-    const_iterator(entry *ptr, ssize_t dist) : ptr(ptr), dist(dist) {};
+    const_iterator(entry *ptr) : ptr(ptr) {};
   public:
-    const_iterator() : ptr(nullptr), dist(-1) {}
+    const_iterator() : ptr(nullptr) {}
     const bool operator==(const const_iterator &rhs) const {
       return ptr == rhs.ptr;
     }
@@ -180,7 +179,7 @@ public:
   class iterator : public const_iterator {
   private:
     friend class sim_list;
-    iterator(entry *ptr, ssize_t dist) : const_iterator(ptr,dist) {}
+    iterator(entry *ptr) : const_iterator(ptr) {}
   public:
     iterator() : const_iterator() {}
     T &operator*() {
@@ -188,20 +187,22 @@ public:
     }
   };
   const_iterator begin() const {
-    return const_iterator(tail,0);
+    return const_iterator(tail);
   }
   const_iterator end() const {
-    return const_iterator(nullptr,-1);
+    return const_iterator(nullptr);
   }
   iterator begin() {
-    return iterator(tail,0);
+    return iterator(tail);
   }
   iterator end() {
-    return iterator(nullptr,-1);
+    return iterator(nullptr);
   }
-  void erase(iterator it) {
-    if(it == end())
-      return;
+  iterator erase(iterator it) {
+    if(it == end()) {
+      return it;
+    }
+    entry *next = it.ptr->next;
     it.ptr->unlink();
     if(it.ptr == head) {
       head = it.ptr->prev;
@@ -211,9 +212,7 @@ public:
     }
     dealloc(it.ptr);
     cnt--;
-  }
-  ssize_t distance(iterator it) {
-    return it.dist;
+    return iterator(next);
   }
   size_t size() const {
     return cnt;

@@ -201,7 +201,9 @@ void retire(sim_state &machine_state) {
       empty_cnt = 0;
       if(not(u->is_complete)) {
 	//if(stuck_cnt > 32) {
-	//std::cerr << "STUCK:" << *(u->op) << "\n";
+	//std::cerr << "STUCK:" << *(u->op)
+	//	    << "," << u
+	//	    << "\n";
 	//}
 	stuck_cnt++;
 	u = nullptr;
@@ -432,6 +434,9 @@ void retire(sim_state &machine_state) {
 	  delete d;
 	}
       }
+      if(machine_state.l1d) {
+	machine_state.l1d->nuke_inflight();
+      }
       //machine_state.return_stack.clear();
       machine_state.decode_queue.clear();
       machine_state.fetch_queue.clear();
@@ -559,8 +564,11 @@ extern "C" {
       curr_cycle++;
       uint64_t delta = curr_cycle - machine_state.last_retire_cycle;
       if(delta > 1024) {
-	dprintf(2, "no retirement in 1024 cycles, last pc = %x!\n",
-		machine_state.last_retire_pc);
+	std::cerr << "no retirement in 1024 cycles, last pc = "
+		  << std::hex
+		  << machine_state.last_retire_pc
+		  << std::dec
+		  << "\n";
 	machine_state.terminate_sim = true;
       }
       if(curr_cycle % hinterval == 0) {
@@ -590,7 +598,16 @@ extern "C" {
     }
     gthread_terminate();
   }
-  
+  void cache(void *arg) {
+    sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
+    if(machine_state.l1d != nullptr)  {
+      while(not(machine_state.terminate_sim)) {
+	machine_state.l1d->tick();
+	gthread_yield();
+      }
+    }
+    gthread_terminate();
+  }
   void fetch(void *arg) {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     if(machine_state.oracle_mem) {
@@ -997,6 +1014,7 @@ void run_ooo_core(sim_state &machine_state) {
   gthread::make_gthread(&allocate, reinterpret_cast<void*>(&machine_state));
   gthread::make_gthread(&decode, reinterpret_cast<void*>(&machine_state));
   gthread::make_gthread(&fetch, reinterpret_cast<void*>(&machine_state));
+  gthread::make_gthread(&cache, reinterpret_cast<void*>(&machine_state));
   gthread::make_gthread(&cycle_count, reinterpret_cast<void*>(&machine_state));
   double now = timestamp();
   start_gthreads();
