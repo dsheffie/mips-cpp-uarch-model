@@ -3,6 +3,7 @@
 #include "sim_cache.hh"
 #include "sim_parameters.hh"
 #include "helper.hh"
+#include "mips_op.hh"
 
 uint64_t get_curr_cycle();
 
@@ -500,22 +501,23 @@ bool lowAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t
 
 
 
-uint32_t simCache::read(uint32_t addr, uint32_t num_bytes) {
+uint32_t simCache::read(sim_op op, uint32_t addr, uint32_t num_bytes) {
   uint32_t lat = 0;
   access(addr,num_bytes,opType::READ,lat);
+  op->complete_cycle = lat + get_curr_cycle();
   return lat;
 }
 
-uint32_t simCache::write(uint32_t addr, uint32_t num_bytes) {
+uint32_t simCache::write(sim_op op, uint32_t addr, uint32_t num_bytes) {
   uint32_t lat = 0;
   access(addr,num_bytes,opType::WRITE,lat);
+  op->complete_cycle = lat + get_curr_cycle();
   return lat;
 }
 
 
 
-void simCache::getStats()
-{
+void simCache::getStats() {
   std::string s;
   size_t total = hits+misses;
   double rate = ((double)misses) / ((double)total);

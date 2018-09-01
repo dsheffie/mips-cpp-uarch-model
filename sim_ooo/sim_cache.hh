@@ -15,6 +15,8 @@
 #include <boost/pool/object_pool.hpp>
 #include <boost/dynamic_bitset.hpp>
 
+class mips_meta_op;
+
 enum class opType {READ,WRITE};
 
 #ifndef print_var
@@ -249,8 +251,8 @@ public:
   uint32_t index(uint32_t addr, uint32_t &l, uint32_t &t);
   virtual bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat)=0;
   
-  uint32_t read(uint32_t addr, uint32_t num_bytes);
-  uint32_t write(uint32_t addr, uint32_t num_bytes);
+  uint32_t read(mips_meta_op *op, uint32_t addr, uint32_t num_bytes);
+  uint32_t write(mips_meta_op *op, uint32_t addr, uint32_t num_bytes);
 
   const size_t &getHits() const {
     return hits;

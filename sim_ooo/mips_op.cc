@@ -1116,12 +1116,12 @@ public:
 	break;
       }
 
-    uint32_t lat = sim_param::l1d_latency;
     if(machine_state.l1d) {
-      lat = machine_state.l1d->read(effective_address & (~3U), 4);
+      machine_state.l1d->read(m, effective_address & (~3U), 4);
     }
-    
-    m->complete_cycle = get_curr_cycle() + lat;
+    else {
+      m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
+    }
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -1266,11 +1266,12 @@ public:
   void execute(sim_state &machine_state) override {
     effective_address = machine_state.gpr_prf[m->src1_prf] + imm;
     store_data = machine_state.gpr_prf[m->src0_prf];
-    uint32_t lat = sim_param::l1d_latency;
     if(machine_state.l1d) {
-      lat = machine_state.l1d->write(effective_address & (~3U), 4);
+      machine_state.l1d->write(m,effective_address & (~3U), 4);
     }
-    m->complete_cycle = get_curr_cycle() + lat;
+    else {
+      m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
+    }
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -1445,11 +1446,12 @@ public:
 	break;
       }
 
-    uint32_t lat = sim_param::l1d_latency;
     if(machine_state.l1d) {
-      lat = machine_state.l1d->read(effective_address, b);
+      machine_state.l1d->read(m, effective_address, b);
     }
-    m->complete_cycle = get_curr_cycle() + lat;
+    else {
+      m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
+    }
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -1569,11 +1571,12 @@ public:
 	store_data[0] = *reinterpret_cast<uint32_t*>(&machine_state.cpr1_prf[m->src0_prf]);
 	break;
       }
-    uint32_t lat = sim_param::l1d_latency;
     if(machine_state.l1d) {
-      lat = machine_state.l1d->write(effective_address, b);
+      machine_state.l1d->write(m,effective_address, b);
     }
-    m->complete_cycle = get_curr_cycle() + lat;
+    else {
+      m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
+    }
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
