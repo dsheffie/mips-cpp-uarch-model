@@ -62,6 +62,7 @@ int main(int argc, char *argv[]) {
   sim_state machine_state;
 
   std::string filename, sysArgs;
+  bool use_l2 = true, use_l3 = true;
   uint64_t maxicnt = ~(0UL), skipicnt = 0;
   bool use_checkpoint = false, use_oracle = false;
   bool use_syscall_skip = false, use_mem_model = false;
@@ -81,6 +82,8 @@ int main(int argc, char *argv[]) {
     ("clricnt", po::value<bool>(&clear_checkpoint_icnt)->default_value(false), "clear icnt after loading checkpoint")
     ("syscallskip,s", po::value<bool>(&use_syscall_skip)->default_value(false), "skip syscalls")
     ("mem_model", po::value<bool>(&use_mem_model)->default_value(false), "use memory model")
+    ("use_l2", po::value<bool>(&use_l2)->default_value(true), "use l2 cache model")
+    ("use_l3", po::value<bool>(&use_l3)->default_value(true), "use l3 cache model")
 #define SIM_PARAM(A,B,C,D) (#A,po::value<int>(&sim_param::A)->default_value(B), #A)
     SIM_PARAM_LIST;
 #undef SIM_PARAM
@@ -139,25 +142,36 @@ int main(int argc, char *argv[]) {
   }
 
   if(use_mem_model) {
-    l3d = new setAssocCache(sim_param::l3d_linesize,
-			    sim_param::l3d_assoc,
-			    sim_param::l3d_sets,
-			    "l3d",
-			    sim_param::l3d_latency,
-			    nullptr);
-    l2d = new setAssocCache(sim_param::l2d_linesize,
-			    sim_param::l2d_assoc,
-			    sim_param::l2d_sets,
-			    "l2d",
-			    sim_param::l2d_latency, l3d);
+    if(not(use_l2)) {
+      use_l3 = false;
+    }
+    if(use_l3) {
+      l3d = new setAssocCache(sim_param::l3d_linesize,
+			      sim_param::l3d_assoc,
+			      sim_param::l3d_sets,
+			      "l3d",
+			      sim_param::l3d_latency,
+			      nullptr);
+    }
+    if(use_l2) {
+      l2d = new setAssocCache(sim_param::l2d_linesize,
+			      sim_param::l2d_assoc,
+			      sim_param::l2d_sets,
+			      "l2d",
+			      sim_param::l2d_latency, l3d);
+    }
     l1d = new setAssocCache(sim_param::l1d_linesize,
 			    sim_param::l1d_assoc,
 			    sim_param::l1d_sets,
 			    "l1d",
 			    sim_param::l1d_latency, l2d);
     std::cout << "l1d capacity = " << l1d->capacity() << "\n";
-    std::cout << "l2d capacity = " << l2d->capacity() << "\n";
-    std::cout << "l3d capacity = " << l3d->capacity() << "\n";
+    if(l2d) {
+      std::cout << "l2d capacity = " << l2d->capacity() << "\n";
+    }
+    if(l3d) {
+      std::cout << "l3d capacity = " << l3d->capacity() << "\n";
+    }
   }
 
   initialize_ooo_core(machine_state, l1d, use_oracle,
@@ -169,8 +183,12 @@ int main(int argc, char *argv[]) {
   delete s;
   delete sm;
 
-  delete l3d;
-  delete l2d;
+  if(l3d) {
+    delete l3d;
+  }
+  if(l2d) {
+    delete l2d;
+  }
   delete l1d;
   
   if(global::sysArgv) {
