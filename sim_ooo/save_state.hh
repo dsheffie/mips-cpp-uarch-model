@@ -4,6 +4,6 @@
 #include <string>
 #include "profileMips.hh"
 
-void loadState(state_t &s, const std::string &filename);
+void loadState(state_t &s, const std::string &filename, bool clr_icnt = false);
 
 #endif

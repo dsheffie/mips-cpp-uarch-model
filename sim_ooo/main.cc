@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
   uint64_t maxicnt = ~(0UL), skipicnt = 0;
   bool use_checkpoint = false, use_oracle = false;
   bool use_syscall_skip = false, use_mem_model = false;
-  
+  bool clear_checkpoint_icnt = false;
   po::options_description desc("Options");
   po::variables_map vm;
   
@@ -78,6 +78,7 @@ int main(int argc, char *argv[]) {
     ("maxicnt,m", po::value<uint64_t>(&maxicnt)->default_value(~0UL), "maximum instruction count")
     ("oracle,o", po::value<bool>(&use_oracle)->default_value(false), "use branch oracle")
     ("checkpoint,p", po::value<bool>(&use_checkpoint)->default_value(false), "use a machine checkpoint")
+    ("clricnt", po::value<bool>(&clear_checkpoint_icnt)->default_value(false), "clear icnt after loading checkpoint")
     ("syscallskip,s", po::value<bool>(&use_syscall_skip)->default_value(false), "skip syscalls")
     ("mem_model", po::value<bool>(&use_mem_model)->default_value(false), "use memory model")
 #define SIM_PARAM(A,B,C,D) (#A,po::value<int>(&sim_param::A)->default_value(B), #A)
@@ -134,7 +135,7 @@ int main(int argc, char *argv[]) {
     mkMonitorVectors(s);
   }
   else {
-    loadState(*s, filename);
+    loadState(*s, filename, clear_checkpoint_icnt);
   }
 
   if(use_mem_model) {
