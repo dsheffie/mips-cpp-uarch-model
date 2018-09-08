@@ -17,7 +17,7 @@ std::ostream &operator<<(std::ostream &out, const simCache &cache) {
   out << "assoc = " << cache.assoc << "\n";
   out << "num_sets = " << cache.num_sets<< "\n";
   out << "miss_rate = " << rate << "\n";
-  out << "total_access = " << total  << "\n";
+  out << "total_accesses = " << (cache.hits+cache.misses) << "\n";
   out << "hits = " << cache.hits << "\n";
   out << "misses = " << cache.misses << "\n";
   out << "read_hits = "<< cache.rw_hits[0] << "\n";
