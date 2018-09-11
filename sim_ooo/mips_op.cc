@@ -2711,10 +2711,167 @@ public:
       machine_state.cpr1_freevec.clear_bit(m->aux_prf_idx);
       machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
     }
+  }  
+};
+
+class fp_fma : public mips_op {
+public:
+  enum class op_type {f32, f64};
+protected:
+  op_type fmt;
+  bool allocate_double(sim_state &machine_state) {
+    if(machine_state.cpr1_freevec.num_free() < 2)
+      return false;
+
+    m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
+    m->aux_prev_prf_idx = machine_state.cpr1_rat[get_dest()+1];
+    m->src0_prf = machine_state.cpr1_rat[get_src0()];
+    m->src1_prf = machine_state.cpr1_rat[get_src0()+1];
+    m->src2_prf = machine_state.cpr1_rat[get_src1()];
+    m->src3_prf = machine_state.cpr1_rat[get_src1()+1];
+    m->src4_prf = machine_state.cpr1_rat[get_src2()];
+    m->src5_prf = machine_state.cpr1_rat[get_src2()+1];
+
+    
+    m->prf_idx = machine_state.cpr1_freevec.find_first_unset();
+    machine_state.cpr1_freevec.set_bit(m->prf_idx);
+    m->aux_prf_idx = machine_state.cpr1_freevec.find_first_unset();
+    machine_state.cpr1_freevec.set_bit(m->aux_prf_idx);
+    
+    machine_state.cpr1_valid.clear_bit(m->prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
+
+    machine_state.cpr1_rat[get_dest()] = m->prf_idx;
+    machine_state.cpr1_rat[get_dest()+1] = m->aux_prf_idx;
+    return true;
+  }
+  bool allocate_float(sim_state &machine_state) {
+    if(machine_state.cpr1_freevec.num_free() < 1)
+      return false;
+    m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
+    m->src0_prf = machine_state.cpr1_rat[get_src0()];
+    m->src1_prf = machine_state.cpr1_rat[get_src1()];
+    m->src2_prf = machine_state.cpr1_rat[get_src2()];
+
+    m->prf_idx = machine_state.cpr1_freevec.find_first_unset();
+    machine_state.cpr1_freevec.set_bit(m->prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prf_idx);
+    machine_state.cpr1_rat[get_dest()] = m->prf_idx;
+    return true;
+  }
+  void execute_double(sim_state &machine_state) {
+    load_thunk<double> src0, src1, src2, dest;
+    src0[0] = machine_state.cpr1_prf[m->src0_prf];
+    src0[1] = machine_state.cpr1_prf[m->src1_prf];
+    src1[0] = machine_state.cpr1_prf[m->src2_prf];
+    src1[1] = machine_state.cpr1_prf[m->src3_prf];
+    src2[0] = machine_state.cpr1_prf[m->src4_prf];
+    src2[1] = machine_state.cpr1_prf[m->src5_prf];
+
+    dest.DT() = src0.DT()*src1.DT() + src2.DT();
+    
+    machine_state.cpr1_prf[m->prf_idx] = dest[0];
+    machine_state.cpr1_prf[m->aux_prf_idx] = dest[1];
+    m->complete_cycle = get_curr_cycle() + 3;
+  }
+  void execute_float(sim_state &machine_state) {
+    load_thunk<float> src0, src1, src2, dest;
+    src0[0] = machine_state.cpr1_prf[m->src0_prf];
+    src1[0] = machine_state.cpr1_prf[m->src1_prf];
+    src2[0] = machine_state.cpr1_prf[m->src2_prf];
+
+    dest.DT() = src0.DT()*src1.DT() + src2.DT();
+    
+    machine_state.cpr1_prf[m->prf_idx] = dest[0];
+    m->complete_cycle = get_curr_cycle() + 2;
+  }
+public:
+  fp_fma(op_type fmt, sim_op op) : fmt(fmt), mips_op(op){
+    this->op_class = mips_op_type::fp; 
+  }
+  int get_dest() const override {
+    return (m->inst >> 6) & 31; /* fd */
+  }
+  int get_src0() const override {
+    return (m->inst >> 11) & 31; /* fs */
+  }
+  int get_src1() const override {
+    return (m->inst >> 16) & 31; /* ft */
+  }
+  int get_src2() const override {
+    return (m->inst >> 21) & 31; /* fr */
+  }
+  bool allocate(sim_state &machine_state) override {
+    bool allocated = false;
+    if(fmt == op_type::f64)
+      allocated = allocate_double(machine_state);
+    else
+      allocated = allocate_float(machine_state);
+    return allocated;
+  }
+  bool ready(sim_state &machine_state) const override {
+    if(m->src0_prf != -1 and not(machine_state.cpr1_valid[m->src0_prf])) {
+      return false;
+    }
+    if(m->src1_prf != -1 and not(machine_state.cpr1_valid[m->src1_prf])) {
+      return false;
+    }
+    if(m->src2_prf != -1 and not(machine_state.cpr1_valid[m->src2_prf])) {
+      return false;
+    }
+    if(m->src3_prf != -1 and not(machine_state.cpr1_valid[m->src3_prf])) {
+      return false;
+    }
+    if(m->src4_prf != -1 and not(machine_state.cpr1_valid[m->src4_prf])) {
+      return false;
+    }
+    if(m->src5_prf != -1 and not(machine_state.cpr1_valid[m->src5_prf])) {
+      return false;
+    }
+    return true;
+  }
+  void complete(sim_state &machine_state) override {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      machine_state.cpr1_valid.set_bit(m->prf_idx);
+      if(m->aux_prf_idx != -1) {
+	machine_state.cpr1_valid.set_bit(m->aux_prf_idx);
+      }
+    }
+  }
+  void execute(sim_state &machine_state) override {
+    if(fmt == op_type::f64)
+      execute_double(machine_state);
+    else
+      execute_float(machine_state);
   }
 
-  
+  bool retire(sim_state &machine_state) override {
+    machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
+    machine_state.icnt++;
+    machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
+    machine_state.arch_cpr1_last_pc[get_dest()] = m->pc;
+    m->retire_cycle = get_curr_cycle();
+    if(m->aux_prf_idx != -1) {
+      machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
+      machine_state.cpr1_valid.clear_bit(m->aux_prev_prf_idx);
+      machine_state.arch_cpr1[get_dest()+1] = machine_state.cpr1_prf[m->aux_prf_idx];
+    }
+    return true;
+  }
+  void undo(sim_state &machine_state) override {
+    machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.cpr1_freevec.clear_bit(m->prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prf_idx);
+    if(m->aux_prf_idx != -1) {
+      machine_state.cpr1_rat[get_dest()+1] = m->aux_prev_prf_idx;
+      machine_state.cpr1_freevec.clear_bit(m->aux_prf_idx);
+      machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
+    }
+  }
 };
+
 
 class cvts_truncw_op : public mips_op {
 public:
@@ -3429,164 +3586,7 @@ static mips_op* decode_special3_insn(sim_op m_op) {
 
 
 
-class fp_fma : public mips_op {
-public:
-  enum class op_type {f32, f64};
-protected:
-  op_type fmt;
-  bool allocate_double(sim_state &machine_state) {
-    if(machine_state.cpr1_freevec.num_free() < 2)
-      return false;
 
-    m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
-    m->aux_prev_prf_idx = machine_state.cpr1_rat[get_dest()+1];
-    m->src0_prf = machine_state.cpr1_rat[get_src0()];
-    m->src1_prf = machine_state.cpr1_rat[get_src0()+1];
-    m->src2_prf = machine_state.cpr1_rat[get_src1()];
-    m->src3_prf = machine_state.cpr1_rat[get_src1()+1];
-    m->src4_prf = machine_state.cpr1_rat[get_src2()];
-    m->src5_prf = machine_state.cpr1_rat[get_src2()+1];
-
-    
-    m->prf_idx = machine_state.cpr1_freevec.find_first_unset();
-    machine_state.cpr1_freevec.set_bit(m->prf_idx);
-    m->aux_prf_idx = machine_state.cpr1_freevec.find_first_unset();
-    machine_state.cpr1_freevec.set_bit(m->aux_prf_idx);
-    
-    machine_state.cpr1_valid.clear_bit(m->prf_idx);
-    machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
-
-    machine_state.cpr1_rat[get_dest()] = m->prf_idx;
-    machine_state.cpr1_rat[get_dest()+1] = m->aux_prf_idx;
-    return true;
-  }
-  bool allocate_float(sim_state &machine_state) {
-    if(machine_state.cpr1_freevec.num_free() < 1)
-      return false;
-    m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
-    m->src0_prf = machine_state.cpr1_rat[get_src0()];
-    m->src1_prf = machine_state.cpr1_rat[get_src1()];
-    m->src2_prf = machine_state.cpr1_rat[get_src2()];
-
-    m->prf_idx = machine_state.cpr1_freevec.find_first_unset();
-    machine_state.cpr1_freevec.set_bit(m->prf_idx);
-    machine_state.cpr1_valid.clear_bit(m->prf_idx);
-    machine_state.cpr1_rat[get_dest()] = m->prf_idx;
-    return true;
-  }
-  void execute_double(sim_state &machine_state) {
-    load_thunk<double> src0, src1, src2, dest;
-    src0[0] = machine_state.cpr1_prf[m->src0_prf];
-    src0[1] = machine_state.cpr1_prf[m->src1_prf];
-    src1[0] = machine_state.cpr1_prf[m->src2_prf];
-    src1[1] = machine_state.cpr1_prf[m->src3_prf];
-    src2[0] = machine_state.cpr1_prf[m->src4_prf];
-    src2[1] = machine_state.cpr1_prf[m->src5_prf];
-
-    dest.DT() = src0.DT()*src1.DT() + src2.DT();
-    
-    machine_state.cpr1_prf[m->prf_idx] = dest[0];
-    machine_state.cpr1_prf[m->aux_prf_idx] = dest[1];
-    m->complete_cycle = get_curr_cycle() + 3;
-  }
-  void execute_float(sim_state &machine_state) {
-    load_thunk<float> src0, src1, src2, dest;
-    src0[0] = machine_state.cpr1_prf[m->src0_prf];
-    src1[0] = machine_state.cpr1_prf[m->src1_prf];
-    src2[0] = machine_state.cpr1_prf[m->src2_prf];
-
-    dest.DT() = src0.DT()*src1.DT() + src2.DT();
-    
-    machine_state.cpr1_prf[m->prf_idx] = dest[0];
-    m->complete_cycle = get_curr_cycle() + 2;
-  }
-public:
-  fp_fma(op_type fmt, sim_op op) : fmt(fmt), mips_op(op){
-    this->op_class = mips_op_type::fp; 
-  }
-  int get_dest() const override {
-    return (m->inst >> 6) & 31; /* fd */
-  }
-  int get_src0() const override {
-    return (m->inst >> 11) & 31; /* fs */
-  }
-  int get_src1() const override {
-    return (m->inst >> 16) & 31; /* ft */
-  }
-  int get_src2() const override {
-    return (m->inst >> 21) & 31; /* fr */
-  }
-  bool allocate(sim_state &machine_state) override {
-    bool allocated = false;
-    if(fmt == op_type::f64)
-      allocated = allocate_double(machine_state);
-    else
-      allocated = allocate_float(machine_state);
-    return allocated;
-  }
-  bool ready(sim_state &machine_state) const override {
-    if(m->src0_prf != -1 and not(machine_state.cpr1_valid[m->src0_prf])) {
-      return false;
-    }
-    if(m->src1_prf != -1 and not(machine_state.cpr1_valid[m->src1_prf])) {
-      return false;
-    }
-    if(m->src2_prf != -1 and not(machine_state.cpr1_valid[m->src2_prf])) {
-      return false;
-    }
-    if(m->src3_prf != -1 and not(machine_state.cpr1_valid[m->src3_prf])) {
-      return false;
-    }
-    if(m->src4_prf != -1 and not(machine_state.cpr1_valid[m->src4_prf])) {
-      return false;
-    }
-    if(m->src5_prf != -1 and not(machine_state.cpr1_valid[m->src5_prf])) {
-      return false;
-    }
-    return true;
-  }
-  void complete(sim_state &machine_state) override {
-    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
-      m->is_complete = true;
-      machine_state.cpr1_valid.set_bit(m->prf_idx);
-      if(m->aux_prf_idx != -1) {
-	machine_state.cpr1_valid.set_bit(m->aux_prf_idx);
-      }
-    }
-  }
-  void execute(sim_state &machine_state) override {
-    if(fmt == op_type::f64)
-      execute_double(machine_state);
-    else
-      execute_float(machine_state);
-  }
-
-  bool retire(sim_state &machine_state) override {
-    machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
-    machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
-    machine_state.icnt++;
-    machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
-    machine_state.arch_cpr1_last_pc[get_dest()] = m->pc;
-    m->retire_cycle = get_curr_cycle();
-    if(m->aux_prf_idx != -1) {
-      machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
-      machine_state.cpr1_valid.clear_bit(m->aux_prev_prf_idx);
-      machine_state.arch_cpr1[get_dest()+1] = machine_state.cpr1_prf[m->aux_prf_idx];
-    }
-    return true;
-  }
-  void undo(sim_state &machine_state) override {
-    machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
-    machine_state.cpr1_freevec.clear_bit(m->prf_idx);
-    machine_state.cpr1_valid.clear_bit(m->prf_idx);
-    if(m->aux_prf_idx != -1) {
-      machine_state.cpr1_rat[get_dest()+1] = m->aux_prev_prf_idx;
-      machine_state.cpr1_freevec.clear_bit(m->aux_prf_idx);
-      machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
-    }
-  }
-
-};
 
 
 static mips_op* decode_coproc1x_insn(sim_op m_op) {
