@@ -184,11 +184,9 @@ int main(int argc, char *argv[]) {
   delete sm;
 
   if(l3d) {
-    std::cout << *l3d;
     delete l3d;
   }
   if(l2d) {
-    std::cout << *l2d;
     delete l2d;
   }
   if(l1d) {

@@ -271,7 +271,7 @@ public:
   }
   std::string getStats(std::string &fName);
   void getStats();
-  double computeAMAT();
+  double computeAMAT() const;
 
 };
 

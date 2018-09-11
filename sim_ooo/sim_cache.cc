@@ -24,7 +24,7 @@ std::ostream &operator<<(std::ostream &out, const simCache &cache) {
   out << "read_misses = "<< cache.rw_misses[0] << "\n";
   out << "write_hits = "<< cache.rw_hits[1] << "\n";
   out << "write_misses = "<< cache.rw_misses[1] << "\n";
-
+  out << "amat = " << cache.computeAMAT() << "\n";
   if(cache.next_level)
     out << *(cache.next_level);
   
@@ -240,13 +240,10 @@ setAssocCache::setAssocCache(size_t bytes_per_line, size_t assoc, size_t num_set
   }
 }
 setAssocCache::~setAssocCache() {
-  size_t cap = 0;
   for(size_t i = 0; i < num_sets; ++i) {
-    cap += bytes_per_line * sets[i]->size();
     delete sets[i];
   }
   delete [] sets;
-  print_var(cap);
 }
 
 bool setAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) {
@@ -587,7 +584,7 @@ std::string simCache::getStats(std::string &fName)
 }
 
 
-double simCache::computeAMAT() {
+double simCache::computeAMAT() const {
   size_t total = hits+misses;
   double rate = ((double)misses) / ((double)total);
   double nextLevelLat = 100.0;
