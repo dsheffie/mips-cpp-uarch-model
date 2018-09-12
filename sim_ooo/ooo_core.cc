@@ -571,7 +571,7 @@ extern "C" {
 		  << "\n";
 	machine_state.terminate_sim = true;
       }
-      if(curr_cycle % hinterval == 0) {
+      if((curr_cycle & (sim_param::heartbeat-1)) == 0) {
 	uint64_t curr_icnt = (machine_state.icnt-machine_state.skipicnt);
 	double ipc = static_cast<double>(curr_icnt) / curr_cycle;
 	double wipc = static_cast<double>(curr_icnt-prev_icnt) / hinterval;

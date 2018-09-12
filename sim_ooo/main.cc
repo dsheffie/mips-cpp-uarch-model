@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
   po::variables_map vm;
   
   desc.add_options() 
-    ("help,h", "Print help messages") 
+    ("help,h", "Print help messages")
     ("args,a", po::value<std::string>(&sysArgs), "arguments to mips binary")
     ("clock,c", po::value<bool>(&global::enClockFuncts)->default_value(false), "enable wall-clock")
     ("file,f", po::value<std::string>(&filename), "mips binary")

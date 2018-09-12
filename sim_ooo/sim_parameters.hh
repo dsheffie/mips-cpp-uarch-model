@@ -2,6 +2,7 @@
 #define sim_parameters_hh
 
 #define SIM_PARAM_LIST				\
+  SIM_PARAM(heartbeat,(1<<20),1,true)		\
   SIM_PARAM(rob_size,64,1,true)			\
   SIM_PARAM(fetchq_size,8,1,true)			\
   SIM_PARAM(decodeq_size,8,1,true)			\
