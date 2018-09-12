@@ -559,7 +559,6 @@ extern "C" {
     uint64_t prev_icnt = 0;
     simCache *l1d = machine_state.l1d;
     uint64_t last_hits = 0, last_misses = 0;
-    static const uint64_t hinterval = 1UL<<20;
     while(not(machine_state.terminate_sim)) {
       curr_cycle++;
       uint64_t delta = curr_cycle - machine_state.last_retire_cycle;
@@ -574,7 +573,7 @@ extern "C" {
       if((curr_cycle & (sim_param::heartbeat-1)) == 0) {
 	uint64_t curr_icnt = (machine_state.icnt-machine_state.skipicnt);
 	double ipc = static_cast<double>(curr_icnt) / curr_cycle;
-	double wipc = static_cast<double>(curr_icnt-prev_icnt) / hinterval;
+	double wipc = static_cast<double>(curr_icnt-prev_icnt) / sim_param::heartbeat;
 	std::cout << curr_cycle << " cycles, "
 		  << curr_icnt << " insns retired, avg ipc "<< ipc
 		  << ", window ipc " << wipc;
