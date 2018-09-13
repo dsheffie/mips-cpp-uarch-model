@@ -8,7 +8,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-pre = re.compile('(\d+) cycles, (\d+) insns retired, avg ipc (\d+(.\d+)?), window ipc (\d+(.\d+)?)\n')
+pre = re.compile('(\d+) cycles, (\d+) insns retired, avg ipc (\d+(.\d+)?), window ipc (\d+(.\d+)?)(, dcu hit rate \d+.\d+, window dcu hit rate \d+.\d+)?\n')
 
 z = list()
 max_cycle = 0
