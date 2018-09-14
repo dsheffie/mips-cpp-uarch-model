@@ -588,8 +588,9 @@ extern "C" {
 	
 	double pr = static_cast<double>(br_and_jmps - mispredicts) / br_and_jmps;
 	double w_pr = static_cast<double>(w_br_and_jmps - w_mispredicts) / w_br_and_jmps;
+
 	
-	global::sim_log << "c " << curr_cycle 
+	*global::sim_log << "c " << curr_cycle 
 			      << ", i " << curr_icnt
 			      << ", a ipc "<< ipc
 			      << ", w ipc " << wipc
@@ -601,13 +602,13 @@ extern "C" {
 	  uint64_t misses = l1d->getMisses()-last_misses;
 	  double w_hit_rate = static_cast<double>(hits) / (hits+misses);
 	  double hit_rate = static_cast<double>(l1d->getHits()) / (l1d->getHits()+l1d->getMisses());
-	  global::sim_log << ", a dcu " << hit_rate
+	  *global::sim_log << ", a dcu " << hit_rate
 				<< ", w dcu " << w_hit_rate ;
 	  last_hits = l1d->getHits();
 	  last_misses = l1d->getMisses();
 	}
-	global::sim_log <<"\n";
-	global::sim_log.flush();
+	*global::sim_log <<"\n";
+	global::sim_log->flush();
 	prev_icnt = curr_icnt;
 	prev_br_and_jmps = br_and_jmps;
 	prev_mispredicts = mispredicts;
@@ -1042,22 +1043,22 @@ void run_ooo_core(sim_state &machine_state) {
   now = timestamp() - now;
 
   uint64_t total_insns =  machine_state.icnt - machine_state.skipicnt;
-  global::sim_log << "executed " << total_insns << " insns\n";
+  *global::sim_log << "executed " << total_insns << " insns\n";
   
   double ipc = static_cast<double>(machine_state.icnt-machine_state.skipicnt) /
     get_curr_cycle();
 
   double allocd_insns_per_cycle =
     static_cast<double>(machine_state.total_allocated_insns) / get_curr_cycle();
-  global::sim_log << allocd_insns_per_cycle << " insns allocated per cycle\n";
+  *global::sim_log << allocd_insns_per_cycle << " insns allocated per cycle\n";
   
   double ready_insns_per_cycle =
     static_cast<double>(machine_state.total_ready_insns) / get_curr_cycle();
-  global::sim_log << ready_insns_per_cycle << " insns ready per cycle\n";
+  *global::sim_log << ready_insns_per_cycle << " insns ready per cycle\n";
 
   double dispatched_insns_per_cycle =
     static_cast<double>(machine_state.total_dispatched_insns) / get_curr_cycle();
-  global::sim_log << dispatched_insns_per_cycle << " insns dispatched per cycle\n";
+  *global::sim_log << dispatched_insns_per_cycle << " insns dispatched per cycle\n";
   
 #if 0
   for(int i = 0; i < 32; i++) {
@@ -1081,29 +1082,29 @@ void run_ooo_core(sim_state &machine_state) {
 	      << std::hex << machine_state.arch_cpr1_last_pc[i] << std::dec << "\n"; 
   }
 #endif
-  global::sim_log << "SIMULATION COMPLETE : "
+  *global::sim_log << "SIMULATION COMPLETE : "
 	    << (machine_state.icnt-machine_state.skipicnt)
 	    << " inst retired in "
 	    << get_curr_cycle() << " cycles\n";
 
-  global::sim_log << ipc << " instructions/cycle\n";
-  global::sim_log << machine_state.n_branches << " branches\n";
-  global::sim_log << machine_state.mispredicted_branches 
+  *global::sim_log << ipc << " instructions/cycle\n";
+  *global::sim_log << machine_state.n_branches << " branches\n";
+  *global::sim_log << machine_state.mispredicted_branches 
 	    << " mispredicted branches\n";
 
   
-  global::sim_log << machine_state.n_jumps << " jumps\n";
-  global::sim_log << machine_state.mispredicted_jumps 
+  *global::sim_log << machine_state.n_jumps << " jumps\n";
+  *global::sim_log << machine_state.mispredicted_jumps 
 	    << " mispredicted jumps\n";
-  global::sim_log << machine_state.mispredicted_jrs 
+  *global::sim_log << machine_state.mispredicted_jrs 
 	    << " mispredicted jrs\n";
-  global::sim_log << machine_state.mispredicted_jalrs 
+  *global::sim_log << machine_state.mispredicted_jalrs 
 	    << " mispredicted jalrs\n";
 
-  global::sim_log << machine_state.nukes << " nukes\n";
-  global::sim_log << machine_state.branch_nukes << " branch nukes\n";
-  global::sim_log << machine_state.load_nukes << " load nukes\n";
-  global::sim_log << "CHECK INSN CNT : "
+  *global::sim_log << machine_state.nukes << " nukes\n";
+  *global::sim_log << machine_state.branch_nukes << " branch nukes\n";
+  *global::sim_log << machine_state.load_nukes << " load nukes\n";
+  *global::sim_log << "CHECK INSN CNT : "
 	    << machine_state.ref_state->icnt << "\n";
 
   if(get_curr_cycle() != 0) {
@@ -1113,18 +1114,18 @@ void run_ooo_core(sim_state &machine_state) {
       avg_latency += (p.first * p.second);
     }
     avg_latency /= get_curr_cycle();
-    global::sim_log << avg_latency << " cycles is the average instruction lifetime\n";
+    *global::sim_log << avg_latency << " cycles is the average instruction lifetime\n";
   }
   
   uint64_t total_branches_and_jumps = machine_state.n_branches + machine_state.n_jumps;
   uint64_t total_mispredicted = machine_state.mispredicted_branches + machine_state.mispredicted_jumps;
   double prediction_rate = static_cast<double>(total_branches_and_jumps - total_mispredicted) /
     total_branches_and_jumps;  
-  global::sim_log << (prediction_rate*100.0) << "\% of branches and jumps predicted correctly\n";
+  *global::sim_log << (prediction_rate*100.0) << "\% of branches and jumps predicted correctly\n";
   
-  global::sim_log << ((machine_state.icnt-machine_state.skipicnt)/now)
+  *global::sim_log << ((machine_state.icnt-machine_state.skipicnt)/now)
 	    << " simulated instructions per second\n";
-  global::sim_log << "simulation took " << now << " seconds\n";
+  *global::sim_log << "simulation took " << now << " seconds\n";
 
   
 }  

@@ -32,7 +32,7 @@
 char **global::sysArgv = nullptr;
 int global::sysArgc = 0;
 bool global::enClockFuncts = false;
-std::ostream &global::sim_log = std::cout;
+std::ostream *global::sim_log = &(std::cout);
 
 static simCache* l1d = nullptr, *l2d = nullptr, *l3d = nullptr;
 
@@ -134,6 +134,9 @@ int main(int argc, char *argv[]) {
   s = new state_t(*sm);
   initState(s);
 
+  //std::ofstream sim_log("foo.txt");
+  //global::sim_log = &sim_log;
+  
   if(not(use_checkpoint)) {
     load_elf(filename.c_str(), s);
     mkMonitorVectors(s);
