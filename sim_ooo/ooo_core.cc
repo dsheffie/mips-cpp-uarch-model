@@ -557,6 +557,9 @@ extern "C" {
   void cycle_count(void *arg) {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     uint64_t prev_icnt = 0;
+    uint64_t prev_br_and_jmps = 0;
+    uint64_t prev_mispredicts = 0;
+    
     simCache *l1d = machine_state.l1d;
     uint64_t last_hits = 0, last_misses = 0;
     while(not(machine_state.terminate_sim)) {
@@ -574,21 +577,37 @@ extern "C" {
 	uint64_t curr_icnt = (machine_state.icnt-machine_state.skipicnt);
 	double ipc = static_cast<double>(curr_icnt) / curr_cycle;
 	double wipc = static_cast<double>(curr_icnt-prev_icnt) / sim_param::heartbeat;
-	std::cout << curr_cycle << " cycles, "
-		  << curr_icnt << " insns retired, avg ipc "<< ipc
-		  << ", window ipc " << wipc;
+
+	uint64_t br_and_jmps = machine_state.n_branches + machine_state.n_jumps;
+	uint64_t mispredicts = machine_state.mispredicted_branches + machine_state.mispredicted_jumps;
+
+	uint64_t w_br_and_jmps = br_and_jmps - prev_br_and_jmps;
+	uint64_t w_mispredicts = mispredicts - prev_mispredicts;
+	
+	double pr = static_cast<double>(br_and_jmps - mispredicts) / br_and_jmps;
+	double w_pr = static_cast<double>(w_br_and_jmps - w_mispredicts) / w_br_and_jmps;
+	
+	std::cout << "c " << curr_cycle 
+		  << ", i " << curr_icnt
+		  << ", a ipc "<< ipc
+		  << ", w ipc " << wipc
+		  << ", a br " << pr
+		  << ", w br " << w_pr;
+	
 	if(l1d) {
 	  uint64_t hits = l1d->getHits()-last_hits;
 	  uint64_t misses = l1d->getMisses()-last_misses;
 	  double w_hit_rate = static_cast<double>(hits) / (hits+misses);
 	  double hit_rate = static_cast<double>(l1d->getHits()) / (l1d->getHits()+l1d->getMisses());
-	  std::cout << ", dcu hit rate " << hit_rate
-		    << ", window dcu hit rate " << w_hit_rate ;
+	  std::cout << ", a dcu " << hit_rate
+		    << ", w dcu " << w_hit_rate ;
 	  last_hits = l1d->getHits();
 	  last_misses = l1d->getMisses();
 	}
 	std::cout <<"\n";
 	prev_icnt = curr_icnt;
+	prev_br_and_jmps = br_and_jmps;
+	prev_mispredicts = mispredicts;
       }
       //if(curr_cycle >= 256) {
       //machine_state.terminate_sim = true;
