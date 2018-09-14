@@ -32,6 +32,7 @@
 char **global::sysArgv = nullptr;
 int global::sysArgc = 0;
 bool global::enClockFuncts = false;
+std::ostream &global::sim_log = std::cout;
 
 static simCache* l1d = nullptr, *l2d = nullptr, *l3d = nullptr;
 

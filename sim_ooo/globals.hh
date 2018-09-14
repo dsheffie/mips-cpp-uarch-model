@@ -5,6 +5,7 @@ namespace global {
   extern bool enClockFuncts;
   extern int sysArgc;
   extern char **sysArgv;
+  extern std::ostream &sim_log;
 };
 
 #endif
