@@ -1046,6 +1046,12 @@ void sim_state::initialize() {
   system_rs.resize(sim_param::num_system_sched_entries);
 
   bhr.clear_and_resize(sim_param::bhr_length);
+
+  bht.resize(sim_param::num_bht_entries);
+  for(int i = 0; i < sim_param::num_bht_entries; i++) {
+    bht.at(i).clear_and_resize(sim_param::bht_length);
+  }
+  
   br_pctron = new perceptron(15, 1024, sim_param::bhr_length);
   
   alu_alloc.clear_and_resize(num_alu_rs);

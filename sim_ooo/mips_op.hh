@@ -320,6 +320,7 @@ struct sim_state {
   sparse_mem *mem = nullptr;
 
   sim_bitvec bhr;
+  std::vector<sim_bitvec> bht;
 
   perceptron *br_pctron = nullptr;
   

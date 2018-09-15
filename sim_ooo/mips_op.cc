@@ -767,6 +767,10 @@ public:
     branch_prediction_map[m->pc] = 3;
 
     machine_state.br_pctron->update(m->prediction, true, m->pc, machine_state.bhr);
+
+    uint32_t bht_idx = (m->pc>>2) & (machine_state.bht.size()-1);
+    machine_state.bht.at(bht_idx).shift_left(1);
+    machine_state.bht.at(bht_idx).set_bit(0);
     
     machine_state.bhr.shift_left(1);
     machine_state.bhr.set_bit(0);
@@ -1027,9 +1031,14 @@ public:
 
     machine_state.br_pctron->update(m->prediction, take_br, m->pc, machine_state.bhr);
 
+
+    uint32_t bht_idx = (m->pc>>2) & (machine_state.bht.size()-1);
+    machine_state.bht.at(bht_idx).shift_left(1);
     machine_state.bhr.shift_left(1);
-    if(take_br)
+    if(take_br) {
       machine_state.bhr.set_bit(0);
+      machine_state.bht.at(bht_idx).set_bit(0);
+    }
     
     branch_target_map[m->pc] = branch_target;
     if(branch_prediction_map.find(m->pc)==branch_prediction_map.end()) {
