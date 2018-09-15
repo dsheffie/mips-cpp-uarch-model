@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
 	    << " " << __TIME__ << "\n";
   sim_state machine_state;
 
-  std::string filename, sysArgs;
+  std::string filename, sysArgs, logfile;
   bool use_l2 = true, use_l3 = true;
   uint64_t maxicnt = ~(0UL), skipicnt = 0;
   bool use_checkpoint = false, use_oracle = false;
@@ -82,6 +82,7 @@ int main(int argc, char *argv[]) {
     ("checkpoint,p", po::value<bool>(&use_checkpoint)->default_value(false), "use a machine checkpoint")
     ("clricnt", po::value<bool>(&clear_checkpoint_icnt)->default_value(false), "clear icnt after loading checkpoint")
     ("syscallskip,s", po::value<bool>(&use_syscall_skip)->default_value(false), "skip syscalls")
+    ("log,l", po::value<std::string>(&logfile), "log to file")
     ("mem_model", po::value<bool>(&use_mem_model)->default_value(false), "use memory model")
     ("use_l2", po::value<bool>(&use_l2)->default_value(true), "use l2 cache model")
     ("use_l3", po::value<bool>(&use_l3)->default_value(true), "use l3 cache model")
@@ -134,8 +135,13 @@ int main(int argc, char *argv[]) {
   s = new state_t(*sm);
   initState(s);
 
-  //std::ofstream sim_log("foo.txt");
-  //global::sim_log = &sim_log;
+  std::ofstream sim_log;
+  if(logfile.size() != 0) {
+    sim_log.open(logfile);
+    global::sim_log = &sim_log;
+  }
+
+  
   
   if(not(use_checkpoint)) {
     load_elf(filename.c_str(), s);
@@ -169,12 +175,13 @@ int main(int argc, char *argv[]) {
 			    sim_param::l1d_sets,
 			    "l1d",
 			    sim_param::l1d_latency, l2d);
-    std::cout << "l1d capacity = " << l1d->capacity() << "\n";
+    
+    *global::sim_log << "l1d capacity = " << l1d->capacity() << "\n";
     if(l2d) {
-      std::cout << "l2d capacity = " << l2d->capacity() << "\n";
+      *global::sim_log << "l2d capacity = " << l2d->capacity() << "\n";
     }
     if(l3d) {
-      std::cout << "l3d capacity = " << l3d->capacity() << "\n";
+      *global::sim_log << "l3d capacity = " << l3d->capacity() << "\n";
     }
   }
 
@@ -204,7 +211,6 @@ int main(int argc, char *argv[]) {
     }
     delete [] global::sysArgv;
   }
-
 
   return 0;
 }
