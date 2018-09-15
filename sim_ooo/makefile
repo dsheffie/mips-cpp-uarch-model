@@ -5,7 +5,7 @@ OBJ = save_state.o main.o loadelf.o parseMips.o helper.o profileMips.o gthread.o
 ifeq ($(UNAME_S),Linux)
 	CXX = clang++-4.0
 	OBJ += gthread_asm.o
-	EXTRA_LD = -ldl -lffi -lbfd -lunwind -lboost_program_options
+	EXTRA_LD = -lunwind -lboost_program_options
 endif
 
 ifeq ($(UNAME_S),FreeBSD)
@@ -21,7 +21,7 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 CXXFLAGS = -std=c++11 -g $(OPT) $(LLVM_CXXFLAGS)
-LIBS =  $(EXTRA_LD) -lpthread -lffi -lcurses -lz -lsigsegv #-lunwind -lboost_system
+LIBS =  $(EXTRA_LD) -lpthread 
 
 
 DEP = $(OBJ:.o=.d)

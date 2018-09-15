@@ -1,6 +1,5 @@
 #include "sparse_mem.hh"
 #include <cstring>
-#include <sigsegv.h>
 
 sparse_mem::sparse_mem(uint64_t nbytes) {
   npages = (nbytes+pgsize-1) / pgsize;
@@ -74,8 +73,7 @@ void sparse_mem::mark_pages_as_no_write() {
     assert(rc == 0);
     p = present_bitvec.find_next_set(p);
   }
-  int rc = sigsegv_install_handler(&sparse_mem_handler);
-  assert(rc == 0);
+
 }
 
 bool sparse_mem::equal(const sparse_mem &other) const {
