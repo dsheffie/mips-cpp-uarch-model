@@ -160,6 +160,10 @@ void fetch(sim_state &machine_state) {
 	    case 2:
 	      predict_taken = (f->prediction > machine_state.br_pctron->get_threshold());
 	      break;
+	      /* displacement */
+	    case 3:
+	      predict_taken = (get_branch_target(machine_state.fetch_pc, inst) < machine_state.fetch_pc);
+	      break;
 	    default:
 	      predict_taken = false;
 	      break;
