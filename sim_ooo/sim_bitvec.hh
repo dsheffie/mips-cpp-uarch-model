@@ -131,6 +131,12 @@ public:
       arr[i] <<= amt;
     }
   }
+  friend std::ostream & operator<<(std::ostream &out, const sim_bitvec_template<E> &bv) {
+    for(size_t i = 0; i < bv.size(); i++) {
+      out <<  bv.get_bit(i);
+    }
+    return out;
+  }
 };
 
 typedef sim_bitvec_template<uint64_t> sim_bitvec;

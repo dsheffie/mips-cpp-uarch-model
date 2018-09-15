@@ -125,6 +125,8 @@ void fetch(sim_state &machine_state) {
 	}
       }
       else {
+	f->prediction = machine_state.br_pctron->predict(machine_state.fetch_pc, machine_state.bhr);
+	
 	if(is_jr(inst)) {
 	  f->return_stack_idx = return_stack.get_tos_idx();
 	  npc = return_stack.pop();
@@ -145,11 +147,19 @@ void fetch(sim_state &machine_state) {
 	}
 	else if(it != branch_prediction_map.end()) {
 	  /* predicted as taken */
+#if 1
 	  if(it->second > 1) {
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	    npc = branch_target_map.at(machine_state.fetch_pc);
 	    predict_taken = true;
 	  }
+#else
+	  if(f->prediction > machine_state.br_pctron->get_threshold()) {
+	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+	    npc = branch_target_map.at(machine_state.fetch_pc);
+	    predict_taken = true;
+	  }
+#endif
 	}
 	else if(is_likely_branch(inst)) {
 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
@@ -550,6 +560,8 @@ void destroy_ooo_core(sim_state &machine_state) {
     delete machine_state.oracle_state;
   }
   delete machine_state.mem;
+  delete machine_state.br_pctron;
+  
   gthread::free_threads();
 }
 
@@ -1022,6 +1034,7 @@ void sim_state::initialize() {
   system_rs.resize(sim_param::num_system_sched_entries);
 
   bhr.clear_and_resize(sim_param::bhr_length);
+  br_pctron = new perceptron(15, 1024, sim_param::bhr_length);
   
   alu_alloc.clear_and_resize(num_alu_rs);
   fpu_alloc.clear_and_resize(num_fpu_rs);

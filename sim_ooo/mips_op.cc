@@ -762,11 +762,12 @@ public:
     machine_state.icnt++;
     machine_state.n_jumps++;
     
-
     /* strongly taken */
     branch_target_map[m->pc] = m->correct_pc;
     branch_prediction_map[m->pc] = 3;
 
+    machine_state.br_pctron->update(m->prediction, true, m->pc, machine_state.bhr);
+    
     machine_state.bhr.shift_left(1);
     machine_state.bhr.set_bit(0);
 
@@ -819,6 +820,7 @@ protected:
   branch_type bt;
   bool take_br = false;
   uint32_t branch_target = 0;
+  
   bool is_likely_branch() const {
     switch(bt)
       {
@@ -1023,9 +1025,12 @@ public:
     machine_state.n_branches++;
     machine_state.mispredicted_branches += m->branch_exception;
 
+    machine_state.br_pctron->update(m->prediction, take_br, m->pc, machine_state.bhr);
+
     machine_state.bhr.shift_left(1);
-    machine_state.bhr.set_bit(take_br);
-        
+    if(take_br)
+      machine_state.bhr.set_bit(0);
+    
     branch_target_map[m->pc] = branch_target;
     if(branch_prediction_map.find(m->pc)==branch_prediction_map.end()) {
       /* initialize as either weakly taken or weakly not-taken */

@@ -12,6 +12,8 @@
 #include "sim_stack.hh"
 #include "mips_encoding.hh"
 
+#include "perceptron.hh"
+
 uint64_t get_curr_cycle();
 
 enum class mips_op_type { unknown, alu, fp, jmp, load, store, system };
@@ -112,6 +114,7 @@ struct mips_meta_op {
   uint32_t fetch_npc = 0;  
   uint64_t fetch_cycle = 0;
   bool predict_taken = false;
+  perceptron::T prediction = 0;
   bool pop_return_stack = false;
   int64_t alloc_id = -1;
   int64_t decode_cycle = -1;
@@ -156,6 +159,7 @@ struct mips_meta_op {
 
     fetch_npc = 0;  
     predict_taken = false;
+    prediction = 0;
     pop_return_stack = false;
     alloc_id = -1;
     decode_cycle = -1;
@@ -316,6 +320,8 @@ struct sim_state {
   sparse_mem *mem = nullptr;
 
   sim_bitvec bhr;
+
+  perceptron *br_pctron = nullptr;
   
   uint64_t icnt = 0, maxicnt = ~(0UL), skipicnt = 0;
   uint64_t n_branches = 0, n_jumps = 0;
