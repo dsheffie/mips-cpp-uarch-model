@@ -146,20 +146,28 @@ void fetch(sim_state &machine_state) {
 	  predict_taken = true;
 	}
 	else if(it != branch_prediction_map.end()) {
-	  /* predicted as taken */
-#if 1
-	  if(it->second > 1) {
+	  switch(sim_param::branch_predictor)
+	    {
+	      /* predicted as taken */
+	    case 0:
+	      predict_taken = true;
+	      break;
+	      /* bimodal tables */
+	    case 1:
+	      predict_taken = (it->second > 1);
+	      break;
+	      /* perceptron */
+	    case 2:
+	      predict_taken = (f->prediction > machine_state.br_pctron->get_threshold());
+	      break;
+	    default:
+	      predict_taken = false;
+	      break;
+	    }
+	  if(predict_taken) {
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	    npc = branch_target_map.at(machine_state.fetch_pc);
-	    predict_taken = true;
 	  }
-#else
-	  if(f->prediction > machine_state.br_pctron->get_threshold()) {
-	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	    npc = branch_target_map.at(machine_state.fetch_pc);
-	    predict_taken = true;
-	  }
-#endif
 	}
 	else if(is_likely_branch(inst)) {
 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;

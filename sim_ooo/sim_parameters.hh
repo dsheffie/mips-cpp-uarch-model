@@ -42,7 +42,8 @@
   SIM_PARAM(l3d_linesize,64,64,true)					\
   SIM_PARAM(mem_latency,100,1,false)					\
   SIM_PARAM(ready_to_dispatch_latency,1,0,false)			\
-  SIM_PARAM(l1d_misses_inflight,1,1,false)
+  SIM_PARAM(l1d_misses_inflight,1,1,false)				\
+  SIM_PARAM(branch_predictor,1,0,false)
 
 namespace sim_param {
 #define SIM_PARAM(A,B,C,D) extern int A;
