@@ -1021,6 +1021,8 @@ void sim_state::initialize() {
   jmp_rs.resize(sim_param::num_jmp_sched_entries);
   system_rs.resize(sim_param::num_system_sched_entries);
 
+  bhr.clear_and_resize(sim_param::bhr_length);
+  
   alu_alloc.clear_and_resize(num_alu_rs);
   fpu_alloc.clear_and_resize(num_fpu_rs);
   load_alloc.clear_and_resize(num_load_rs);

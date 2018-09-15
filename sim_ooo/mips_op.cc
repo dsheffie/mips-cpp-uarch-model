@@ -767,6 +767,8 @@ public:
     branch_target_map[m->pc] = m->correct_pc;
     branch_prediction_map[m->pc] = 3;
 
+    machine_state.bhr.shift_left(1);
+    machine_state.bhr.set_bit(0);
 
     if(m->branch_exception) {
       machine_state.mispredicted_jumps++;
@@ -1020,9 +1022,10 @@ public:
     machine_state.icnt++;
     machine_state.n_branches++;
     machine_state.mispredicted_branches += m->branch_exception;
-    
 
-    
+    machine_state.bhr.shift_left(1);
+    machine_state.bhr.set_bit(take_br);
+        
     branch_target_map[m->pc] = branch_target;
     if(branch_prediction_map.find(m->pc)==branch_prediction_map.end()) {
       /* initialize as either weakly taken or weakly not-taken */

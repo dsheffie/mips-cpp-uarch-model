@@ -27,6 +27,7 @@
   SIM_PARAM(load_tbl_size,16,1,false)					\
   SIM_PARAM(store_tbl_size,16,1,false)					\
   SIM_PARAM(taken_branches_per_cycle,1,1,false)				\
+  SIM_PARAM(bhr_length,32,1,true)					\
   SIM_PARAM(l1d_latency,3,1,false)					\
   SIM_PARAM(l1d_assoc,8,1,true)						\
   SIM_PARAM(l1d_sets,64,1,true)						\

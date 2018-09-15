@@ -122,6 +122,15 @@ public:
     }
     return -1;    
   }
+  void shift_left(uint32_t amt) {
+    /* shift off top bits */
+    arr[n_words-1] <<= amt;
+    for(int i = (n_words-2); i >= 0; i--) {
+      E wrap = arr[i] >> (bpw - amt);
+      arr[i+1] |= wrap;
+      arr[i] <<= amt;
+    }
+  }
 };
 
 typedef sim_bitvec_template<uint64_t> sim_bitvec;

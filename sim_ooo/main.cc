@@ -201,7 +201,7 @@ int main(int argc, char *argv[]) {
     delete l2d;
   }
   if(l1d) {
-    std::cout << *l1d;
+    *global::sim_log << *l1d;
     delete l1d;
   }
   
