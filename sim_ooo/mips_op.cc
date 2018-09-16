@@ -774,6 +774,7 @@ public:
 	break;
       case 4:
       case 5:
+      case 6:
 	machine_state.pht->update(m->pht_idx, true);
 	break;
       }
@@ -1054,6 +1055,7 @@ public:
 	break;
       case 4:
       case 5:
+      case 6:
 	machine_state.pht->update(m->pht_idx, take_br);
 	break;
       }

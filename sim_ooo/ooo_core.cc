@@ -147,6 +147,10 @@ void fetch(sim_state &machine_state) {
 	    f->prediction = machine_state.pht->get_value(f->pht_idx);
 	  }
 	    break;
+	  case 6:
+	    f->pht_idx = ((machine_state.fetch_pc>>2) ^ machine_state.bhr.to_integer()) & (sim_param::num_pht_entries-1);
+	    f->prediction = machine_state.pht->get_value(f->pht_idx);
+	    break;
 	  default:
 	    break;
 	  }
@@ -189,8 +193,9 @@ void fetch(sim_state &machine_state) {
 	      predict_taken = (get_branch_target(machine_state.fetch_pc, inst) < machine_state.fetch_pc);
 	      break;
 	      /* two-level branch prediction */
-	    case 4:
-	    case 5:
+	    case 4: /* concatenate */
+	    case 5: /* xor */
+	    case 6: /* gshare */
 	      predict_taken = (f->prediction > 1);
 	      break;
 	    default:
