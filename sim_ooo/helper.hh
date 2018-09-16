@@ -78,9 +78,21 @@ T bswap(T x) {
   return __builtin_bswap64(x);
 }
 
-template <class T> bool isPow2(T x) {
+template <typename T, typename std::enable_if<std::is_integral<T>::value,T>::type* = nullptr>
+bool isPow2(T x) {
   return (((x-1)&x) == 0);
 }
+
+template <typename T, typename std::enable_if<std::is_integral<T>::value,T>::type* = nullptr>
+T ln2(T x) {
+  T y = 1, l =0;
+  while(y < x) {
+    l++;
+    y *= 2;
+  }
+  return l;
+}
+
 
 #ifdef  __FreeBSD__
 /* cribbed straight out of the FreeBSD source */

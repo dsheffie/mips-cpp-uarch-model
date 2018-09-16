@@ -11,7 +11,7 @@
 #include "sim_list.hh"
 #include "sim_stack.hh"
 #include "mips_encoding.hh"
-
+#include "counter2b.hh"
 #include "perceptron.hh"
 
 uint64_t get_curr_cycle();
@@ -115,6 +115,7 @@ struct mips_meta_op {
   uint64_t fetch_cycle = 0;
   bool predict_taken = false;
   perceptron::T prediction = 0;
+  uint64_t pht_idx = 0;
   bool pop_return_stack = false;
   int64_t alloc_id = -1;
   int64_t decode_cycle = -1;
@@ -160,6 +161,7 @@ struct mips_meta_op {
     fetch_npc = 0;  
     predict_taken = false;
     prediction = 0;
+    pht_idx = 0;
     pop_return_stack = false;
     alloc_id = -1;
     decode_cycle = -1;
@@ -319,6 +321,7 @@ struct sim_state {
   
   sparse_mem *mem = nullptr;
 
+  twobit_counter_array *pht = nullptr;
   sim_bitvec bhr;
   std::vector<sim_bitvec> bht;
 

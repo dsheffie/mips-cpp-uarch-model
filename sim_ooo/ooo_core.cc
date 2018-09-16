@@ -125,7 +125,31 @@ void fetch(sim_state &machine_state) {
 	}
       }
       else {
-	f->prediction = machine_state.br_pctron->predict(machine_state.fetch_pc, machine_state.bhr);
+
+	switch(sim_param::branch_predictor)
+	  {
+	  case 2:
+	    f->prediction = machine_state.br_pctron->predict(machine_state.fetch_pc, machine_state.bhr);
+	    break;
+	  case 4:
+	  case 5: {
+	    uint32_t bht_idx = (machine_state.fetch_pc>>2) & (machine_state.bht.size()-1);
+	    sim_bitvec::ET bht_v = machine_state.bht.at(bht_idx).to_integer();
+	    f->pht_idx = (machine_state.fetch_pc>>2);
+
+	    if(sim_param::branch_predictor == 4) {
+	      f->pht_idx <<= machine_state.bht.at(bht_idx).ln2_size();
+	      f->pht_idx = (f->pht_idx | bht_v) & (sim_param::num_pht_entries-1);
+	    }
+	    else {
+	      f->pht_idx = (f->pht_idx ^ bht_v) & (sim_param::num_pht_entries-1);
+	    }
+	    f->prediction = machine_state.pht->get_value(f->pht_idx);
+	  }
+	    break;
+	  default:
+	    break;
+	  }
 	
 	if(is_jr(inst)) {
 	  f->return_stack_idx = return_stack.get_tos_idx();
@@ -163,6 +187,11 @@ void fetch(sim_state &machine_state) {
 	      /* displacement */
 	    case 3:
 	      predict_taken = (get_branch_target(machine_state.fetch_pc, inst) < machine_state.fetch_pc);
+	      break;
+	      /* two-level branch prediction */
+	    case 4:
+	    case 5:
+	      predict_taken = (f->prediction > 1);
 	      break;
 	    default:
 	      predict_taken = false;
@@ -572,6 +601,7 @@ void destroy_ooo_core(sim_state &machine_state) {
     delete machine_state.oracle_state;
   }
   delete machine_state.mem;
+  delete machine_state.pht;
   delete machine_state.br_pctron;
   
   gthread::free_threads();
@@ -1045,6 +1075,7 @@ void sim_state::initialize() {
   jmp_rs.resize(sim_param::num_jmp_sched_entries);
   system_rs.resize(sim_param::num_system_sched_entries);
 
+  pht = new twobit_counter_array(sim_param::num_pht_entries);
   bhr.clear_and_resize(sim_param::bhr_length);
 
   bht.resize(sim_param::num_bht_entries);

@@ -766,7 +766,17 @@ public:
     branch_target_map[m->pc] = m->correct_pc;
     branch_prediction_map[m->pc] = 3;
 
-    machine_state.br_pctron->update(m->prediction, true, m->pc, machine_state.bhr);
+
+    switch(sim_param::branch_predictor)
+      {
+      case 2:
+	machine_state.br_pctron->update(m->prediction, true, m->pc, machine_state.bhr);
+	break;
+      case 4:
+      case 5:
+	machine_state.pht->update(m->pht_idx, true);
+	break;
+      }
 
     uint32_t bht_idx = (m->pc>>2) & (machine_state.bht.size()-1);
     machine_state.bht.at(bht_idx).shift_left(1);
@@ -1029,10 +1039,26 @@ public:
     machine_state.n_branches++;
     machine_state.mispredicted_branches += m->branch_exception;
 
-    machine_state.br_pctron->update(m->prediction, take_br, m->pc, machine_state.bhr);
-
-
     uint32_t bht_idx = (m->pc>>2) & (machine_state.bht.size()-1);
+#if 0
+    if(take_br != m->prediction) {
+      std::cout << std::hex << "pc : " << m->pc << std::dec << "\n";
+      std::cout << "bht_idx = " << bht_idx << "\n";
+      std::cout << machine_state.bht.at(bht_idx) << "\n";
+    }
+#endif
+    switch(sim_param::branch_predictor)
+      {
+      case 2:
+	machine_state.br_pctron->update(m->prediction, take_br, m->pc, machine_state.bhr);
+	break;
+      case 4:
+      case 5:
+	machine_state.pht->update(m->pht_idx, take_br);
+	break;
+      }
+    
+
     machine_state.bht.at(bht_idx).shift_left(1);
     machine_state.bhr.shift_left(1);
     if(take_br) {

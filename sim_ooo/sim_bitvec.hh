@@ -8,13 +8,18 @@
 
 template <typename E>
 class sim_bitvec_template {
+public:
+  typedef E ET;
 private:
   static const size_t bpw = 8*sizeof(E);
   static const E all_ones = ~static_cast<E>(0);
-  uint64_t n_bits = 0, n_words = 0;
+  uint64_t n_bits = 0, n_words = 0, ln2_bits;
   E *arr = nullptr;
 public:
-  sim_bitvec_template(uint64_t n_bits = 64) : n_bits(n_bits), n_words((n_bits + bpw - 1) / bpw) {
+  sim_bitvec_template(uint64_t n_bits = 64) :
+    n_bits(n_bits),
+    n_words((n_bits + bpw - 1) / bpw),
+    ln2_bits(ln2(n_bits)) {
     arr = new E[n_words];
     memset(arr, 0, sizeof(E)*n_words);
   }
@@ -24,6 +29,9 @@ public:
   void clear() {
     memset(arr, 0, sizeof(E)*n_words);
   }
+  size_t ln2_size() const {
+    return static_cast<size_t>(ln2_bits);
+  }
   size_t size() const {
     return static_cast<size_t>(n_bits);
   }
@@ -31,6 +39,7 @@ public:
     delete [] arr;
     this->n_bits = n_bits;
     this->n_words = (n_bits + bpw - 1) / bpw;
+    this->ln2_bits = ln2(n_bits);
     arr = new E[n_words];
     memset(arr, 0, sizeof(E)*n_words);
   }
@@ -130,6 +139,9 @@ public:
       arr[i+1] |= wrap;
       arr[i] <<= amt;
     }
+  }
+  E to_integer() const {
+    return arr[0];
   }
   friend std::ostream & operator<<(std::ostream &out, const sim_bitvec_template<E> &bv) {
     for(size_t i = 0; i < bv.size(); i++) {
