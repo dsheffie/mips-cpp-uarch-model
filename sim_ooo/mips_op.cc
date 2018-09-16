@@ -1048,6 +1048,12 @@ public:
       std::cout << machine_state.bht.at(bht_idx) << "\n";
     }
 #endif
+
+    /* backwards branch */
+    if(branch_target < m->pc) {
+      machine_state.loop_pred->update(m->pc, take_br, m->predict_taken, m->prediction);
+    }
+    
     switch(sim_param::branch_predictor)
       {
       case 2:

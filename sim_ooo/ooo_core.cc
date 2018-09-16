@@ -202,6 +202,15 @@ void fetch(sim_state &machine_state) {
 	      predict_taken = false;
 	      break;
 	    }
+
+	  /* check if backwards branch with valid loop predictor entry */
+	  if(get_branch_target(machine_state.fetch_pc, inst) < machine_state.fetch_pc) {
+	    if(machine_state.loop_pred->valid_loop_branch(machine_state.fetch_pc)) {
+	      predict_taken = machine_state.loop_pred->predict(machine_state.fetch_pc, f->prediction);
+	    }
+	  }
+
+	  
 	  if(predict_taken) {
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	    npc = branch_target_map.at(machine_state.fetch_pc);

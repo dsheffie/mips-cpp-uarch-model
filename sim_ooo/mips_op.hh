@@ -115,7 +115,7 @@ struct mips_meta_op {
   uint32_t fetch_npc = 0;  
   uint64_t fetch_cycle = 0;
   bool predict_taken = false;
-  perceptron::T prediction = 0;
+  int32_t prediction = 0;
   uint64_t pht_idx = 0;
   bool pop_return_stack = false;
   int64_t alloc_id = -1;

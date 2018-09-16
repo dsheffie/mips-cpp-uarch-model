@@ -22,8 +22,8 @@ public:
   loop_predictor(uint32_t n_entries);
   ~loop_predictor();
   bool valid_loop_branch(uint32_t pc) const;
-  bool predict(uint32_t pc);
-  void update(uint32_t pc, bool take_br);
+  bool predict(uint32_t pc, int32_t &count);
+  void update(uint32_t pc, bool take_br, bool prediction, int count);
   
 };
 
