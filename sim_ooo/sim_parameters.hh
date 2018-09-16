@@ -27,8 +27,8 @@
   SIM_PARAM(load_tbl_size,16,1,false)					\
   SIM_PARAM(store_tbl_size,16,1,false)					\
   SIM_PARAM(taken_branches_per_cycle,1,1,false)				\
-  SIM_PARAM(num_loop_entries,4,0,true)					\
-  SIM_PARAM(num_pht_entries,1024,1,true)				\
+  SIM_PARAM(num_loop_entries,0,0,true)					\
+  SIM_PARAM(num_pht_entries,32768,1,true)				\
   SIM_PARAM(bhr_length,32,1,true)					\
   SIM_PARAM(bht_length,8,1,true)					\
   SIM_PARAM(num_bht_entries,16,1,true)					\
