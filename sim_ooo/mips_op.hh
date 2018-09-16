@@ -11,6 +11,7 @@
 #include "sim_list.hh"
 #include "sim_stack.hh"
 #include "mips_encoding.hh"
+#include "loop_predictor.hh"
 #include "counter2b.hh"
 #include "perceptron.hh"
 
@@ -321,6 +322,7 @@ struct sim_state {
   
   sparse_mem *mem = nullptr;
 
+  loop_predictor *loop_pred = nullptr;
   twobit_counter_array *pht = nullptr;
   sim_bitvec bhr;
   std::vector<sim_bitvec> bht;

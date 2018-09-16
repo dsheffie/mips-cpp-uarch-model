@@ -607,6 +607,7 @@ void destroy_ooo_core(sim_state &machine_state) {
   }
   delete machine_state.mem;
   delete machine_state.pht;
+  delete machine_state.loop_pred;
   delete machine_state.br_pctron;
   
   gthread::free_threads();
@@ -1080,6 +1081,7 @@ void sim_state::initialize() {
   jmp_rs.resize(sim_param::num_jmp_sched_entries);
   system_rs.resize(sim_param::num_system_sched_entries);
 
+  loop_pred = new loop_predictor(sim_param::num_loop_entries);
   pht = new twobit_counter_array(sim_param::num_pht_entries);
   bhr.clear_and_resize(sim_param::bhr_length);
 
