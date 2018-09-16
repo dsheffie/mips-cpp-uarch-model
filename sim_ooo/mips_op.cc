@@ -1050,7 +1050,7 @@ public:
 #endif
 
     /* backwards branch */
-    if(branch_target < m->pc) {
+    if((branch_target < m->pc) and (machine_state.loop_pred != nullptr)) {
       machine_state.loop_pred->update(m->pc, take_br, m->predict_taken, m->prediction);
     }
     

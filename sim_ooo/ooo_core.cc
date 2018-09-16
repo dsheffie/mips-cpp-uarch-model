@@ -113,6 +113,7 @@ void fetch(sim_state &machine_state) {
       bool used_return_addr_stack = false;
       
       mips_meta_op *f = new mips_meta_op(machine_state.fetch_pc, inst, curr_cycle);
+      bool backwards_br = (get_branch_target(machine_state.fetch_pc, inst) < machine_state.fetch_pc);
       
       if(enable_oracle) {
 	if(oracle_taken) {
@@ -190,7 +191,7 @@ void fetch(sim_state &machine_state) {
 	      break;
 	      /* displacement */
 	    case 3:
-	      predict_taken = (get_branch_target(machine_state.fetch_pc, inst) < machine_state.fetch_pc);
+	      predict_taken = backwards_br;
 	      break;
 	      /* two-level branch prediction */
 	    case 4: /* concatenate */
@@ -203,8 +204,8 @@ void fetch(sim_state &machine_state) {
 	      break;
 	    }
 
-	  /* check if backwards branch with valid loop predictor entry */
-	  if(get_branch_target(machine_state.fetch_pc, inst) < machine_state.fetch_pc) {
+	  /* check if backwards branch with valid loop predictor entry */	  
+	  if(backwards_br and (machine_state.loop_pred !=nullptr) ) {
 	    if(machine_state.loop_pred->valid_loop_branch(machine_state.fetch_pc)) {
 	      predict_taken = machine_state.loop_pred->predict(machine_state.fetch_pc, f->prediction);
 	    }
@@ -616,7 +617,9 @@ void destroy_ooo_core(sim_state &machine_state) {
   }
   delete machine_state.mem;
   delete machine_state.pht;
-  delete machine_state.loop_pred;
+  if(machine_state.loop_pred != nullptr) {
+    delete machine_state.loop_pred;
+  }
   delete machine_state.br_pctron;
   
   gthread::free_threads();
@@ -1090,7 +1093,10 @@ void sim_state::initialize() {
   jmp_rs.resize(sim_param::num_jmp_sched_entries);
   system_rs.resize(sim_param::num_system_sched_entries);
 
-  loop_pred = new loop_predictor(sim_param::num_loop_entries);
+  if(sim_param::num_loop_entries) {
+    loop_pred = new loop_predictor(sim_param::num_loop_entries);
+  }
+  
   pht = new twobit_counter_array(sim_param::num_pht_entries);
   bhr.clear_and_resize(sim_param::bhr_length);
 
