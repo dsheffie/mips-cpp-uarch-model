@@ -15,8 +15,14 @@ std::map<uint32_t, int32_t> branch_prediction_map;
 std::map<uint32_t, std::set<uint32_t>> load_alias_map;
 
 std::ostream &operator<<(std::ostream &out, const mips_op &op) {
-  out << std::hex << op.m->pc << std::dec << ":"
-      << getAsmString(op.m->inst, op.m->pc);
+  out << std::hex << op.m->pc << std::dec
+      << ":" << getAsmString(op.m->inst, op.m->pc) << ":"
+      << op.m->fetch_cycle << ","
+      << op.m->decode_cycle << ","
+      << op.m->alloc_cycle << ","
+      << op.m->ready_cycle << ","
+      << op.m->dispatch_cycle << ","
+      << op.m->complete_cycle;
   return out;
 }
 

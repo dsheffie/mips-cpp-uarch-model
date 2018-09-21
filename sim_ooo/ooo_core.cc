@@ -34,8 +34,6 @@ extern std::map<uint32_t, int32_t> branch_prediction_map;
 
 static std::map<int64_t, uint64_t> insn_lifetime_map;
 
-
-
 uint64_t get_curr_cycle() {
   return curr_cycle;
 }
