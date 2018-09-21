@@ -3283,8 +3283,7 @@ public:
 
       default:
 	std::cerr << "execute monitor op with reason "<< reason << "\n";
-	die();
-
+	machine_state.terminate_sim = true;
       }
     /* not valid until after this instruction retires */
     machine_state.gpr_valid.set_bit(m->prf_idx);
