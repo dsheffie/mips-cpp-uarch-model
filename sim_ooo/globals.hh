@@ -6,6 +6,7 @@ namespace global {
   extern int sysArgc;
   extern char **sysArgv;
   extern std::ostream *sim_log;
+  extern bool use_interp_check;
 };
 
 #endif

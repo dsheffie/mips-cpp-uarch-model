@@ -315,7 +315,7 @@ void retire(sim_state &machine_state) {
 	}
       }
 
-      if(machine_state.use_interp_check and (s->pc == u->pc)) {
+      if(global::use_interp_check and (s->pc == u->pc)) {
 	assert(not(exception));
 	bool error = false;
 	for(int i = 0; i < 32; i++) {
@@ -444,7 +444,7 @@ void retire(sim_state &machine_state) {
 	    insn_lifetime_map[uu->retire_cycle - uu->fetch_cycle]++;
 	    //std::cout << std::hex << uu->pc << ":" << std::hex
 	    //<< getAsmString(uu->inst, uu->pc) << "\n";
-	    if(machine_state.use_interp_check and (s->pc == u->pc)) {
+	    if(global::use_interp_check and (s->pc == u->pc)) {
 	      s->call_site = __LINE__;
 	      execMips(s);
 	    }
@@ -460,7 +460,7 @@ void retire(sim_state &machine_state) {
 	  insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
 	  machine_state.last_retire_cycle = get_curr_cycle();
 	  machine_state.last_retire_pc = u->pc;
-	  if(machine_state.use_interp_check and (s->pc == u->pc)) {
+	  if(global::use_interp_check and (s->pc == u->pc)) {
 	    s->call_site = __LINE__;
 	    execMips(s);
 	  }
@@ -581,7 +581,6 @@ void initialize_ooo_core(sim_state &machine_state,
   machine_state.initialize();
   machine_state.maxicnt = maxicnt;
   machine_state.skipicnt = s->icnt;
-  machine_state.use_interp_check = true;
   machine_state.copy_state(s);
 
   //u_arch_mem->mark_pages_as_no_write();

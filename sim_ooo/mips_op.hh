@@ -355,7 +355,6 @@ struct sim_state {
 
   
   bool log_execution = false;
-  bool use_interp_check = false;
 
   void initialize_rat_mappings();
   void initialize();

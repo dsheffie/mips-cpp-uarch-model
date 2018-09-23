@@ -33,10 +33,30 @@ char **global::sysArgv = nullptr;
 int global::sysArgc = 0;
 bool global::enClockFuncts = false;
 std::ostream *global::sim_log = &(std::cout);
+bool global::use_interp_check = true;
 
 static simCache* l1d = nullptr, *l2d = nullptr, *l3d = nullptr;
 
 state_t *s = nullptr;
+
+static sim_state machine_state;
+
+static void catchUnixSignal(int sig) {
+  switch(sig)
+    {
+    case SIGFPE:
+      std::cerr << KRED << "\ncaught SIGFPE!\n" << KNRM;
+      exit(-1);
+      break;
+    case SIGINT:
+      std::cerr << KRED << "\ncaught SIGINT!\n" << KNRM;
+      machine_state.terminate_sim = true;
+      break;
+    default:
+      break;
+    }
+
+}
 
 /* linkage */
 #define SIM_PARAM(A,B,C,D) int sim_param::A = C;
@@ -60,7 +80,6 @@ int main(int argc, char *argv[]) {
   
   std::cerr << "MIPS UARCH SIM: built " << __DATE__
 	    << " " << __TIME__ << "\n";
-  sim_state machine_state;
 
   std::string filename, sysArgs, logfile;
   bool use_l2 = true, use_l3 = true;
@@ -86,6 +105,7 @@ int main(int argc, char *argv[]) {
     ("mem_model", po::value<bool>(&use_mem_model)->default_value(false), "use memory model")
     ("use_l2", po::value<bool>(&use_l2)->default_value(true), "use l2 cache model")
     ("use_l3", po::value<bool>(&use_l3)->default_value(true), "use l3 cache model")
+    ("interp,i", po::value<bool>(&global::use_interp_check)->default_value(true), "use interpreter check")
 #define SIM_PARAM(A,B,C,D) (#A,po::value<int>(&sim_param::A)->default_value(B), #A)
     SIM_PARAM_LIST;
 #undef SIM_PARAM
@@ -150,7 +170,8 @@ int main(int argc, char *argv[]) {
   else {
     loadState(*s, filename, clear_checkpoint_icnt);
   }
-
+  signal(SIGINT, catchUnixSignal);
+  
   if(use_mem_model) {
     if(not(use_l2)) {
       use_l3 = false;
