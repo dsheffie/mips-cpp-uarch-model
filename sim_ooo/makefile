@@ -3,7 +3,7 @@ UNAME_S = $(shell uname -s)
 OBJ = save_state.o main.o loadelf.o parseMips.o helper.o profileMips.o gthread.o sparse_mem.o ooo_core.o mips_op.o sim_cache.o perceptron.o loop_predictor.o
 
 ifeq ($(UNAME_S),Linux)
-	CXX = clang++-4.0
+	CXX = clang++-4.0 -flto
 	OBJ += gthread_asm.o
 	EXTRA_LD = -lunwind -lboost_program_options
 endif
