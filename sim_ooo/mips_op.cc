@@ -2521,7 +2521,6 @@ public:
       return false;
     }
     if(m->src3_prf != -1 and not(machine_state.cpr1_valid[m->src3_prf])) {
-      std::cout << __LINE__ << "\n";
       return false;
     }
     return true;
