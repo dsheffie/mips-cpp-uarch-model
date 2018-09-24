@@ -3206,6 +3206,7 @@ public:
     machine_state.gpr_rat[2] = prf_id;
     m->prf_idx = prf_id;
     machine_state.gpr_valid.clear_bit(prf_id);
+    machine_state.alloc_blocked = true;
     return true;
   }
   bool ready(sim_state &machine_state) const override {
@@ -3346,12 +3347,14 @@ public:
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     
     m->retire_cycle = get_curr_cycle();
+    machine_state.alloc_blocked = false;
     return true;
   }
   void undo(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
+    machine_state.alloc_blocked = false;
   }
 };
 

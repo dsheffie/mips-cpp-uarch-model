@@ -118,7 +118,6 @@ struct mips_meta_op {
   uint64_t pht_idx = 0;
   bool pop_return_stack = false;
   int64_t alloc_id = -1;
-  
   int64_t fetch_cycle = -1;
   int64_t decode_cycle = -1;
   int64_t alloc_cycle = -1;
@@ -251,6 +250,8 @@ class simCache;
 struct sim_state {
   bool terminate_sim = false;
   bool nuke = false;
+  bool alloc_blocked = false;
+  
   uint32_t delay_slot_npc = 0;
   uint32_t fetch_pc = 0;
 

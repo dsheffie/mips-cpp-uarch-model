@@ -741,8 +741,11 @@ extern "C" {
       fpu_alloc.clear();
       load_alloc.clear();
       store_alloc.clear();
-      while(not(decode_queue.empty()) and not(rob.full()) and
-	    (alloc_amt < sim_param::alloc_bw) and not(machine_state.nuke)) {
+      while(not(decode_queue.empty())
+	    and not(rob.full())
+	    and (alloc_amt < sim_param::alloc_bw)
+	    and not(machine_state.nuke)
+	    and not(machine_state.alloc_blocked)) {
 	auto u = decode_queue.peek();
 	if(u->op == nullptr) {
 #if 0
