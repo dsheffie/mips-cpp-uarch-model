@@ -5,6 +5,7 @@
 #include <vector>
 #include <list>
 #include <cassert>
+#include "globals.hh"
 #include "sparse_mem.hh"
 #include "sim_queue.hh"
 #include "sim_bitvec.hh"
@@ -15,7 +16,6 @@
 #include "counter2b.hh"
 #include "perceptron.hh"
 
-uint64_t get_curr_cycle();
 
 enum class mips_op_type { unknown, alu, fp, jmp, load, store, system };
 

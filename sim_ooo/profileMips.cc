@@ -19,7 +19,6 @@
 static timeval32_t myTimeVal = {0,0};
 static uint32_t myTime = 1<<20;
 
-uint64_t get_curr_cycle();
 
 void execRType(uint32_t inst, state_t *s);
 void execJType(uint32_t inst, state_t *s);

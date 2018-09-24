@@ -34,6 +34,7 @@ int global::sysArgc = 0;
 bool global::enClockFuncts = false;
 std::ostream *global::sim_log = &(std::cout);
 bool global::use_interp_check = true;
+uint64_t global::curr_cycle = 0;
 
 static simCache* l1d = nullptr, *l2d = nullptr, *l3d = nullptr;
 

@@ -28,15 +28,12 @@
 #include "sim_parameters.hh"
 #include "sim_cache.hh"
 
-static uint64_t curr_cycle = 0;
+
 extern std::map<uint32_t, uint32_t> branch_target_map;
 extern std::map<uint32_t, int32_t> branch_prediction_map;
 
 static std::map<int64_t, uint64_t> insn_lifetime_map;
 
-uint64_t get_curr_cycle() {
-  return curr_cycle;
-}
 
 class undo_rob_entry : public sim_queue<sim_op>::funcobj {
 protected:
@@ -68,7 +65,7 @@ void fetch(sim_state &machine_state) {
 	uint32_t inst = bswap(mem.get32(machine_state.delay_slot_npc));
 	auto f = new mips_meta_op(machine_state.delay_slot_npc, inst,
 				  machine_state.delay_slot_npc+4,
-				  curr_cycle, false, false);
+				  global::curr_cycle, false, false);
 	fetch_queue.push(f);
 	machine_state.delay_slot_npc = 0;
 	if(enable_oracle) {
@@ -110,7 +107,7 @@ void fetch(sim_state &machine_state) {
       auto it = branch_prediction_map.find(machine_state.fetch_pc);
       bool used_return_addr_stack = false;
       
-      mips_meta_op *f = new mips_meta_op(machine_state.fetch_pc, inst, curr_cycle);
+      mips_meta_op *f = new mips_meta_op(machine_state.fetch_pc, inst, global::curr_cycle);
       bool backwards_br = (get_branch_target(machine_state.fetch_pc, inst) < machine_state.fetch_pc);
       
       if(enable_oracle) {
@@ -275,7 +272,7 @@ void retire(sim_state &machine_state) {
 	u = nullptr;
 	break;
       }
-      if(u->complete_cycle == curr_cycle) {
+      if(u->complete_cycle == global::curr_cycle) {
 	u = nullptr;
 	break;
       }
@@ -634,8 +631,8 @@ extern "C" {
     simCache *l1d = machine_state.l1d;
     uint64_t last_hits = 0, last_misses = 0;
     while(not(machine_state.terminate_sim)) {
-      curr_cycle++;
-      uint64_t delta = curr_cycle - machine_state.last_retire_cycle;
+      global::curr_cycle++;
+      uint64_t delta = global::curr_cycle - machine_state.last_retire_cycle;
       if(delta > 1024) {
 	std::cerr << "no retirement in 1024 cycles, last pc = "
 		  << std::hex
@@ -644,9 +641,9 @@ extern "C" {
 		  << "\n";
 	machine_state.terminate_sim = true;
       }
-      if((curr_cycle & (sim_param::heartbeat-1)) == 0) {
+      if((global::curr_cycle & (sim_param::heartbeat-1)) == 0) {
 	uint64_t curr_icnt = (machine_state.icnt-machine_state.skipicnt);
-	double ipc = static_cast<double>(curr_icnt) / curr_cycle;
+	double ipc = static_cast<double>(curr_icnt) / global::curr_cycle;
 	double wipc = static_cast<double>(curr_icnt-prev_icnt) / sim_param::heartbeat;
 
 	uint64_t br_and_jmps = machine_state.n_branches + machine_state.n_jumps;
@@ -659,7 +656,7 @@ extern "C" {
 	double w_pr = static_cast<double>(w_br_and_jmps - w_mispredicts) / w_br_and_jmps;
 
 	
-	*global::sim_log << "c " << curr_cycle 
+	*global::sim_log << "c " << global::curr_cycle 
 			      << ", i " << curr_icnt
 			      << ", a ipc "<< ipc
 			      << ", w ipc " << wipc
@@ -682,9 +679,6 @@ extern "C" {
 	prev_br_and_jmps = br_and_jmps;
 	prev_mispredicts = mispredicts;
       }
-      //if(curr_cycle >= 256) {
-      //machine_state.terminate_sim = true;
-      //}
       gthread_yield();
     }
     gthread_terminate();
@@ -717,11 +711,11 @@ extern "C" {
       int decode_amt = 0;
       while(not(fetch_queue.empty()) and not(decode_queue.full()) and (decode_amt < sim_param::decode_bw) and not(machine_state.nuke)) {
 	auto u = fetch_queue.peek();
-	if(not((u->fetch_cycle+1) < curr_cycle)) {
+	if(not((u->fetch_cycle+1) < global::curr_cycle)) {
 	  break;
 	}
 	fetch_queue.pop();
-	u->decode_cycle = curr_cycle;
+	u->decode_cycle = global::curr_cycle;
 	u->op = decode_insn(u);
 	decode_queue.push(u);
 	decode_amt++;
@@ -757,7 +751,7 @@ extern "C" {
 #endif
 	  break;
 	}
-	if(u->decode_cycle == curr_cycle) {
+	if(u->decode_cycle == global::curr_cycle) {
 	  break;
 	}
 	bool jmp_avail = true, store_avail = true, system_avail = true;
@@ -846,7 +840,7 @@ extern "C" {
 
 	rs_queue->push(u);
 	decode_queue.pop();
-	u->alloc_cycle = curr_cycle;
+	u->alloc_cycle = global::curr_cycle;
 	u->rob_idx = rob.push(u);
 	alloc_amt++;
       }
