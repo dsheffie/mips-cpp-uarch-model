@@ -1,6 +1,9 @@
 #include <cmath>
 #include <map>
 #include <set>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "globals.hh"
 #include "mips_op.hh"
@@ -8,6 +11,8 @@
 #include "parseMips.hh"
 #include "sim_parameters.hh"
 #include "sim_cache.hh"
+
+char* get_open_string(sparse_mem &mem, uint32_t offset);
 
 std::map<uint32_t, uint32_t> branch_target_map;
 std::map<uint32_t, int32_t> branch_prediction_map;
@@ -3233,27 +3238,74 @@ public:
       m->is_complete = true;
     }
   }
+  
   bool retire(sim_state &machine_state) override {
     uint32_t reason = ((m->inst >> RSVD_INSTRUCTION_ARG_SHIFT) & RSVD_INSTRUCTION_ARG_MASK) >> 1;
     sparse_mem & mem = *(machine_state.mem);
     machine_state.gpr_prf[m->prf_idx] = 0;
     //std::cout << "monitor reason " << reason << " @ " << get_curr_cycle() << "\n";
+    //if(not(globals::use_interp_check)) {
     switch(reason)
       {
-      case 8: {
-      /* int write(int file, char *ptr, int len) */
-	int fd = src_regs[0];
-	int nr = src_regs[2];
-	if(fd < 2) {
-	  machine_state.gpr_prf[m->prf_idx] = per_page_rdwr<true>(mem, fd, src_regs[1], nr);
+	/* int open(char *path, int flags) */
+      case 6: {
+	if(not(global::use_interp_check)) {
+	  char *path = get_open_string(mem, src_regs[0]);
+	  int32_t flags = remapIOFlags(src_regs[1]);
+	  machine_state.gpr_prf[m->prf_idx] = open(path, flags, S_IRUSR|S_IWUSR);
+	  delete [] path;
+	  break;
 	}
 	else {
-	  die();
+	  machine_state.terminate_sim = true;
 	}
+	break;
       }
+	/* int read(int file,char *ptr,int len) */
+      case 7: { 
+	if(not(global::use_interp_check)) {
+	  machine_state.gpr_prf[m->prf_idx] = per_page_rdwr<false>(mem, src_regs[0], src_regs[1],
+								   src_regs[2]);
+	}
+	else {
+	  machine_state.terminate_sim = true;
+	}
+	break;
+      }
+	/* int write(int file, char *ptr, int len) */
+      case 8: {
+	if(not(global::use_interp_check)) {
+	  machine_state.gpr_prf[m->prf_idx] = per_page_rdwr<true>(mem, src_regs[0], src_regs[1],
+								  src_regs[2]);
+	}
+	else {
+	  if(src_regs[0] < 2) {
+	    machine_state.gpr_prf[m->prf_idx] = per_page_rdwr<true>(mem, src_regs[0], src_regs[1],
+								   src_regs[2]);
+	  }
+	  else {
+	    machine_state.terminate_sim = true;
+	  }
+	}
+	break;
+      }
+      case 9:
+	if(not(global::use_interp_check)) {
+	  machine_state.gpr_prf[m->prf_idx] = lseek(src_regs[0], src_regs[1], src_regs[2]);
+	}
+	else {
+	  machine_state.terminate_sim = true;
+	}
+	break;
       case 10: /* close */
-	if(src_regs[0] > 2) {
+	if(not(global::use_interp_check)) {
 	  machine_state.gpr_prf[m->prf_idx] = close(src_regs[0]);
+	}
+	else if(src_regs[0] > 2) {
+	  machine_state.gpr_prf[m->prf_idx] = close(src_regs[0]);
+	}
+	else {
+	  machine_state.terminate_sim = true;
 	}
 	break;	
       case 33: {
@@ -3280,7 +3332,7 @@ public:
 	/* No Dcache */
 	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 8)) = 0;
 	break;
-
+	
       default:
 	std::cerr << "execute monitor op with reason "<< reason << "\n";
 	machine_state.terminate_sim = true;

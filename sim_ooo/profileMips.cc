@@ -1304,9 +1304,9 @@ static void _lwr(uint32_t inst, state_t *s)
 
 
 
-char* get_open_string(state_t *s, uint32_t offset) {
+char* get_open_string(sparse_mem &mem, uint32_t offset) {
   size_t len = 0;
-  char *ptr = (char*)(s->mem + offset);
+  char *ptr = (char*)(mem + offset);
   char *buf = nullptr;
   while(*ptr != '\0') {
     ptr++;
@@ -1314,7 +1314,7 @@ char* get_open_string(state_t *s, uint32_t offset) {
   }
   buf = new char[len+1];
   memset(buf, 0, len+1);
-  ptr = (char*)(s->mem + offset);
+  ptr = (char*)(mem + offset);
   for(size_t i = 0; i < len; i++) {
     buf[i] = *ptr;
     ptr++;
@@ -1340,7 +1340,7 @@ static void _monitorBody(uint32_t inst, state_t *s) {
       /* this needs to be fixed - strings on multiple pages */
       //path = (char*)(s->mem + (uint32_t)s->gpr[R_a0]);
       //std::cout << "pointer = " << (char*)(s->mem + (uint32_t)s->gpr[R_a0]) << "\n";
-      path = get_open_string(s, (uint32_t)s->gpr[R_a0]);
+      path = get_open_string(s->mem, (uint32_t)s->gpr[R_a0]);
       flags = remapIOFlags(s->gpr[R_a1]);
       fd = open(path, flags, S_IRUSR|S_IWUSR);
       s->num_open_fd++;
