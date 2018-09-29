@@ -761,18 +761,18 @@ extern "C" {
 	  case mips_op_type::unknown:
 	    die();
 	  case mips_op_type::alu: {
-	    int64_t p = alu_alloc.find_first_unset()
+	    int64_t p = alu_alloc.find_first_unset_rr()
 ;	    int64_t rs_id = p % sim_param::num_alu_ports;
 	    if(p!=-1 and not(machine_state.alu_rs.at(rs_id).full())) {
-		rs_available = true;
-		rs_queue = &(machine_state.alu_rs.at(rs_id));
-		alu_alloc.set_bit(p);
-		alloc_histo[u->op->get_op_class()]++;
+	      rs_available = true;
+	      rs_queue = &(machine_state.alu_rs.at(rs_id));
+	      alu_alloc.set_bit(p);
+	      alloc_histo[u->op->get_op_class()]++;
 	    }
 	  }
 	    break;
 	  case mips_op_type::fp: {
-	    int64_t p = fpu_alloc.find_first_unset();
+	    int64_t p = fpu_alloc.find_first_unset_rr();
 	    int64_t rs_id = p % sim_param::num_fpu_ports;
 	    if(p!=-1 and not(machine_state.fpu_rs.at(rs_id).full())) {
 	      rs_available = true;
@@ -791,7 +791,7 @@ extern "C" {
 	    }
 	    break;
 	  case mips_op_type::load: {
-	    int64_t p = load_alloc.find_first_unset();
+	    int64_t p = load_alloc.find_first_unset_rr();
 	    int64_t rs_id = p % sim_param::num_load_ports;
 	    if(p!=-1 and not(machine_state.load_rs.at(rs_id).full())) {
 		rs_available = true;
@@ -802,7 +802,7 @@ extern "C" {
 	    break;
 	  }
 	  case mips_op_type::store: {
-	    int64_t p = store_alloc.find_first_unset();
+	    int64_t p = store_alloc.find_first_unset_rr();
 	    int64_t rs_id = p % sim_param::num_store_ports;
 	    if(p!=-1 and not(machine_state.store_rs.at(rs_id).full())) {
 	      rs_available = true;

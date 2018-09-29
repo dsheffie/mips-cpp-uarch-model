@@ -14,12 +14,14 @@ private:
   static const size_t bpw = 8*sizeof(E);
   static const E all_ones = ~static_cast<E>(0);
   uint64_t n_bits = 0, n_words = 0, ln2_bits;
+  uint64_t last_bit = 0;
   E *arr = nullptr;
 public:
   sim_bitvec_template(uint64_t n_bits = 64) :
     n_bits(n_bits),
     n_words((n_bits + bpw - 1) / bpw),
-    ln2_bits(ln2(n_bits)) {
+    ln2_bits(ln2(n_bits)),
+    last_bit(n_bits-1) {
     arr = new E[n_words];
     memset(arr, 0, sizeof(E)*n_words);
   }
@@ -40,6 +42,7 @@ public:
     this->n_bits = n_bits;
     this->n_words = (n_bits + bpw - 1) / bpw;
     this->ln2_bits = ln2(n_bits);
+    last_bit = n_bits-1;
     arr = new E[n_words];
     memset(arr, 0, sizeof(E)*n_words);
   }
@@ -82,6 +85,15 @@ public:
   }
   uint64_t num_free() const {
     return n_bits - popcount();
+  }
+  int64_t find_first_unset_rr() const {
+    for(uint64_t i = 0, b = last_bit; i < n_bits; i++) {
+      if(get_bit(b)==false) {
+	return b;
+      }
+      b = (b+1) % n_bits;
+    }
+    return -1;
   }
   int64_t find_first_unset() const {
     for(uint64_t w = 0; w < n_words; w++) {
