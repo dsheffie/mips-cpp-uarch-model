@@ -747,29 +747,25 @@ extern "C" {
 	    and not(machine_state.nuke)
 	    and not(machine_state.alloc_blocked)) {
 	auto u = decode_queue.peek();
-	if(u->op == nullptr) {
-#if 0
-	  std::cout << "decode failed : " << std::hex << u->pc << ":" << std::dec
-		    << getAsmString(u->inst, u->pc) << "\n";
-#endif
-	  break;
-	}
-	if(u->decode_cycle == global::curr_cycle) {
-	  break;
-	}
+
 	bool jmp_avail = true, store_avail = true, system_avail = true;
 	sim_state::rs_type *rs_queue = nullptr;
 	bool rs_available = false;
+
+	if(u->op == nullptr or u->decode_cycle == global::curr_cycle) {
+	  break;
+	}
 
 	switch(u->op->get_op_class())
 	  {
 	  case mips_op_type::unknown:
 	    die();
 	  case mips_op_type::alu: {
-	    int64_t p = alu_alloc.find_first_unset();
-	    if(p!=-1 and not(machine_state.alu_rs.at(p).full())) {
+	    int64_t p = alu_alloc.find_first_unset()
+;	    int64_t rs_id = p % sim_param::num_alu_ports;
+	    if(p!=-1 and not(machine_state.alu_rs.at(rs_id).full())) {
 		rs_available = true;
-		rs_queue = &(machine_state.alu_rs.at(p));
+		rs_queue = &(machine_state.alu_rs.at(rs_id));
 		alu_alloc.set_bit(p);
 		alloc_histo[u->op->get_op_class()]++;
 	    }
@@ -777,9 +773,10 @@ extern "C" {
 	    break;
 	  case mips_op_type::fp: {
 	    int64_t p = fpu_alloc.find_first_unset();
-	    if(p!=-1 and not(machine_state.fpu_rs.at(p).full())) {
+	    int64_t rs_id = p % sim_param::num_fpu_ports;
+	    if(p!=-1 and not(machine_state.fpu_rs.at(rs_id).full())) {
 	      rs_available = true;
-	      rs_queue = &(machine_state.fpu_rs.at(p));
+	      rs_queue = &(machine_state.fpu_rs.at(rs_id));
 	      fpu_alloc.set_bit(p);
 	      alloc_histo[u->op->get_op_class()]++;
 	    }
@@ -795,9 +792,10 @@ extern "C" {
 	    break;
 	  case mips_op_type::load: {
 	    int64_t p = load_alloc.find_first_unset();
-	    if(p!=-1 and not(machine_state.load_rs.at(p).full())) {
+	    int64_t rs_id = p % sim_param::num_load_ports;
+	    if(p!=-1 and not(machine_state.load_rs.at(rs_id).full())) {
 		rs_available = true;
-		rs_queue = &(machine_state.load_rs.at(p));
+		rs_queue = &(machine_state.load_rs.at(rs_id));
 		load_alloc.set_bit(p);
 		alloc_histo[u->op->get_op_class()]++;
 	    }
@@ -805,9 +803,10 @@ extern "C" {
 	  }
 	  case mips_op_type::store: {
 	    int64_t p = store_alloc.find_first_unset();
-	    if(p!=-1 and not(machine_state.store_rs.at(p).full())) {
+	    int64_t rs_id = p % sim_param::num_store_ports;
+	    if(p!=-1 and not(machine_state.store_rs.at(rs_id).full())) {
 	      rs_available = true;
-	      rs_queue = &(machine_state.store_rs.at(p));
+	      rs_queue = &(machine_state.store_rs.at(rs_id));
 	      store_alloc.set_bit(p);
 	      alloc_histo[u->op->get_op_class()]++;
 	      store_avail = false;
@@ -867,29 +866,33 @@ extern "C" {
       int exec_cnt = 0;
       if(not(machine_state.nuke)) {
 	//alu loop (OoO scheduler)
-#define OOO_SCHED(RS,RST) {						\
+#define OOO_SCHED(RS,NUM) {						\
+	  int ns = 0;							\
+	  const uint64_t cs = get_curr_cycle();				\
 	  for(auto it = RS.begin(); it != RS.end(); it++) {		\
 	    sim_op u = *it;						\
 	    bool r = u->op->ready(machine_state);			\
 	    if(r) machine_state.total_ready_insns++;			\
 	    if((u->ready_cycle==-1) and r) {				\
-	      u->ready_cycle = get_curr_cycle();			\
+	      u->ready_cycle = cs;					\
 	    }								\
 	  }								\
-	  for(auto it = RS.begin(); it != RS.end(); it++) {		\
+	  for(auto it = RS.begin(); it != RS.end() and (ns < NUM); /*nil*/ ) { \
 	    sim_op u = *it;						\
-	    if(u->op->ready(machine_state) and				\
-	       (get_curr_cycle() >= (sim_param::ready_to_dispatch_latency+u->ready_cycle)) ) { \
-	      RS.erase(it);						\
+	    if(u->op->ready(machine_state) and	(cs >= (sim_param::ready_to_dispatch_latency+u->ready_cycle)) ) { \
+	      it = RS.erase(it);					\
 	      u->op->execute(machine_state);				\
-	      u->dispatch_cycle = get_curr_cycle();			\
+	      u->dispatch_cycle = cs;					\
 	      exec_cnt++;						\
-	      break;							\
+	      ns++;							\
+	    }								\
+	    else {							\
+	      it++;							\
 	    }								\
 	  }								\
 	}
 	
-#define INORDER_SCHED(RS,RST) {						\
+#define INORDER_SCHED(RS) {						\
 	  for(auto it = RS.begin(); it != RS.end(); it++) {		\
 	    sim_op u = *it;						\
 	    bool r = u->op->ready(machine_state);			\
@@ -910,23 +913,23 @@ extern "C" {
 	}
 	
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
-	  OOO_SCHED(alu_rs.at(i),mips_op_type::alu);
+	  OOO_SCHED(alu_rs.at(i),sim_param::num_alu_sched_per_cycle);
 	}
-	OOO_SCHED(jmp_rs,mips_op_type::jmp);
 	for(int i = 0; i < machine_state.num_load_rs; i++) {
-	  OOO_SCHED(load_rs.at(i),mips_op_type::load);
+	  OOO_SCHED(load_rs.at(i),sim_param::num_load_sched_per_cycle);
 	}
 	/* not really out-of-order as stores are processed
 	 * at retirement */
 	for(int i = 0; i < machine_state.num_store_rs; i++) {
-	  OOO_SCHED(store_rs.at(i),mips_op_type::store);
+	  OOO_SCHED(store_rs.at(i),sim_param::num_store_sched_per_cycle);
 	}
 	
 	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
-	  OOO_SCHED(fpu_rs.at(i),mips_op_type::fp);
+	  OOO_SCHED(fpu_rs.at(i),sim_param::num_fpu_sched_per_cycle);
 	}
 
-	INORDER_SCHED(system_rs,mips_op_type::system);
+	OOO_SCHED(jmp_rs,1);
+	INORDER_SCHED(system_rs);
 
 #undef OOO_SCHED
 #undef INORDER_SCHED
@@ -1100,11 +1103,18 @@ void sim_state::initialize() {
   }
   
   br_pctron = new perceptron(15, 1024, sim_param::bhr_length);
+
+  num_alu_rs = sim_param::num_alu_ports;
+  num_fpu_rs = sim_param::num_fpu_ports;
+  num_load_rs = sim_param::num_load_ports;
+  num_store_rs = sim_param::num_store_ports;
   
-  alu_alloc.clear_and_resize(num_alu_rs);
-  fpu_alloc.clear_and_resize(num_fpu_rs);
-  load_alloc.clear_and_resize(num_load_rs);
-  store_alloc.clear_and_resize(num_store_rs);
+  
+  alu_alloc.clear_and_resize(sim_param::num_alu_ports * sim_param::num_alu_sched_per_cycle);
+  fpu_alloc.clear_and_resize(sim_param::num_fpu_ports * sim_param::num_fpu_sched_per_cycle);
+  load_alloc.clear_and_resize(sim_param::num_load_ports * sim_param::num_load_sched_per_cycle);
+  store_alloc.clear_and_resize(sim_param::num_store_ports * sim_param::num_store_sched_per_cycle);
+  
   initialize_rat_mappings();
 }
 

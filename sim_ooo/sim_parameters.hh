@@ -18,6 +18,10 @@
   SIM_PARAM(num_alu_ports,2,1,false)					\
   SIM_PARAM(num_load_ports,2,1,false)					\
   SIM_PARAM(num_store_ports,1,1,false)					\
+  SIM_PARAM(num_fpu_sched_per_cycle,1,1,false)				\
+  SIM_PARAM(num_alu_sched_per_cycle,1,1,false)				\
+  SIM_PARAM(num_load_sched_per_cycle,1,1,false)				\
+  SIM_PARAM(num_store_sched_per_cycle,1,1,false)			\
   SIM_PARAM(num_alu_sched_entries,64,1,false)				\
   SIM_PARAM(num_fpu_sched_entries,64,1,false)				\
   SIM_PARAM(num_jmp_sched_entries,64,1,false)				\
