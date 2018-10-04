@@ -2300,9 +2300,20 @@ class fmovc_op : public mips_op {
 protected:
   uint32_t fmt;
   void execute_double(sim_state &machine_state) {
-    uint32_t cc = (m->inst >> 18) & 7;
     uint32_t tf = (m->inst>>16) & 1;
-    die();
+    bool cc = getConditionCode(machine_state.fcr1_prf[m->src4_prf],(m->inst >> 18)&7);
+    if(tf==0) {
+      machine_state.cpr1_prf[m->prf_idx] = cc ? machine_state.cpr1_prf[m->src1_prf] :
+	machine_state.cpr1_prf[m->src0_prf];
+      machine_state.cpr1_prf[m->aux_prf_idx] = cc ? machine_state.cpr1_prf[m->src3_prf] :
+	machine_state.cpr1_prf[m->src2_prf];
+    }
+    else {
+      machine_state.cpr1_prf[m->prf_idx] = cc ? machine_state.cpr1_prf[m->src0_prf] :
+	machine_state.cpr1_prf[m->src1_prf];
+      machine_state.cpr1_prf[m->aux_prf_idx] = cc ? machine_state.cpr1_prf[m->src2_prf] :
+	machine_state.cpr1_prf[m->src3_prf];
+    }
   }
   void execute_float(sim_state &machine_state) {
     uint32_t tf = (m->inst>>16) & 1;
@@ -2578,11 +2589,14 @@ protected:
       m->src2_prf = machine_state.cpr1_rat[get_src1()];
       m->src3_prf = machine_state.cpr1_rat[get_src1()+1];
     }
-    if(machine_state.cpr1_freevec.num_free() < 2)
+
+    m->prf_idx = machine_state.cpr1_freevec.find_first_unset_pair();
+
+    if(m->prf_idx == -1) 
       return false;
-    m->prf_idx = machine_state.cpr1_freevec.find_first_unset();
+    
     machine_state.cpr1_freevec.set_bit(m->prf_idx);
-    m->aux_prf_idx = machine_state.cpr1_freevec.find_first_unset();
+    m->aux_prf_idx = m->prf_idx+1;
     machine_state.cpr1_freevec.set_bit(m->aux_prf_idx);
     
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
@@ -3308,11 +3322,11 @@ public:
 	  machine_state.terminate_sim = true;
 	}
 	break;	
-      case 33: {
+      case 33:
+      case 34:
 	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 0)) = 0;
 	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 4)) = 0;
 	break;
-      }
       case 35: {
 	for(int i = 0; i < std::min(20, global::sysArgc); i++) {
 	  uint32_t arrayAddr = static_cast<uint32_t>(src_regs[0])+4*i;

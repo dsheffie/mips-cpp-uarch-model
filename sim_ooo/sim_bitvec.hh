@@ -95,6 +95,29 @@ public:
     }
     return -1;
   }
+ int64_t find_first_unset_pair() const {
+    for(uint64_t w = 0; w < n_words; w++) {
+      if(arr[w] == all_ones)
+	continue;
+      else if(arr[w]==0) {
+	return bpw*w;
+      }
+      else {
+	uint64_t idx = (__builtin_ffsl(~arr[w])-1);
+	idx &= (~1UL);
+	for(uint64_t b = idx; b < bpw; b+=2) {
+	  uint64_t p = bpw*w + b;
+	  if(p >= n_bits) {
+	    return -1;
+	  }
+	  if( ((arr[w] >> b) & 0x3) == 0x0) {
+	    return p;
+	  }
+	}
+      }
+    }
+   return -1;
+ }
   int64_t find_first_unset() const {
     for(uint64_t w = 0; w < n_words; w++) {
       if(arr[w] == all_ones)
