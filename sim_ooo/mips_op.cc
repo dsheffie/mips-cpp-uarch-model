@@ -3313,7 +3313,9 @@ public:
 	break;
       case 10: /* close */
 	if(not(global::use_interp_check)) {
-	  machine_state.gpr_prf[m->prf_idx] = close(src_regs[0]);
+	  if(src_regs[0] > 2) {
+	    machine_state.gpr_prf[m->prf_idx] = close(src_regs[0]);
+	  }
 	}
 	else if(src_regs[0] > 2) {
 	  machine_state.gpr_prf[m->prf_idx] = close(src_regs[0]);
