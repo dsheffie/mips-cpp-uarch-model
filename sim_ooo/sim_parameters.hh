@@ -6,10 +6,10 @@
   SIM_PARAM(rob_size,64,1,true)			\
   SIM_PARAM(fetchq_size,8,1,true)			\
   SIM_PARAM(decodeq_size,8,1,true)			\
-  SIM_PARAM(fetch_bw,8,1,false)			\
-  SIM_PARAM(decode_bw,6,1,false)			\
-  SIM_PARAM(alloc_bw,6,1,false)			\
-  SIM_PARAM(retire_bw,6,1,false)			\
+  SIM_PARAM(fetch_bw,4,1,false)			\
+  SIM_PARAM(decode_bw,4,1,false)			\
+  SIM_PARAM(alloc_bw,4,1,false)			\
+  SIM_PARAM(retire_bw,4,1,false)			\
   SIM_PARAM(num_gpr_prf,128,64,true)		\
   SIM_PARAM(num_cpr0_prf,64,32,true)		\
   SIM_PARAM(num_cpr1_prf,64,32,true)		\
@@ -22,12 +22,12 @@
   SIM_PARAM(num_alu_sched_per_cycle,1,1,false)				\
   SIM_PARAM(num_load_sched_per_cycle,1,1,false)				\
   SIM_PARAM(num_store_sched_per_cycle,1,1,false)			\
-  SIM_PARAM(num_alu_sched_entries,64,1,false)				\
-  SIM_PARAM(num_fpu_sched_entries,64,1,false)				\
-  SIM_PARAM(num_jmp_sched_entries,64,1,false)				\
-  SIM_PARAM(num_load_sched_entries,64,1,false)				\
-  SIM_PARAM(num_store_sched_entries,64,1,false)				\
-  SIM_PARAM(num_system_sched_entries,4,1,false)				\
+  SIM_PARAM(num_alu_sched_entries,16,1,false)				\
+  SIM_PARAM(num_fpu_sched_entries,16,1,false)				\
+  SIM_PARAM(num_jmp_sched_entries,16,1,false)				\
+  SIM_PARAM(num_load_sched_entries,16,1,false)				\
+  SIM_PARAM(num_store_sched_entries,16,1,false)				\
+  SIM_PARAM(num_system_sched_entries,1,1,false)				\
   SIM_PARAM(load_tbl_size,16,1,false)					\
   SIM_PARAM(store_tbl_size,16,1,false)					\
   SIM_PARAM(taken_branches_per_cycle,1,1,false)				\
@@ -49,9 +49,9 @@
   SIM_PARAM(l3d_sets,4096,1,true)					\
   SIM_PARAM(l3d_linesize,64,64,true)					\
   SIM_PARAM(mem_latency,100,1,false)					\
-  SIM_PARAM(ready_to_dispatch_latency,1,0,false)			\
+  SIM_PARAM(ready_to_dispatch_latency,0,0,false)			\
   SIM_PARAM(l1d_misses_inflight,1,1,false)				\
-  SIM_PARAM(branch_predictor,1,0,false)
+  SIM_PARAM(branch_predictor,6,0,false)
 
 namespace sim_param {
 #define SIM_PARAM(A,B,C,D) extern int A;

@@ -121,7 +121,6 @@ void fetch(sim_state &machine_state) {
 	}
       }
       else {
-
 	switch(sim_param::branch_predictor)
 	  {
 	  case 2:
