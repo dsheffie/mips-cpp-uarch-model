@@ -1430,6 +1430,19 @@ public:
     machine_state.store_tbl_freevec.clear_bit(m->store_tbl_idx);
     machine_state.store_tbl[m->store_tbl_idx] = nullptr;
     m->retire_cycle = get_curr_cycle();
+#if 0
+    if(store_data != 0) {
+      std::cerr << "store @ "
+		<< machine_state.icnt
+		<< " : "
+		<< *this
+		<< " "
+		<< std::hex
+		<< mem.crc32()
+		<< std::dec
+		<< "\n";
+    }
+#endif
     return true;
   }
   void undo(sim_state &machine_state) override {
@@ -3259,6 +3272,7 @@ public:
     machine_state.gpr_prf[m->prf_idx] = 0;
     //std::cout << "monitor reason " << reason << " @ " << get_curr_cycle() << "\n";
     //if(not(globals::use_interp_check)) {
+
     switch(reason)
       {
 	/* int open(char *path, int flags) */
@@ -3364,6 +3378,7 @@ public:
     
     m->retire_cycle = get_curr_cycle();
     machine_state.alloc_blocked = false;
+
     return true;
   }
   void undo(sim_state &machine_state) override {

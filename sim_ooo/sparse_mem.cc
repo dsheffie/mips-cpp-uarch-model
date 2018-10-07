@@ -1,5 +1,9 @@
-#include "sparse_mem.hh"
 #include <cstring>
+#ifdef __amd64__
+#include <x86intrin.h>
+#endif
+
+#include "sparse_mem.hh"
 
 sparse_mem::sparse_mem(uint64_t nbytes) {
   npages = (nbytes+pgsize-1) / pgsize;
@@ -21,6 +25,40 @@ sparse_mem::sparse_mem(const sparse_mem &other) {
       memcpy(mem[i], other.mem[i], pgsize);
     }
   }
+}
+
+uint32_t sparse_mem::crc32() const {
+  uint32_t c = ~0x0;
+  //std::cout << present_bitvec.popcount()
+  //<< " non-zero pages\n";
+  for(size_t i = 0; i < npages; i++) {
+#ifdef __amd64__
+    if(present_bitvec[i]==false) {
+      for(size_t n=0;n<4096;n++) {
+	c = _mm_crc32_u8(c, 0);
+      }
+    }
+    else {
+      //uint8_t x = 0;
+      for(size_t n=0;n<4096;n++) {
+	c = _mm_crc32_u8(c, mem[i][n]);
+	//x ^= mem[i][n];
+      }
+      //std::cout << "page " << i << " is non-zero, x = "
+      //<< std::hex << static_cast<uint32_t>(x) << std::dec << "\n";
+    }
+#else
+    static const uint32_t POLY = 0x82f63b78;
+    for(size_t n=0;n<4096;n++) {
+      uint8_t b = present_bitvec[i] ? mem[i][n] : 0;
+      c ^= b;
+      for(int k = 0; k < 8; k++) {
+	c = c & 1 ? (c>>1) ^ POLY : c>>1;
+      }
+    }
+#endif
+  }
+  return c ^ (~0x0);
 }
 
 void sparse_mem::copy(const sparse_mem &other) {

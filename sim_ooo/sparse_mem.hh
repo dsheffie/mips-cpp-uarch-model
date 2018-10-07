@@ -33,6 +33,7 @@ public:
   void copy(const sparse_mem &other);
   ~sparse_mem();
   void mark_pages_as_no_write();
+  uint32_t crc32() const;
   bool get_pb_addr(uint32_t addr, uint32_t &paddr, uint32_t &baddr) {
     paddr = addr / pgsize;
     baddr = addr % pgsize;

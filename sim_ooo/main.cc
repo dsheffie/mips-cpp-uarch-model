@@ -85,17 +85,18 @@ int main(int argc, char *argv[]) {
   std::string filename, sysArgs, logfile;
   bool use_l2 = true, use_l3 = true;
   uint64_t maxicnt = ~(0UL), skipicnt = 0;
-  bool use_checkpoint = false, use_oracle = false;
+  bool use_checkpoint = false, use_oracle = false, hash=false;
   bool use_syscall_skip = false, use_mem_model = false;
   bool clear_checkpoint_icnt = false;
   po::options_description desc("Options");
   po::variables_map vm;
   
   desc.add_options() 
-    ("help,h", "Print help messages")
+    ("help", "Print help messages")
     ("args,a", po::value<std::string>(&sysArgs), "arguments to mips binary")
     ("clock,c", po::value<bool>(&global::enClockFuncts)->default_value(false), "enable wall-clock")
     ("file,f", po::value<std::string>(&filename), "mips binary")
+    ("hash,h", po::value<bool>(&hash)->default_value(false), "take crc32 at end of execution")
     ("skipicnt,k", po::value<uint64_t>(&skipicnt)->default_value(0), "instruction skip count")
     ("maxicnt,m", po::value<uint64_t>(&maxicnt)->default_value(~0UL), "maximum instruction count")
     ("oracle,o", po::value<bool>(&use_oracle)->default_value(false), "use branch oracle")
@@ -210,8 +211,14 @@ int main(int argc, char *argv[]) {
   initialize_ooo_core(machine_state, l1d, use_oracle,
 		      use_syscall_skip, skipicnt, maxicnt, s, sm);
   run_ooo_core(machine_state);
-  destroy_ooo_core(machine_state);
 
+  if(hash) {
+    *global::sim_log << std::hex << "crc32="
+		     << machine_state.mem->crc32()
+		     << std::dec << "\n";
+  }
+  
+  destroy_ooo_core(machine_state);
 
   delete s;
   delete sm;

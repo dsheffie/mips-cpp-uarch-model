@@ -245,6 +245,7 @@ void retire(sim_state &machine_state) {
   state_t *s = machine_state.ref_state;
   auto &rob = machine_state.rob;
   int stuck_cnt = 0, empty_cnt = 0;
+  uint64_t num_retired_insns = 0;
   while(not(machine_state.terminate_sim)) {
     int retire_amt = 0;
     sim_op u = nullptr;
@@ -370,8 +371,21 @@ void retire(sim_state &machine_state) {
 	execMips(s);
       }
 
-      //std::cerr << "retire for " << *(u->op) << "\n";
+      
       u->op->retire(machine_state);
+      num_retired_insns++;
+#if 0
+      if(num_retired_insns > 1845) {	
+	std::cerr << num_retired_insns
+		  << " : "
+		  << *(u->op)
+		  << " "
+		  << std::hex
+		  << machine_state.mem->crc32()
+		  << std::dec
+		  << "\n";
+      }
+#endif
       stuck_cnt = 0;
 	
       insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
@@ -427,6 +441,7 @@ void retire(sim_state &machine_state) {
 	  else {
 	    //std::cerr << "retire for " << *(u->op) << "\n";
 	    u->op->retire(machine_state);
+	    num_retired_insns++;
 	    insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
 	    machine_state.last_retire_cycle = get_curr_cycle();
 	    machine_state.last_retire_pc = u->pc;
@@ -435,6 +450,7 @@ void retire(sim_state &machine_state) {
 
 	    //std::cerr << "retire for " << *(uu->op) << "\n";
 	    uu->op->retire(machine_state);
+	    num_retired_insns++;
 	    machine_state.last_retire_cycle = get_curr_cycle();
 	    machine_state.last_retire_pc = uu->pc;
 	    insn_lifetime_map[uu->retire_cycle - uu->fetch_cycle]++;
@@ -453,6 +469,7 @@ void retire(sim_state &machine_state) {
 	else {
 	  //std::cerr << "retire for " << *(u->op) << "\n";
 	  u->op->retire(machine_state);
+	  num_retired_insns++;
 	  insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
 	  machine_state.last_retire_cycle = get_curr_cycle();
 	  machine_state.last_retire_pc = u->pc;
@@ -760,8 +777,8 @@ extern "C" {
 	  case mips_op_type::unknown:
 	    die();
 	  case mips_op_type::alu: {
-	    int64_t p = alu_alloc.find_first_unset_rr()
-;	    int64_t rs_id = p % sim_param::num_alu_ports;
+	    int64_t p = alu_alloc.find_first_unset_rr();
+	    int64_t rs_id = p % sim_param::num_alu_ports;
 	    if(p!=-1 and not(machine_state.alu_rs.at(rs_id).full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.alu_rs.at(rs_id));
@@ -1131,6 +1148,7 @@ void run_ooo_core(sim_state &machine_state) {
   start_gthreads();
   now = timestamp() - now;
 
+  
   uint64_t total_insns =  machine_state.icnt - machine_state.skipicnt;
   *global::sim_log << "executed " << total_insns << " insns\n";
   
@@ -1215,6 +1233,5 @@ void run_ooo_core(sim_state &machine_state) {
   *global::sim_log << ((machine_state.icnt-machine_state.skipicnt)/now)
 	    << " simulated instructions per second\n";
   *global::sim_log << "simulation took " << now << " seconds\n";
-
   
 }  
