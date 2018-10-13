@@ -757,6 +757,8 @@ extern "C" {
       fpu_alloc.clear();
       load_alloc.clear();
       store_alloc.clear();
+
+      
       while(not(decode_queue.empty())
 	    and not(rob.full())
 	    and (alloc_amt < sim_param::alloc_bw)
@@ -768,7 +770,12 @@ extern "C" {
 	sim_state::rs_type *rs_queue = nullptr;
 	bool rs_available = false;
 
-	if(u->op == nullptr or u->decode_cycle == global::curr_cycle) {
+	if(u->op == nullptr) {
+	  std::cout << "u->op == nullptr @ " << get_curr_cycle() << "\n";
+	  std::cout << std::hex << u->pc << std::dec << "\n";
+	  break;
+	}
+	else if(u->decode_cycle == global::curr_cycle) {
 	  break;
 	}
 
@@ -863,7 +870,6 @@ extern "C" {
 	alloc_amt++;
       }
       machine_state.total_allocated_insns += alloc_amt;
-
       gthread_yield();
     }
     gthread_terminate();

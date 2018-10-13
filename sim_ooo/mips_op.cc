@@ -2451,7 +2451,169 @@ public:
 };
 
 
-;class fp_cmp : public mips_op {
+
+
+
+class fmov_op : public mips_op {
+protected:
+  uint32_t fmt;
+  virtual void execute_double(sim_state &machine_state) = 0; 
+  virtual void execute_float(sim_state &machine_state) = 0; 
+public:
+  fmov_op(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {
+    this->op_class = mips_op_type::fp; 
+  }
+  int get_dest() const override {
+    return (m->inst >> 6) & 31; /* fd */
+  }
+  int get_src0() const override {
+    return (m->inst >> 11) & 31; /* fs */
+  }
+  int get_src1() const override {
+    return (m->inst >> 6) & 31; /* fd */
+  }
+  int get_src2() const override {
+    return (m->inst >> 16) & 31; /* rt */
+  }
+  
+  bool allocate(sim_state &machine_state) override {
+    int needed_regs = (fmt==FMT_D) ? 2 : 1;
+    if(machine_state.cpr1_freevec.num_free() < needed_regs)
+      return false;
+
+    m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
+    m->src0_prf = machine_state.cpr1_rat[get_src0()];
+    m->src1_prf = machine_state.cpr1_rat[get_src1()];
+    m->src4_prf = machine_state.gpr_rat[get_src2()];
+    
+    if(fmt == FMT_D) {
+      m->src2_prf = machine_state.cpr1_rat[get_src0()+1];
+      m->src3_prf = machine_state.cpr1_rat[get_src1()+1];
+      m->aux_prev_prf_idx = machine_state.cpr1_rat[get_dest()+1];
+    }
+    
+    m->prf_idx = machine_state.cpr1_freevec.find_first_unset();
+    machine_state.cpr1_freevec.set_bit(m->prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prf_idx);
+    machine_state.cpr1_rat[get_dest()] = m->prf_idx;
+
+    if(fmt == FMT_D) {
+      m->aux_prf_idx = machine_state.cpr1_freevec.find_first_unset();
+      machine_state.cpr1_freevec.set_bit(m->aux_prf_idx);
+      machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
+      machine_state.cpr1_rat[get_dest()+1] = m->aux_prf_idx;
+    }
+    
+    return true;
+  }
+  bool ready(sim_state &machine_state) const override {
+    if(not(machine_state.cpr1_valid[m->src0_prf])) {
+      return false;
+    }
+    if(not(machine_state.cpr1_valid[m->src1_prf])) {
+      return false;
+    }
+    if(not(machine_state.gpr_valid[m->src4_prf])) {
+      return false;
+    }
+    if(m->src2_prf != -1 and not(machine_state.cpr1_valid[m->src2_prf])) {
+      return false;
+    }
+    if(m->src3_prf != -1 and not(machine_state.cpr1_valid[m->src3_prf])) {
+      return false;
+    }
+    return true;
+  }
+  void complete(sim_state &machine_state) override {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      machine_state.cpr1_valid.set_bit(m->prf_idx);
+      if(fmt == FMT_D) {
+	machine_state.cpr1_valid.set_bit(m->aux_prf_idx);
+      }
+    }
+  }
+  void execute(sim_state &machine_state) override {
+    switch(fmt)
+      {
+      case FMT_S:
+	execute_float(machine_state);
+	break;
+      case FMT_D:
+	execute_double(machine_state);
+	break;
+      default:
+	die();
+      }
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  bool retire(sim_state &machine_state) override {
+    machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
+    machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
+    if(fmt == FMT_D) {
+      machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
+      machine_state.cpr1_valid.clear_bit(m->aux_prev_prf_idx);
+      machine_state.arch_cpr1[get_dest()+1] = machine_state.cpr1_prf[m->aux_prf_idx];
+    }
+    retired = true;
+    machine_state.icnt++;
+    m->retire_cycle = get_curr_cycle();
+    return true;
+  }
+  void undo(sim_state &machine_state) override {
+    machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
+    machine_state.cpr1_freevec.clear_bit(m->prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prf_idx);
+    if(fmt == FMT_D) {
+      machine_state.cpr1_rat[get_dest()+1] = m->aux_prev_prf_idx;
+      machine_state.cpr1_freevec.clear_bit(m->aux_prf_idx);
+      machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
+    }
+  }
+};
+
+class fmovn_op : public fmov_op {
+protected:
+  void execute_double(sim_state &machine_state) override {
+    /* src0 - fs, src1 - old fd */
+    bool cc = machine_state.gpr_prf[m->src4_prf]==0;
+    machine_state.cpr1_prf[m->prf_idx] = cc ? machine_state.cpr1_prf[m->src1_prf] :
+      machine_state.cpr1_prf[m->src0_prf];
+    machine_state.cpr1_prf[m->aux_prf_idx] = cc ? machine_state.cpr1_prf[m->src3_prf] :
+      machine_state.cpr1_prf[m->src2_prf];
+  }
+  void execute_float(sim_state &machine_state) override {
+    bool cc = machine_state.gpr_prf[m->src4_prf]==0;
+    machine_state.cpr1_prf[m->prf_idx] = cc ? machine_state.cpr1_prf[m->src1_prf] :
+      machine_state.cpr1_prf[m->src0_prf];
+  }
+public:
+  fmovn_op(sim_op op) : fmov_op(op) {}
+};
+
+class fmovz_op : public fmov_op {
+protected:
+  void execute_double(sim_state &machine_state) override {
+    /* src0 - fs, src1 - old fd */
+    bool cc = machine_state.gpr_prf[m->src4_prf]!=0;
+    machine_state.cpr1_prf[m->prf_idx] = cc ? machine_state.cpr1_prf[m->src1_prf] :
+      machine_state.cpr1_prf[m->src0_prf];
+    machine_state.cpr1_prf[m->aux_prf_idx] = cc ? machine_state.cpr1_prf[m->src3_prf] :
+      machine_state.cpr1_prf[m->src2_prf];
+  }
+  void execute_float(sim_state &machine_state) override {
+    bool cc = machine_state.gpr_prf[m->src4_prf]!=0;
+    machine_state.cpr1_prf[m->prf_idx] = cc ? machine_state.cpr1_prf[m->src1_prf] :
+      machine_state.cpr1_prf[m->src0_prf];
+  }
+public:
+  fmovz_op(sim_op op) : fmov_op(op) {}
+};
+
+
+
+class fp_cmp : public mips_op {
 protected:
   uint32_t fmt;
   template <typename T>
@@ -3646,18 +3808,14 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
 	    _truncl(inst, s);
 	    break;
 #endif
-	  case 0xd:
+	case 0xd:
 	    return new cvts_truncw_op(m_op, cvts_truncw_op::op_type::truncw);
-	  case 0x11:
-	    return new fmovc_op(m_op);
-#if 0
-	  case 0x12:
-	    _fmovz(inst, s);
-	    break;
-	  case 0x13:
-	    _fmovn(inst, s);
-	    break;
-#endif
+	case 0x11:
+	  return new fmovc_op(m_op);
+	case 0x12:
+	  return new fmovz_op(m_op);
+	case 0x13:
+	  return new fmovn_op(m_op);
 	case 0x15:
 	  return new fp_arith_op(m_op, fp_arith_op::fp_op_type::recip);
 	case 0x16:
@@ -3667,9 +3825,9 @@ mips_op* decode_coproc1_insn(sim_op m_op) {
 	case 0x21:
 	  return new cvtd_op(m_op);
 	default:
-	  //std::cerr << std::hex << m_op->pc << ": lowop = " << lowop
-	  //	    << std::dec << "\n";
-	  //die();
+	  std::cerr << std::hex << m_op->pc << ": lowop = " << lowop
+	  	    << std::dec << "\n";
+	  die();
 	  return nullptr;
 	  break;
 	}
