@@ -334,13 +334,37 @@ public:
 
 };
 
+class nop : public mips_op {
+public:
+  nop(sim_op op) : mips_op(op) {
+    this->op_class = mips_op_type::alu;
+  }
+  bool allocate(sim_state &machine_state) override {
+    return true;
+  }
+  void execute(sim_state &machine_state) override {
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  void complete(sim_state &machine_state) override {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+    }
+  }
+  bool retire(sim_state &machine_state) override {
+    m->retire_cycle = get_curr_cycle();
+    return true;
+  }
+  void undo(sim_state &machine_state) override {}
+};
+
 class rtype_alu_op : public mips_op {
 public:
-  enum class r_type {sll, srl, sra, srlv, srav,
-		     addu, add, subu, sub, and_, 
-		     or_, xor_, nor_, slt, sltu,
-		     teq, sllv, movn, movz,
-		     wrecked};
+  enum class r_type {
+    sll, srl, sra, srlv, srav,
+    addu, add, subu, sub, and_, 
+    or_, xor_, nor_, slt, sltu,
+    teq, sllv, movn, movz,
+    wrecked};
 protected:
   rtype r;
   r_type rt;
@@ -3703,11 +3727,8 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
 #endif
     case 0x0D: /* break */
       return new break_op(m_op);
-#if 0 
     case 0x0f: /* sync */
-      s->pc += 4;
-      break;
-#endif
+      return new nop(m_op);
     case 0x10: /* mfhi */
       return new lo_hi_move(m_op, lo_hi_move::lo_hi_type::mfhi);
     case 0x11: /* mthi */ 
