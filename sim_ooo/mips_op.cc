@@ -1381,35 +1381,21 @@ public:
       case store_type::swl: {
 	uint32_t ea = effective_address & 0xfffffffc;
 	uint32_t ma = effective_address & 3;
-	switch(ma)
-	  {
-	  case 0:
-	    mem.set<int32_t>(ea, bswap(store_data));
-	    break;
-	  case 1:
-	  case 2:
-	  case 3:
-	  default:
-	    die();
-	    break;
-	  }
+	store_data = bswap(store_data) >> (8*ma);
+	uint32_t r = bswap(*reinterpret_cast<uint32_t*>(mem + ea));
+	uint32_t m = ~((1U << (8*(4 - ma))) - 1);
+	store_data |= (r&m);
+	mem.set<int32_t>(ea, store_data);
 	break;
       }
       case store_type::swr: {
 	uint32_t ea = effective_address & 0xfffffffc;
 	uint32_t ma = effective_address & 3;
-	switch(ma)
-	  {
-	  case 0:
-	  case 1:
-	  case 2:
-	  default:
-	    die();
-	    break;
-	  case 3:
-	    mem.set<int32_t>(ea, bswap(store_data));
-	    break;
-	  }
+	store_data = bswap(store_data) << ((3-ma)*8);
+	uint32_t rm = (1UL << (8*(3-ma))) - 1;
+	uint32_t r = bswap(*reinterpret_cast<uint32_t*>(mem + ea));
+	store_data |= (rm & r);
+	mem.set<int32_t>(ea, bswap(store_data));
 	break;
       }
 	
