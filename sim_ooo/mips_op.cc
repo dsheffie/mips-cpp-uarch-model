@@ -1894,7 +1894,7 @@ public:
 
 class mult_div_op : public mips_op {
 public:
-  enum class mult_div_types {mult, multu, div, divu, madd, maddu};
+  enum class mult_div_types {mult, multu, div, divu, madd, msub, maddu};
 protected:
   mult_div_types mdt;
 public:
@@ -1914,6 +1914,7 @@ public:
       {
       case mult_div_types::madd:
       case mult_div_types::maddu:
+      case mult_div_types::msub:
 	return 32;
       default:
 	break;
@@ -1925,6 +1926,7 @@ public:
       {
       case mult_div_types::madd:
       case mult_div_types::maddu:
+      case mult_div_types::msub:
 	return 33;
       default:
 	break;
@@ -2002,7 +2004,16 @@ public:
 	*reinterpret_cast<int32_t*>(hi) = static_cast<int32_t>(y >> 32);
 	break;
       }
-
+      case mult_div_types::msub: {
+	int64_t acc = static_cast<int64_t>(machine_state.gpr_prf[m->src3_prf]) << 32;
+	acc |= static_cast<int64_t>(machine_state.gpr_prf[m->src2_prf]);
+	int64_t y = static_cast<int64_t>(machine_state.gpr_prf[m->src1_prf]) *
+	  static_cast<int64_t>(machine_state.gpr_prf[m->src0_prf]);
+	y = acc - y;
+	*reinterpret_cast<int32_t*>(lo) = static_cast<int32_t>(y & 0xffffffff);
+	*reinterpret_cast<int32_t*>(hi) = static_cast<int32_t>(y >> 32);
+	break;
+      }
       case mult_div_types::multu: {
 	uint64_t u_a64 = static_cast<uint64_t>(*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->src1_prf]));
 	uint64_t u_b64 = static_cast<uint64_t>(*reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->src0_prf]));
@@ -3869,6 +3880,8 @@ static mips_op* decode_special2_insn(sim_op m_op) {
       return new mult_div_op(m_op, mult_div_op::mult_div_types::maddu);
     case 0x2:
       return new mul_op(m_op);
+    case 0x4:
+      return new mult_div_op(m_op, mult_div_op::mult_div_types::msub);
     case 0x20:
       return new clz_op(m_op);
     default:
