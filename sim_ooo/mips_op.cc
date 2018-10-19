@@ -1387,12 +1387,9 @@ public:
 	    mem.set<int32_t>(ea, bswap(store_data));
 	    break;
 	  case 1:
-	    die();
-	    break;
 	  case 2:
-	    die();
-	    break;
 	  case 3:
+	  default:
 	    die();
 	    break;
 	  }
@@ -1406,6 +1403,7 @@ public:
 	  case 0:
 	  case 1:
 	  case 2:
+	  default:
 	    die();
 	    break;
 	  case 3:
@@ -3470,6 +3468,8 @@ public:
     //std::cout << "monitor reason " << reason << " @ " << get_curr_cycle() << "\n";
     //if(not(globals::use_interp_check)) {
 
+
+    
     switch(reason)
       {
 	/* int open(char *path, int flags) */
@@ -3482,6 +3482,7 @@ public:
 	  break;
 	}
 	else {
+
 	  machine_state.terminate_sim = true;
 	}
 	break;
@@ -3564,6 +3565,12 @@ public:
 	std::cerr << "execute monitor op with reason "<< reason << "\n";
 	machine_state.terminate_sim = true;
       }
+
+    if(machine_state.terminate_sim) {
+      *global::sim_log << "\n\nsyscall " << reason
+		       << " terminates simulation!\n\n";
+    }
+    
     /* not valid until after this instruction retires */
     machine_state.gpr_valid.set_bit(m->prf_idx);
     machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);

@@ -565,7 +565,7 @@ void execSpecial2(uint32_t inst,state_t *s)
 
   switch(funct)
     {
-    case(0x0): /* madd */ {
+    case 0x0: /* madd */ {
       int64_t y,acc;
       acc = ((int64_t)s->hi) << 32;
       acc |= ((int64_t)s->lo);
@@ -589,9 +589,19 @@ void execSpecial2(uint32_t inst,state_t *s)
       s->hi = (uint32_t)(y >> 32);
       break;
     }
-    case(0x2): /* mul */{
+    case 0x2: /* mul */{
       int64_t y = ((int64_t)s->gpr[rs]) * ((int64_t)s->gpr[rt]);
       s->gpr[rd] = (int32_t)y;
+      break;
+    }
+    case 0x4: /* msub */ {
+      int64_t y,acc;
+      acc = ((int64_t)s->hi) << 32;
+      acc |= ((int64_t)s->lo);
+      y = (int64_t)s->gpr[rs] * (int64_t)s->gpr[rt];
+      y = acc - y;
+      s->lo = (int32_t)(y & 0xffffffff);
+      s->hi = (int32_t)(y >> 32);
       break;
     }
     case(0x20): /* clz */
