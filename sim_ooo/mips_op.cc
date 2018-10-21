@@ -2775,6 +2775,9 @@ protected:
   uint32_t fmt;
   fp_op_type fot;
   bool allocate_double(sim_state &machine_state) {
+    if(machine_state.cpr1_freevec.num_free() < 2)
+      return false;
+    
     m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
     m->aux_prev_prf_idx = machine_state.cpr1_rat[get_dest()+1];
     m->src0_prf = machine_state.cpr1_rat[get_src0()];
@@ -2784,13 +2787,9 @@ protected:
       m->src3_prf = machine_state.cpr1_rat[get_src1()+1];
     }
 
-    m->prf_idx = machine_state.cpr1_freevec.find_first_unset_pair();
-
-    if(m->prf_idx == -1) 
-      return false;
-    
+    m->prf_idx = machine_state.cpr1_freevec.find_first_unset();
     machine_state.cpr1_freevec.set_bit(m->prf_idx);
-    m->aux_prf_idx = m->prf_idx+1;
+    m->aux_prf_idx = machine_state.cpr1_freevec.find_first_unset();
     machine_state.cpr1_freevec.set_bit(m->aux_prf_idx);
     
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
