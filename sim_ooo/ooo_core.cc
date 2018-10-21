@@ -293,10 +293,12 @@ void retire(sim_state &machine_state) {
 
       if(u->has_delay_slot) {
 	while(rob.peek_next_pop() == nullptr) {
+	  stuck_cnt++;
 	  gthread_yield();
 	}
 	sim_op uu = rob.peek_next_pop();
 	while(not(uu->is_complete)) {
+	  stuck_cnt++;
 	  gthread_yield();
 	}
 	if(uu->branch_exception or uu->load_exception) {
