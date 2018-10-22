@@ -1379,23 +1379,32 @@ public:
 	mem.set<int32_t>(effective_address, bswap(store_data));
 	break;
       case store_type::swl: {
-	uint32_t ea = effective_address & 0xfffffffc;
 	uint32_t ma = effective_address & 3;
-	store_data = bswap(store_data) >> (8*ma);
+	uint32_t ea = effective_address & 0xfffffffc;
+	uint32_t sd = store_data >> (8*ma);
 	uint32_t r = bswap(*reinterpret_cast<uint32_t*>(mem + ea));
-	uint32_t m = ~((1U << (8*(4 - ma))) - 1);
-	store_data |= (r&m);
-	mem.set<int32_t>(ea, store_data);
+	uint32_t m =
+	  ma==0 ? 0x00000000 :
+	  ma==1 ? 0xff000000 :
+	  ma==2 ? 0xffff0000 :
+	  0xffffff00;
+	
+	sd |= (r&m);
+	mem.set<int32_t>(ea, bswap(sd));
 	break;
       }
-      case store_type::swr: {
-	uint32_t ea = effective_address & 0xfffffffc;
+      case store_type::swr: {	
 	uint32_t ma = effective_address & 3;
-	store_data = bswap(store_data) << ((3-ma)*8);
-	uint32_t rm = (1UL << (8*(3-ma))) - 1;
+	uint32_t ea = effective_address & 0xfffffffc;
+	uint32_t sd = store_data << ((3-ma)*8);
 	uint32_t r = bswap(*reinterpret_cast<uint32_t*>(mem + ea));
-	store_data |= (rm & r);
-	mem.set<int32_t>(ea, bswap(store_data));
+	uint32_t m =
+	  ma==0 ? 0x00ffffff :
+	  ma==1 ? 0x0000ffff :
+	  ma==2 ? 0x000000ff :
+	  0x00000000;
+	sd |= (m & r);
+	mem.set<int32_t>(ea, bswap(sd));
 	break;
       }
 	
