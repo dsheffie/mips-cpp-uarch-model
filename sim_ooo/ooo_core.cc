@@ -259,7 +259,7 @@ void retire(sim_state &machine_state) {
       }
     }
       
-    while(not(rob.empty()) and (retire_amt < sim_param::retire_bw)) {
+    while(not(rob.empty()) and (retire_amt < sim_param::retire_bw) and (machine_state.icnt < machine_state.maxicnt)) {
       u = rob.peek();
       empty_cnt = 0;
       if(not(u->is_complete)) {
@@ -428,6 +428,7 @@ void retire(sim_state &machine_state) {
       if(u->branch_exception) {
 	if(u->has_delay_slot) {
 	  /* wait for branch delay instr to allocate */
+	  machine_state.alloc_blocked = false;
 	  while(rob.peek_next_pop() == nullptr) {
 	    gthread_yield();
 	    retire_amt = 0;
@@ -522,6 +523,7 @@ void retire(sim_state &machine_state) {
       machine_state.decode_queue.clear();
       machine_state.fetch_queue.clear();
       machine_state.delay_slot_npc = 0;
+      machine_state.alloc_blocked = false;
       for(int i = 0; i < machine_state.num_alu_rs; i++) {
 	machine_state.alu_rs.at(i).clear();
       }
@@ -1174,7 +1176,21 @@ void run_ooo_core(sim_state &machine_state) {
   double dispatched_insns_per_cycle =
     static_cast<double>(machine_state.total_dispatched_insns) / get_curr_cycle();
   *global::sim_log << dispatched_insns_per_cycle << " insns dispatched per cycle\n";
+
+#if 0
+  *global::sim_log << "PC : "
+		   << std::hex
+		   << machine_state.last_retire_pc
+		   << std::dec
+		   << "\n";
   
+  for(int i = 0; i < 32; i++) {
+    *global::sim_log << getGPRName(i,0) << " : 0x"
+		     << std::hex << machine_state.arch_grf[i] << std::dec
+		     << "(" << machine_state.arch_grf[i] << ")\n";
+  }
+#endif
+    
 #if 0
   for(int i = 0; i < 32; i++) {
     std::cout << "reg " << getGPRName(i) << " : " 
@@ -1197,6 +1213,8 @@ void run_ooo_core(sim_state &machine_state) {
 	      << std::hex << machine_state.arch_cpr1_last_pc[i] << std::dec << "\n"; 
   }
 #endif
+
+  
   *global::sim_log << "SIMULATION COMPLETE : "
 	    << (machine_state.icnt-machine_state.skipicnt)
 	    << " inst retired in "
@@ -1219,6 +1237,7 @@ void run_ooo_core(sim_state &machine_state) {
   *global::sim_log << machine_state.nukes << " nukes\n";
   *global::sim_log << machine_state.branch_nukes << " branch nukes\n";
   *global::sim_log << machine_state.load_nukes << " load nukes\n";
+  
   *global::sim_log << "CHECK INSN CNT : "
 	    << machine_state.ref_state->icnt << "\n";
 

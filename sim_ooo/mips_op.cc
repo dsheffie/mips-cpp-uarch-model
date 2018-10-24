@@ -848,6 +848,7 @@ public:
 	default:
 	  break;
 	}
+      machine_state.alloc_blocked = true;
     }
     m->retire_cycle = get_curr_cycle();
     log_retire(machine_state);
@@ -1075,7 +1076,9 @@ public:
     }
 
     m->branch_exception |= (m->predict_taken != take_br);
-
+    if(m->branch_exception) {
+      machine_state.alloc_blocked = true;
+    }
     m->complete_cycle = get_curr_cycle() + 1;
   }
   void complete(sim_state &machine_state) override {

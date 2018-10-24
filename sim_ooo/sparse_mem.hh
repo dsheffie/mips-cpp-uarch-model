@@ -143,7 +143,12 @@ int per_page_rdwr(sparse_mem &mem, int fd, uint32_t offset, uint32_t nbytes) {
       rc = read(fd, mem + offset, disp);
     if(rc == 0)
       return 0;
-    acc += rc;
+    if(rc>=0) {
+      acc += rc;
+    }
+    else {
+      acc = -1;
+    }
     offset += disp;
   }
   return acc;
