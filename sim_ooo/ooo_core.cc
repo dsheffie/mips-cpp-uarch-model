@@ -581,7 +581,6 @@ void destroy_ooo_core(sim_state &machine_state) {
   if(machine_state.loop_pred != nullptr) {
     delete machine_state.loop_pred;
   }
-  delete machine_state.br_pctron;
   
   gthread::free_threads();
 }
@@ -1076,7 +1075,6 @@ void sim_state::initialize() {
     bht.at(i).clear_and_resize(sim_param::bht_length);
   }
   
-  br_pctron = new perceptron(15, 1024, sim_param::bhr_length);
 
   num_alu_rs = sim_param::num_alu_ports;
   num_fpu_rs = sim_param::num_fpu_ports;

@@ -330,8 +330,6 @@ struct sim_state {
   loop_predictor *loop_pred = nullptr;
   sim_bitvec bhr;
   std::vector<sim_bitvec> bht;
-
-  perceptron *br_pctron = nullptr;
   
   uint64_t icnt = 0, maxicnt = ~(0UL), skipicnt = 0;
   uint64_t n_branches = 0, n_jumps = 0;

@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <cassert>
+#include <map>
 
 class twobit_counter_array {
 private:
@@ -70,12 +71,6 @@ public:
 	arr[idx/4].w = v;
 	break;
       }
-  }
-  void incr(uint64_t idx) {
-    update(idx, true);
-  }
-  void decr(uint64_t idx) {
-    update(idx, false);
   }
 };
 
