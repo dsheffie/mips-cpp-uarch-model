@@ -328,7 +328,6 @@ struct sim_state {
 
   branch_predictor *branch_pred = nullptr;
   loop_predictor *loop_pred = nullptr;
-  twobit_counter_array *pht = nullptr;
   sim_bitvec bhr;
   std::vector<sim_bitvec> bht;
 

@@ -16,7 +16,7 @@ public:
   virtual void update(uint32_t addr, uint64_t idx, bool taken);
 };
 
-class gshare : protected branch_predictor {
+class gshare : public branch_predictor {
 protected:
   twobit_counter_array *pht;
 public:

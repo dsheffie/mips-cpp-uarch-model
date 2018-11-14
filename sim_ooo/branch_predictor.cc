@@ -26,7 +26,7 @@ gshare::~gshare() {
 uint32_t gshare::predict(uint64_t &idx) const {
   idx = ((machine_state.fetch_pc>>2) ^ machine_state.bhr.to_integer());
   idx &= (sim_param::num_pht_entries-1);
-  return machine_state.pht->get_value(idx);
+  return pht->get_value(idx);
 }
 
 void gshare::update(uint32_t addr, uint64_t idx, bool taken) {

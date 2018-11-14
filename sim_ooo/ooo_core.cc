@@ -121,34 +121,8 @@ void fetch(sim_state &machine_state) {
 	}
       }
       else {
-	switch(sim_param::branch_predictor)
-	  {
-	  case 2:
-	    f->prediction = machine_state.br_pctron->predict(machine_state.fetch_pc, machine_state.bhr);
-	    break;
-	  case 4:
-	  case 5: {
-	    uint32_t bht_idx = (machine_state.fetch_pc>>2) & (machine_state.bht.size()-1);
-	    sim_bitvec::ET bht_v = machine_state.bht.at(bht_idx).to_integer();
-	    f->pht_idx = (machine_state.fetch_pc>>2);
-
-	    if(sim_param::branch_predictor == 4) {
-	      f->pht_idx <<= machine_state.bht.at(bht_idx).ln2_size();
-	      f->pht_idx = (f->pht_idx | bht_v) & (sim_param::num_pht_entries-1);
-	    }
-	    else {
-	      f->pht_idx = (f->pht_idx ^ bht_v) & (sim_param::num_pht_entries-1);
-	    }
-	    f->prediction = machine_state.pht->get_value(f->pht_idx);
-	  }
-	    break;
-	  case 6:
-	    f->pht_idx = ((machine_state.fetch_pc>>2) ^ machine_state.bhr.to_integer()) & (sim_param::num_pht_entries-1);
-	    f->prediction = machine_state.pht->get_value(f->pht_idx);
-	    break;
-	  default:
-	    break;
-	  }
+	
+	f->prediction = machine_state.branch_pred->predict(f->pht_idx);
 	
 	if(is_jr(inst)) {
 	  f->return_stack_idx = return_stack.get_tos_idx();
@@ -169,34 +143,7 @@ void fetch(sim_state &machine_state) {
 	  predict_taken = true;
 	}
 	else if(it != branch_prediction_map.end()) {
-	  switch(sim_param::branch_predictor)
-	    {
-	      /* predicted as taken */
-	    case 0:
-	      predict_taken = true;
-	      break;
-	      /* bimodal tables */
-	    case 1:
-	      predict_taken = (it->second > 1);
-	      break;
-	      /* perceptron */
-	    case 2:
-	      predict_taken = (f->prediction > machine_state.br_pctron->get_threshold());
-	      break;
-	      /* displacement */
-	    case 3:
-	      predict_taken = backwards_br;
-	      break;
-	      /* two-level branch prediction */
-	    case 4: /* concatenate */
-	    case 5: /* xor */
-	    case 6: /* gshare */
-	      predict_taken = (f->prediction > 1);
-	      break;
-	    default:
-	      predict_taken = false;
-	      break;
-	    }
+	  predict_taken = (f->prediction > 1);
 
 	  /* check if backwards branch with valid loop predictor entry */	  
 	  if(backwards_br and (machine_state.loop_pred !=nullptr) ) {
@@ -630,7 +577,7 @@ void destroy_ooo_core(sim_state &machine_state) {
     delete machine_state.oracle_state;
   }
   delete machine_state.mem;
-  delete machine_state.pht;
+  delete machine_state.branch_pred;
   if(machine_state.loop_pred != nullptr) {
     delete machine_state.loop_pred;
   }
@@ -1116,11 +1063,12 @@ void sim_state::initialize() {
   jmp_rs.resize(sim_param::num_jmp_sched_entries);
   system_rs.resize(sim_param::num_system_sched_entries);
 
+  branch_pred = new gshare(*this);
+  
   if(sim_param::num_loop_entries) {
     loop_pred = new loop_predictor(sim_param::num_loop_entries);
   }
   
-  pht = new twobit_counter_array(sim_param::num_pht_entries);
   bhr.clear_and_resize(sim_param::bhr_length);
 
   bht.resize(sim_param::num_bht_entries);

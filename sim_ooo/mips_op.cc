@@ -816,17 +816,8 @@ public:
     branch_prediction_map[m->pc] = 3;
 
 
-    switch(sim_param::branch_predictor)
-      {
-      case 2:
-	machine_state.br_pctron->update(m->prediction, true, m->pc, machine_state.bhr);
-	break;
-      case 4:
-      case 5:
-      case 6:
-	machine_state.pht->update(m->pht_idx, true);
-	break;
-      }
+    machine_state.branch_pred->update(m->pc, m->pht_idx, true);
+
 
     uint32_t bht_idx = (m->pc>>2) & (machine_state.bht.size()-1);
     machine_state.bht.at(bht_idx).shift_left(1);
@@ -1106,19 +1097,8 @@ public:
       machine_state.loop_pred->update(m->pc, take_br, m->predict_taken, m->prediction);
     }
     
-    switch(sim_param::branch_predictor)
-      {
-      case 2:
-	machine_state.br_pctron->update(m->prediction, take_br, m->pc, machine_state.bhr);
-	break;
-      case 4:
-      case 5:
-      case 6:
-	machine_state.pht->update(m->pht_idx, take_br);
-	break;
-      }
+    machine_state.branch_pred->update(m->pc, m->pht_idx, take_br);
     
-
     machine_state.bht.at(bht_idx).shift_left(1);
     machine_state.bhr.shift_left(1);
     if(take_br) {
