@@ -1062,7 +1062,21 @@ void sim_state::initialize() {
   jmp_rs.resize(sim_param::num_jmp_sched_entries);
   system_rs.resize(sim_param::num_system_sched_entries);
 
-  branch_pred = new gshare(*this);
+  switch(sim_param::branch_predictor)
+    {
+    case 6:
+      branch_pred = new gshare(*this);
+      break;
+    case 7:
+      branch_pred = new gselect(*this);
+      break;
+    case 8:
+      branch_pred = new gnoalias(*this);
+      break;
+    default:
+      branch_pred = new gshare(*this);
+      break;
+    }
   
   if(sim_param::num_loop_entries) {
     loop_pred = new loop_predictor(sim_param::num_loop_entries);

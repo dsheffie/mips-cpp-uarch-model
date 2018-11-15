@@ -2,6 +2,7 @@
 #define __bpred_hh__
 
 #include <cstdint>
+#include <map>
 #include "counter2b.hh"
 
 class sim_state;
@@ -26,5 +27,24 @@ public:
   void update(uint32_t addr, uint64_t idx, bool taken) override;
 };
 
+class gselect : public branch_predictor {
+protected:
+  twobit_counter_array *pht;
+public:
+  gselect(sim_state &ms);
+  ~gselect();
+  uint32_t predict(uint64_t &idx) const override;
+  void update(uint32_t addr, uint64_t idx, bool taken) override;
+};
+
+class gnoalias : public branch_predictor {
+protected:
+  std::map<uint64_t, uint8_t> pht;
+public:
+  gnoalias(sim_state &ms);
+  ~gnoalias();
+  uint32_t predict(uint64_t &idx) const override;
+  void update(uint32_t addr, uint64_t idx, bool taken) override;
+};
 
 #endif
