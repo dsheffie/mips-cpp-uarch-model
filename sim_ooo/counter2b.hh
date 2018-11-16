@@ -21,7 +21,8 @@ public:
     n_elems = (n_entries + 3) / 4;
     arr = new entry[n_elems];
     for(uint64_t i = 0; i < n_elems; i++) {
-      arr[i].x = arr[i].y = arr[i].z = arr[i].w = 0;
+      /* initialize as weakly not-taken */
+      arr[i].x = arr[i].y = arr[i].z = arr[i].w = 1;
     }
   }
   ~twobit_counter_array() {
