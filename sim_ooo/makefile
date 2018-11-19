@@ -1,9 +1,9 @@
 UNAME_S = $(shell uname -s)
 
-OBJ = save_state.o main.o loadelf.o parseMips.o helper.o profileMips.o gthread.o sparse_mem.o ooo_core.o mips_op.o sim_cache.o perceptron.o loop_predictor.o
+OBJ = save_state.o main.o loadelf.o parseMips.o helper.o profileMips.o gthread.o sparse_mem.o ooo_core.o mips_op.o sim_cache.o perceptron.o loop_predictor.o branch_predictor.o
 
 ifeq ($(UNAME_S),Linux)
-	CXX = g++ -march=native
+	CXX = g++ -march=native -flto
 	OBJ += gthread_asm.o
 	EXTRA_LD = -lunwind -lboost_program_options
 endif

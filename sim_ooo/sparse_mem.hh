@@ -30,6 +30,12 @@ private:
 public:
   sparse_mem(uint64_t nbytes = 1UL<<32);
   sparse_mem(const sparse_mem &other);
+  int64_t first_page() const {
+    return present_bitvec.find_first_set();
+  }
+  int64_t get_next_page(int64_t idx) const {
+    return present_bitvec.find_next_set(idx);
+  }
   void copy(const sparse_mem &other);
   ~sparse_mem();
   void mark_pages_as_no_write();
@@ -50,6 +56,9 @@ public:
     return static_cast<uint32_t>(p);
   }
   bool equal(const sparse_mem &other) const;
+  uint8_t* get_page(uint32_t pg) const {
+    return mem[pg];
+  }
   uint8_t & at(uint32_t addr) {
     uint32_t paddr = addr / pgsize;
     uint32_t baddr = addr % pgsize;
@@ -120,11 +129,7 @@ public:
     return (*this)[disp];
   }
   uint64_t count() const {
-    uint64_t c = 0;
-    for(size_t i = 0; i < npages; i++) {
-      c += (mem[i] != nullptr);
-    }
-    return c;
+    return present_bitvec.popcount();
   }
 };
 
@@ -132,24 +137,32 @@ template <bool do_write>
 int per_page_rdwr(sparse_mem &mem, int fd, uint32_t offset, uint32_t nbytes) {
   uint32_t last_byte = (offset+nbytes);
   int acc = 0, rc = 0;
-  while(offset != last_byte) {
-    uint64_t next_page = (offset & (~(sparse_mem::pgsize-1))) + sparse_mem::pgsize;
-    next_page = std::min(next_page, static_cast<uint64_t>(last_byte));
-    uint32_t disp = (next_page - offset);
-    mem.prefault(offset);
-    if(do_write)
+
+  if(do_write) {
+    while(offset != last_byte) {
+      uint64_t next_page = (offset & (~(sparse_mem::pgsize-1))) + sparse_mem::pgsize;
+      next_page = std::min(next_page, static_cast<uint64_t>(last_byte));
+      uint32_t disp = (next_page - offset);
+      mem.prefault(offset);
       rc = write(fd, mem + offset, disp);
-    else 
-      rc = read(fd, mem + offset, disp);
-    if(rc == 0)
-      return 0;
-    if(rc>=0) {
-      acc += rc;
+      if(rc == 0)
+	return 0;
+      if(rc>=0) {
+	acc += rc;
+      }
+      else {
+	acc = -1;
+      }
+      offset += disp;
     }
-    else {
-      acc = -1;
+  }
+  else {
+    uint8_t *buf = new uint8_t[nbytes];
+    acc = read(fd, buf, nbytes);
+    for(int i = 0; i < acc; i++) {
+      mem.at(offset+i) = buf[i];
     }
-    offset += disp;
+    delete [] buf;
   }
   return acc;
 }
