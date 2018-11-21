@@ -59,6 +59,9 @@ public:
     const uint64_t m_wr_idx = write_idx & (len-1);
     return (m_rd_idx==m_wr_idx) && (read_idx != write_idx);
   }
+  uint64_t size() const {
+    return (write_idx > read_idx) ? (write_idx-read_idx) : ((len2-write_idx)+read_idx);
+  }
   int64_t traverse_and_apply(funcobj &o) {
     int64_t i = (full() ? write_idx - 1 : write_idx) & (len-1);
     int64_t d = read_idx & (len-1);
@@ -94,7 +97,7 @@ public:
     uint64_t next_rd = (read_idx+1) & (len2-1);
     return data[next_rd & (len-1)];
   }
-  size_t size() const {
+  size_t capacity() const {
     return len;
   }
   uint64_t get_read_idx() const {

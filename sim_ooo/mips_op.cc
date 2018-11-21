@@ -4071,7 +4071,7 @@ void mips_op::undo(sim_state &machine_state) {
 }
 
 void mips_op::log_retire(sim_state &machine_state) const {
-
+  //std::cout << machine_state.rob.size() << "\n";
 }
 
 void mips_op::log_undo(sim_state &machine_state) const {

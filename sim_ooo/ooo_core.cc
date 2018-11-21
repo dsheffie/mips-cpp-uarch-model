@@ -451,13 +451,13 @@ void retire(sim_state &machine_state) {
       }
       rob.clear();
 	
-      for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
+      for(size_t i = 0; i < machine_state.fetch_queue.capacity(); i++) {
 	auto f = machine_state.fetch_queue.at(i);
 	if(f) {
 	  delete f;
 	}
       }
-      for(size_t i = 0; i < machine_state.decode_queue.size(); i++) {
+      for(size_t i = 0; i < machine_state.decode_queue.capacity(); i++) {
 	auto d = machine_state.decode_queue.at(i);
 	if(d) {
 	  delete d;
@@ -552,19 +552,19 @@ void initialize_ooo_core(sim_state &machine_state,
 
 
 void destroy_ooo_core(sim_state &machine_state) {
-  for(size_t i = 0; i < machine_state.fetch_queue.size(); i++) {
+  for(size_t i = 0; i < machine_state.fetch_queue.capacity(); i++) {
     auto f = machine_state.fetch_queue.at(i);
     if(f) {
       delete f;
     }
   }
-  for(size_t i = 0; i < machine_state.decode_queue.size(); i++) {
+  for(size_t i = 0; i < machine_state.decode_queue.capacity(); i++) {
     auto d = machine_state.decode_queue.at(i);
     if(d) {
       delete d;
     }
   }
-  for(size_t i = 0; i < machine_state.rob.size(); i++) {
+  for(size_t i = 0; i < machine_state.rob.capacity(); i++) {
     auto r = machine_state.rob.at(i);
     if(r) {
       delete r;
@@ -915,7 +915,7 @@ extern "C" {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto &rob = machine_state.rob;
     while(not(machine_state.terminate_sim)) {
-      for(size_t i = 0; not(machine_state.nuke) and (i < rob.size()); i++) {
+      for(size_t i = 0; not(machine_state.nuke) and (i < rob.capacity()); i++) {
 	if((rob.at(i) != nullptr) and not(rob.at(i)->is_complete)) {
 	  if(rob.at(i)->op == nullptr) {
 	    std::cerr << "@ cycle " <<  get_curr_cycle() << " "
