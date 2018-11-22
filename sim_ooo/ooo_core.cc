@@ -1073,6 +1073,9 @@ void sim_state::initialize() {
     case 8:
       branch_pred = new gnoalias(*this);
       break;
+    case 9:
+      branch_pred = new bimode(*this);
+      break;
     default:
       branch_pred = new gshare(*this);
       break;

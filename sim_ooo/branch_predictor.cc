@@ -82,4 +82,48 @@ void gnoalias::update(uint32_t addr, uint64_t idx, bool taken) {
   }
 }
 
+bimode::bimode(sim_state &ms) :
+  branch_predictor(ms),
+  lg_d_pht_entries(sim_param::lg_pht_entries-1),
+  lg_c_pht_entries(sim_param::lg_pht_entries-1) {
+  c_pht = new twobit_counter_array(1UL << lg_c_pht_entries);
+  t_pht = new twobit_counter_array(1UL << lg_d_pht_entries);
+  nt_pht = new twobit_counter_array(1UL << lg_d_pht_entries);
+}
 
+bimode::~bimode() {
+  delete c_pht;
+  delete t_pht;
+  delete nt_pht;
+}
+
+uint32_t bimode::predict(uint64_t &idx) const {
+  uint32_t c_idx = (machine_state.fetch_pc>>2) &
+    ((1U << lg_c_pht_entries) - 1);
+  idx = ((machine_state.fetch_pc>>2) ^ machine_state.bhr.to_integer());
+  idx &= (1UL << lg_d_pht_entries) - 1;
+  if(c_pht->get_value(c_idx) < 2) {
+    return nt_pht->get_value(idx);
+  }
+  else {
+    return t_pht->get_value(idx);
+  }
+}
+
+void bimode::update(uint32_t addr, uint64_t idx, bool taken) {
+  uint32_t c_idx = (addr>>2) & ((1U << lg_c_pht_entries) - 1);
+  if(c_pht->get_value(c_idx) < 2) {
+    if(not(taken and (nt_pht->get_value(idx) > 1))) {
+      c_pht->update(c_idx, taken);
+    }
+    nt_pht->update(idx, taken);
+  }
+  else {
+    if(not(not(taken) and (t_pht->get_value(idx) < 2))) {
+      c_pht->update(c_idx, taken);
+    }
+    t_pht->update(idx,taken);
+  }
+  
+
+}

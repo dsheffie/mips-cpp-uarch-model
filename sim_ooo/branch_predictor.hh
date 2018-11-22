@@ -47,4 +47,17 @@ public:
   void update(uint32_t addr, uint64_t idx, bool taken) override;
 };
 
+class bimode : public branch_predictor {
+protected:
+  const uint32_t lg_d_pht_entries;
+  const uint32_t lg_c_pht_entries;
+  twobit_counter_array *c_pht, *t_pht, *nt_pht;
+  
+public:
+  bimode(sim_state &ms);
+  ~bimode();
+  uint32_t predict(uint64_t &idx) const override;
+  void update(uint32_t addr, uint64_t idx, bool taken) override;
+};
+
 #endif
