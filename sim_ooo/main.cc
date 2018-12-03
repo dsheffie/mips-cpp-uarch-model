@@ -29,6 +29,8 @@
 #define SAVE_SIM_PARAM_LIST
 #include "sim_parameters.hh"
 
+extern const char* githash;
+
 char **global::sysArgv = nullptr;
 int global::sysArgc = 0;
 bool global::enClockFuncts = false;
@@ -79,8 +81,12 @@ void destroy_ooo_core(sim_state &machine_state);
 int main(int argc, char *argv[]) {
   namespace po = boost::program_options;
   
-  std::cerr << "MIPS UARCH SIM: built " << __DATE__
-	    << " " << __TIME__ << "\n";
+  std::cerr << KGRN
+	    << "MIPS UARCH SIM: built "
+	    << __DATE__ << " " << __TIME__
+    	    << ",pid="<< getpid() << "\n"
+    	    << "git hash=" << githash
+	    << KNRM << "\n";
 
   std::string filename, sysArgs, logfile;
   bool use_l2 = true, use_l3 = true;

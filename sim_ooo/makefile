@@ -1,6 +1,6 @@
 UNAME_S = $(shell uname -s)
 
-OBJ = save_state.o main.o loadelf.o parseMips.o helper.o profileMips.o gthread.o sparse_mem.o ooo_core.o mips_op.o sim_cache.o perceptron.o loop_predictor.o branch_predictor.o
+OBJ = githash.o save_state.o main.o loadelf.o parseMips.o helper.o profileMips.o gthread.o sparse_mem.o ooo_core.o mips_op.o sim_cache.o perceptron.o loop_predictor.o branch_predictor.o
 
 ifeq ($(UNAME_S),Linux)
 	CXX = g++ -march=native -flto
@@ -34,6 +34,9 @@ all: $(EXE)
 
 $(EXE) : $(OBJ)
 	$(CXX) $(CXXFLAGS) $(OBJ) $(LLVM_LDFLAGS) $(LIBS) -o $(EXE)
+
+githash.cc : ../.git/HEAD ../.git/index
+	echo "const char *githash = \"$(shell git rev-parse HEAD)\";" > $@
 
 %.o: %.cc
 	$(CXX) -MMD $(CXXFLAGS) -c $< 
