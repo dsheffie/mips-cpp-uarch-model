@@ -320,7 +320,7 @@ void retire(sim_state &machine_state) {
 	execMips(s);
       }
 
-      
+      //std::cout << *(u->op) << "\n";
       u->op->retire(machine_state);
       num_retired_insns++;
 #if 0
@@ -721,8 +721,10 @@ extern "C" {
 	bool rs_available = false;
 
 	if(u->op == nullptr) {
-	  std::cout << "u->op == nullptr @ " << get_curr_cycle() << "\n";
-	  std::cout << std::hex << u->pc << std::dec << "\n";
+	  std::cout << "u->op == nullptr @ " << get_curr_cycle() << ",pc = "
+		    << std::hex << u->pc << std::dec << "\n";
+	  die();
+
 	  break;
 	}
 	else if(u->decode_cycle == global::curr_cycle) {

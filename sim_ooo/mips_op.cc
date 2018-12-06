@@ -3765,7 +3765,7 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
       return new rtype_alu_op(m_op, rtype_alu_op::r_type::movz);
     case 0x0b: /* movn */
       return new rtype_alu_op(m_op, rtype_alu_op::r_type::movn);
-#if 0
+#if 1
     case 0x0C: /* syscall */
       printf("syscall()\n");
       die();
@@ -4058,6 +4058,7 @@ void mips_op::complete(sim_state &machine_state) {
 
 bool mips_op::retire(sim_state &machine_state) {
   log_retire(machine_state);
+
   return false;
 }
 
