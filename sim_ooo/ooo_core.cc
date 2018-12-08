@@ -599,8 +599,10 @@ extern "C" {
     while(not(machine_state.terminate_sim)) {
       global::curr_cycle++;
       uint64_t delta = global::curr_cycle - machine_state.last_retire_cycle;
-      if(delta > 1024) {
-	std::cerr << "no retirement in 1024 cycles, last pc = "
+      if(delta > (sim_param::mem_latency*2)) {
+	std::cerr << "no retirement in "
+		  << sim_param::mem_latency*2
+		  << " cycles, last pc = "
 		  << std::hex
 		  << machine_state.last_retire_pc
 		  << std::dec

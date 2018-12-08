@@ -381,64 +381,55 @@ bool highAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_
     }
   
   /* cache miss .. handle it */
-  if( a == (assoc+1))
-    {
-      if(next_level)
-	{
-	  /* mask off to align */
-	  size_t reload_addr = addr & (~(bytes_per_line-1));
-	  next_level->access(reload_addr, bytes_per_line, o, lat);
-	}
-      
-      misses++;
-      rw_misses[(opType::WRITE==o) ? 1 : 0]++;
-      
-      if(allvalid[w]) 
-	{
-	  int32_t offs = findLRU(w);
-	  valid[w][offs] = 1;
-	  tag[w][offs] = t;
-	} 
-      else
-	{
-	  size_t offs = 0;
-	  for(size_t i = 0; i < assoc; i++)
-	    {
-	      if(valid[w][i]==0) {
-		offs = i;
-		break;
-	      }
-	    }
-	  valid[w][offs] = 1;
-	  tag[w][offs] = t;
-	  updateLRU((uint32_t)offs,w);
-	  uint8_t allV = 1;
-	  for(size_t i = 0; i < assoc; i++)
-	    {
-	      allV &= valid[w][i];
-	    }
-	  allvalid[w] = allV;
-	}
+  if( a == (assoc+1)) {
+    if(next_level) {
+      /* mask off to align */
+      size_t reload_addr = addr & (~(bytes_per_line-1));
+      next_level->access(reload_addr, bytes_per_line, o, lat);
     }
-  else
-    {
-      hits++;
-      rw_hits[(opType::WRITE==o) ? 1 : 0]++;
-      updateLRU(a,w);
+    
+    misses++;
+    rw_misses[(opType::WRITE==o) ? 1 : 0]++;
+    
+    if(allvalid[w])  {
+      int32_t offs = findLRU(w);
+      valid[w][offs] = 1;
+      tag[w][offs] = t;
+    } 
+    else {
+      size_t offs = 0;
+      for(size_t i = 0; i < assoc; i++) {
+	if(valid[w][i]==0) {
+	  offs = i;
+	  break;
+	}
+      }
+      valid[w][offs] = 1;
+      tag[w][offs] = t;
+      updateLRU((uint32_t)offs,w);
+      uint8_t allV = 1;
+      for(size_t i = 0; i < assoc; i++) {
+	allV &= valid[w][i];
+      }
+      allvalid[w] = allV;
     }
+  }
+  else {
+    hits++;
+    rw_hits[(opType::WRITE==o) ? 1 : 0]++;
+    updateLRU(a,w);
+  }
   return h;
 }
 
-void lowAssocCache::updateLRU(uint32_t idx, uint32_t w)
-{
+void lowAssocCache::updateLRU(uint32_t idx, uint32_t w) {
   int32_t last_idx = (idx+assoc);
   int32_t lru_idx = last_idx/2;
   uint64_t t = lru[w];
-  while(lru_idx > 0)
-    {
-      //printf("lru_idx = %d\n", lru_idx);
-      uint64_t m = 1UL << lru_idx;
-
+  while(lru_idx > 0) {
+    //printf("lru_idx = %d\n", lru_idx);
+    uint64_t m = 1UL << lru_idx;
+    
       if(last_idx & 0x1) {
 	/* clear bit */
 	t  &= ~m; 
@@ -452,8 +443,7 @@ void lowAssocCache::updateLRU(uint32_t idx, uint32_t w)
   lru[w] = t;
 }
 
-int32_t lowAssocCache::findLRU(uint32_t w)
-{
+int32_t lowAssocCache::findLRU(uint32_t w) {
   int32_t lru_idx = 1;
   uint64_t t = lru[w];
   while(true)
@@ -639,9 +629,11 @@ std::string simCache::getStats(std::string &fName)
 double simCache::computeAMAT() const {
   size_t total = hits+misses;
   double rate = ((double)misses) / ((double)total);
-  double nextLevelLat = 100.0;
-  if(next_level)
+  double nextLevelLat = sim_param::mem_latency;
+
+  if(next_level) {
     nextLevelLat = next_level->computeAMAT();
+  }
   
   double x = (nextLevelLat * rate)  + 
     ((double)latency * (1.0 - rate));
