@@ -212,6 +212,18 @@ protected:
       free(it.ptr);
       cnt--;
     }
+    void clear() {
+      entry *ptr = head;
+      while(ptr) {
+	entry *old = ptr;
+	ptr = ptr->next;
+	old->unlink();
+	free(old);
+	cnt--;
+      }
+      assert(cnt==0);
+      head = tail = nullptr;
+    }
     ssize_t distance(iterator it) {
       return it.dist;
     }
@@ -272,7 +284,7 @@ public:
   std::string getStats(std::string &fName);
   void getStats();
   double computeAMAT() const;
-
+  virtual void flush() = 0;
 };
 
 std::ostream &operator<<(std::ostream &out, const simCache &cache);
@@ -307,6 +319,7 @@ public:
   }
   ~directMappedCache();
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
+  void flush() override;
 };
 
 class fullAssocCache: public simCache {
@@ -322,6 +335,7 @@ public:
   }
   ~fullAssocCache();
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
+  void flush() override;
 };
 
 class lowAssocCache : public simCache {
@@ -330,7 +344,7 @@ class lowAssocCache : public simCache {
 		 std::string name, int latency, simCache *next_level);
   ~lowAssocCache();
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
-
+  void flush() override;
  private:
   void updateLRU(uint32_t idx,uint32_t w);
   int32_t findLRU(uint32_t w);
@@ -390,6 +404,9 @@ class setAssocCache: public simCache {
       }
       return h;
     }
+    void clear() {
+      entries.clear();
+    }
     size_t size() const {
       return entries.size();
     }
@@ -401,6 +418,7 @@ public:
 		std::string name, int latency, simCache *next_level);
   ~setAssocCache();
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
+  void flush() override;
 };
 
 
@@ -415,6 +433,7 @@ public:
   }
   ~fullRandAssocCache() {}
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
+  void flush() override;
 };
 
 
@@ -424,6 +443,7 @@ class realLRUCache : public simCache {
 		 std::string name, int latency, simCache *next_level);
   ~realLRUCache();
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
+  void flush() override;
 private:
   /* all bits are valid */
   uint8_t *allvalid;
@@ -442,7 +462,7 @@ class highAssocCache : public simCache {
 		 std::string name, int latency, simCache *next_level);
   ~highAssocCache();
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
-
+  void flush() override;
  private:
   void updateLRU(uint32_t idx,uint32_t w);
   int32_t findLRU(uint32_t w);

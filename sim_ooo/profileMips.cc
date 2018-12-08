@@ -1445,6 +1445,9 @@ static void _monitorBody(uint32_t inst, state_t *s) {
     case 50:
       s->gpr[R_v0] = get_curr_cycle();
       break;
+    case 51:
+      /* nuke caches */
+      break;
     case 55: 
       /* void get_mem_info(unsigned int *ptr) */
       /* in:  A0 = pointer to three word memory location */

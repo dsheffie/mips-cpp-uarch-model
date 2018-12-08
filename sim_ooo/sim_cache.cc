@@ -61,6 +61,16 @@ simCache::simCache(size_t bytes_per_line, size_t assoc, size_t num_sets,
 
 simCache::~simCache() {}
 
+void highAssocCache::flush() {
+  for(size_t i =0; i < num_sets; i++) {
+    allvalid[i] = 0;
+    memset(valid[i],0,sizeof(uint8_t)*assoc);
+  }
+  if(next_level) {
+    next_level->flush();
+  }
+}
+
 highAssocCache::highAssocCache(size_t bytes_per_line, size_t assoc, size_t num_sets, 
 			       std::string name, int latency, simCache *next_level) :
   simCache(bytes_per_line, assoc, num_sets, name, latency, next_level) {
@@ -89,6 +99,17 @@ highAssocCache::~highAssocCache() {
   delete [] tag;
   delete [] valid;
   delete [] allvalid;
+}
+
+
+void lowAssocCache::flush() {
+  for(size_t i =0; i < num_sets; i++) {
+    allvalid[i] = 0;
+    valid[i] = 0;
+  }
+  if(next_level) {
+    next_level->flush();
+  }
 }
 
 
@@ -204,6 +225,13 @@ bool directMappedCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint
   return h;
 }
 
+void directMappedCache::flush() {
+  valid.reset();
+  if(next_level) {
+    next_level->flush();
+  }
+}
+
 fullAssocCache::~fullAssocCache() {}
 
 
@@ -231,6 +259,14 @@ bool fullAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_
   return h;
 }
 
+void fullAssocCache::flush() {
+  entries.clear();
+  std::fill(hitdepth.begin(),hitdepth.end(),0);
+  if(next_level) {
+    next_level->flush();
+  }
+}
+
 setAssocCache::setAssocCache(size_t bytes_per_line, size_t assoc, size_t num_sets, 
 			     std::string name, int latency, simCache *next_level) :
   simCache(bytes_per_line, assoc, num_sets, name, latency, next_level) {
@@ -244,6 +280,15 @@ setAssocCache::~setAssocCache() {
     delete sets[i];
   }
   delete [] sets;
+}
+
+void setAssocCache::flush() {
+  for(size_t i = 0; i < num_sets; ++i) {
+    sets[i]->clear();
+  }
+  if(next_level) {
+    next_level->flush();
+  }
 }
 
 bool setAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) {
@@ -264,6 +309,13 @@ bool setAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t
   
 }
 
+void fullRandAssocCache::flush() {
+  entries.clear();
+  tags.clear();
+  if(next_level) {
+    next_level->flush();
+  }
+}
 
 bool fullRandAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) {
   uint32_t w,t;
@@ -600,18 +652,25 @@ double simCache::computeAMAT() const {
 }
 
 
+void realLRUCache::flush() {
+  for(size_t i = 0; i < num_sets; i++) {
+    allvalid[i] = 0;
+    memset(valid[i],0,sizeof(uint8_t)*assoc);
+  }
+  if(next_level) {
+    next_level->flush();
+  }
+}
 
 realLRUCache::realLRUCache(size_t bytes_per_line, size_t assoc, size_t num_sets, 
 			       std::string name, int latency, simCache *next_level) :
-  simCache(bytes_per_line, assoc, num_sets, name, latency, next_level)
-{
+  simCache(bytes_per_line, assoc, num_sets, name, latency, next_level) {
   valid = new uint8_t*[num_sets];
   lru = new uint64_t*[num_sets];
   tag = new uint32_t*[num_sets];
   allvalid = new uint8_t[num_sets];
 
-  for(size_t i =0; i < num_sets; i++)
-    {
+  for(size_t i =0; i < num_sets; i++) {
       valid[i] = new uint8_t[assoc];
       tag[i] = new uint32_t[assoc];
       lru[i] = new uint64_t[assoc];

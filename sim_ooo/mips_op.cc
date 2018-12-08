@@ -3580,6 +3580,12 @@ public:
       case 50:
 	machine_state.gpr_prf[m->prf_idx] = get_curr_cycle();
 	break;
+      case 51:
+	/* nuke caches */
+	if(machine_state.l1d) {
+	  machine_state.l1d->flush();
+	}
+	break;
       case 55:
 	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 0)) = bswap(K1SIZE);
 	/* No Icache */
