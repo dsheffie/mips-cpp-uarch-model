@@ -765,12 +765,14 @@ public:
 	m->correct_pc = ((m->pc + 4)&pc_mask) | jaddr;
 	break;
       }
-    m->branch_exception = (m->fetch_npc != m->correct_pc);
+    if(m->fetch_npc != m->correct_pc) {
+      m->exception = exception_type::branch;
+    }
 
 #if 0
     bool return_mispredict = false;
     if((jt == jump_type::jr) and m->pop_return_stack) {
-      if(m->branch_exception) {
+      if(m->exception == exception_type::branch) {
 	return_mispredict = true;
 	std::cerr << "RETURN MISPREDICT " << std::hex << m->pc << " : predict "
 		  << m->fetch_npc << " , correct " << m->correct_pc
@@ -786,7 +788,8 @@ public:
 		  << "\n";
       }
     }
-    if(not(return_mispredict) and jt == jump_type::jr and m->branch_exception) {
+    if(not(return_mispredict) and jt == jump_type::jr
+       and m->exception == exception_type::branch) {
       std::cerr << "JR MISPREDICT " << std::hex << m->pc << " : predict "
 		<< m->fetch_npc << " , correct " << m->correct_pc
 		<< std::dec
@@ -826,7 +829,7 @@ public:
     machine_state.bhr.shift_left(1);
     machine_state.bhr.set_bit(0);
 
-    if(m->branch_exception) {
+    if(m->exception==exception_type::branch) {
       machine_state.mispredicted_jumps++;
       switch(jt)
 	{
@@ -1062,12 +1065,14 @@ public:
     else {
       m->correct_pc = m->pc + 8;
       if(is_likely_branch() and (m->fetch_npc != (m->pc+8))) {
-	m->branch_exception = true;
+	m->exception = exception_type::branch;
       }
     }
 
-    m->branch_exception |= (m->predict_taken != take_br);
-    if(m->branch_exception) {
+    if(m->predict_taken != take_br) {
+      m->exception = exception_type::branch;
+    }
+    if(m->exception == exception_type::branch) {
       machine_state.alloc_blocked = true;
     }
     m->complete_cycle = get_curr_cycle() + 1;
@@ -1081,8 +1086,9 @@ public:
     retired = true;
     machine_state.icnt++;
     machine_state.n_branches++;
-    machine_state.mispredicted_branches += m->branch_exception;
-
+    if(m->exception == exception_type::branch) {
+      machine_state.mispredicted_branches++;
+    }
     uint32_t bht_idx = (m->pc>>2) & (machine_state.bht.size()-1);
 #if 0
     if(take_br != m->prediction) {
@@ -3480,7 +3486,7 @@ public:
     src_regs[3] = machine_state.gpr_prf[m->src3_prf];
     m->correct_pc = src_regs[3];
     m->complete_cycle = get_curr_cycle() + 1;
-    m->branch_exception = true;
+    m->exception = exception_type::branch;
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {

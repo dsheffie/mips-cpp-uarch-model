@@ -225,7 +225,7 @@ void retire(sim_state &machine_state) {
       }
 
 	
-      if(u->branch_exception) {
+      if(u->exception==exception_type::branch) {
 	machine_state.nukes++;
 	machine_state.branch_nukes++;
 	exception = true;
@@ -248,9 +248,9 @@ void retire(sim_state &machine_state) {
 	  stuck_cnt++;
 	  gthread_yield();
 	}
-	if(uu->branch_exception or uu->load_exception) {
+	if(u->exception==exception_type::branch or uu->load_exception) {
 	  machine_state.nukes++;
-	  if(uu->branch_exception) {
+	  if(uu->exception == exception_type::branch) {
 	    machine_state.branch_nukes++;
 	  }
 	  else {
@@ -354,14 +354,6 @@ void retire(sim_state &machine_state) {
 
 
     if(u!=nullptr and exception) {
-#if 0
-      std::cerr << (u->branch_exception ? "BRANCH" : "LOAD")
-		<< " EXCEPTION @ cycle " << get_curr_cycle()
-		<< " for " << *(u->op)
-		<< " fetched @ cycle " << u->fetch_cycle
-		<< " with prf idx  " << u->prf_idx
-		<< "\n";
-#endif
       assert(u->could_cause_exception);
 	
       if((retire_amt - sim_param::retire_bw) < 2) {
@@ -372,7 +364,7 @@ void retire(sim_state &machine_state) {
       bool is_load_exception = u->load_exception;
       uint32_t exc_pc = u->pc;
       bool delay_slot_exception = false;
-      if(u->branch_exception) {
+      if(u->exception==exception_type::branch) {
 	if(u->has_delay_slot) {
 	  /* wait for branch delay instr to allocate */
 	  machine_state.alloc_blocked = false;
@@ -385,7 +377,7 @@ void retire(sim_state &machine_state) {
 	    gthread_yield();
 	    retire_amt = 0;
 	  }
-	  if(uu->branch_exception or uu->load_exception) {
+	  if(uu->exception==exception_type::branch or uu->load_exception) {
 	    delay_slot_exception = true;
 	  }
 	  else {
@@ -437,9 +429,12 @@ void retire(sim_state &machine_state) {
 	machine_state.fetch_pc = u->pc;
       }
       else {
-	machine_state.fetch_pc = u->branch_exception ? u->correct_pc : u->pc;
-	if(u->branch_exception) {
+	if(u->exception == exception_type::branch) {
+	  machine_state.fetch_pc = u->correct_pc;
 	  delete u;
+	}
+	else {
+	  machine_state.fetch_pc = u->pc;
 	}
       }
 

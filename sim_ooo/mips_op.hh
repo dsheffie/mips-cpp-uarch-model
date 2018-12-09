@@ -20,6 +20,9 @@
 
 enum class mips_op_type { unknown, alu, fp, jmp, load, store, system };
 
+enum class exception_type {none, load, branch};
+
+
 inline bool is_jr(uint32_t inst) {
   uint32_t opcode = inst>>26;
   uint32_t funct = inst & 63;
@@ -131,7 +134,7 @@ struct mips_meta_op {
   /* finished execution */
   bool is_complete = false;
   bool could_cause_exception = false;
-  bool branch_exception = false;
+  exception_type exception = exception_type::none;
   bool load_exception = false;
   bool is_branch_or_jump = false;
   bool is_jal = false, is_jr = false;
@@ -176,7 +179,7 @@ struct mips_meta_op {
     aux_cycle = -1;
     is_complete = false;
     could_cause_exception = false;
-    branch_exception = false;
+    exception = exception_type::none;
     load_exception = false;
     is_branch_or_jump = false;
     is_jal = false;
