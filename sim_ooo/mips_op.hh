@@ -135,7 +135,6 @@ struct mips_meta_op {
   bool is_complete = false;
   bool could_cause_exception = false;
   exception_type exception = exception_type::none;
-  bool load_exception = false;
   bool is_branch_or_jump = false;
   bool is_jal = false, is_jr = false;
   bool has_delay_slot = false;
@@ -180,7 +179,6 @@ struct mips_meta_op {
     is_complete = false;
     could_cause_exception = false;
     exception = exception_type::none;
-    load_exception = false;
     is_branch_or_jump = false;
     is_jal = false;
     is_jr = false;

@@ -231,7 +231,7 @@ void retire(sim_state &machine_state) {
 	exception = true;
 	break;
       }
-      else if(u->load_exception) {
+      else if(u->exception==exception_type::load) {
 	machine_state.nukes++;
 	machine_state.load_nukes++;
 	exception = true;
@@ -248,7 +248,7 @@ void retire(sim_state &machine_state) {
 	  stuck_cnt++;
 	  gthread_yield();
 	}
-	if(u->exception==exception_type::branch or uu->load_exception) {
+	if(u->exception!=exception_type::none) {
 	  machine_state.nukes++;
 	  if(uu->exception == exception_type::branch) {
 	    machine_state.branch_nukes++;
@@ -360,8 +360,6 @@ void retire(sim_state &machine_state) {
 	gthread_yield();
 	retire_amt = 0;
       }
-	
-      bool is_load_exception = u->load_exception;
       uint32_t exc_pc = u->pc;
       bool delay_slot_exception = false;
       if(u->exception==exception_type::branch) {
@@ -377,7 +375,7 @@ void retire(sim_state &machine_state) {
 	    gthread_yield();
 	    retire_amt = 0;
 	  }
-	  if(uu->exception==exception_type::branch or uu->load_exception) {
+	  if(uu->exception!=exception_type::none) {
 	    delay_slot_exception = true;
 	  }
 	  else {
