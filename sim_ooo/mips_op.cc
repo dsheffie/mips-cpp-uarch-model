@@ -1548,7 +1548,7 @@ public:
 	b = 8;
 	break;
       case load_type::lwc1:
-	if((effective_address & 0x7) != 0) {
+	if((effective_address & 0x3) != 0) {
 	  m->exception = exception_type::load;
 	}
 	break;
