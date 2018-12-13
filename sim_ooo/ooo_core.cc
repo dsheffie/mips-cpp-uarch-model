@@ -589,12 +589,16 @@ extern "C" {
     
     simCache *l1d = machine_state.l1d;
     uint64_t last_hits = 0, last_misses = 0;
+    int64_t braindead = (2*sim_param::mem_latency);
+    if(braindead < 1000) {
+      braindead = 1000;
+    }
     while(not(machine_state.terminate_sim)) {
       global::curr_cycle++;
       uint64_t delta = global::curr_cycle - machine_state.last_retire_cycle;
-      if(delta > (sim_param::mem_latency*2)) {
+      if(delta > braindead) {
 	std::cerr << "no retirement in "
-		  << sim_param::mem_latency*2
+		  << braindead
 		  << " cycles, last pc = "
 		  << std::hex
 		  << machine_state.last_retire_pc
