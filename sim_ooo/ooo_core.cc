@@ -1141,7 +1141,7 @@ void run_ooo_core(sim_state &machine_state) {
     static_cast<double>(machine_state.total_dispatched_insns) / get_curr_cycle();
   *global::sim_log << dispatched_insns_per_cycle << " insns dispatched per cycle\n";
 
-#if 0
+#if 1
   *global::sim_log << "PC : "
 		   << std::hex
 		   << machine_state.last_retire_pc
@@ -1153,6 +1153,13 @@ void run_ooo_core(sim_state &machine_state) {
 		     << std::hex << machine_state.arch_grf[i] << std::dec
 		     << "(" << machine_state.arch_grf[i] << ")\n";
   }
+  for(int i = 0; i < 32; i++) {
+    *global::sim_log << "cpr1_" << i << " : 0x" 
+		     << std::hex
+		     << machine_state.arch_cpr1[i]
+		     << std::dec << "\n";
+  }
+  *global::sim_log << "icnt : " << machine_state.icnt << "\n";
 #endif
     
 #if 0
