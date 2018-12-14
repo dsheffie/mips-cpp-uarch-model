@@ -231,7 +231,7 @@ void retire(sim_state &machine_state) {
 	exception = true;
 	break;
       }
-      else if(u->exception==exception_type::load) {
+      else if(u->load_exception) {
 	machine_state.nukes++;
 	machine_state.load_nukes++;
 	exception = true;
@@ -248,7 +248,7 @@ void retire(sim_state &machine_state) {
 	  stuck_cnt++;
 	  gthread_yield();
 	}
-	if(u->exception!=exception_type::none) {
+	if(u->exception==exception_type::branch or uu->load_exception) {
 	  machine_state.nukes++;
 	  if(uu->exception == exception_type::branch) {
 	    machine_state.branch_nukes++;
@@ -360,6 +360,8 @@ void retire(sim_state &machine_state) {
 	gthread_yield();
 	retire_amt = 0;
       }
+	
+      bool is_load_exception = u->load_exception;
       uint32_t exc_pc = u->pc;
       bool delay_slot_exception = false;
       if(u->exception==exception_type::branch) {
@@ -375,7 +377,7 @@ void retire(sim_state &machine_state) {
 	    gthread_yield();
 	    retire_amt = 0;
 	  }
-	  if(uu->exception!=exception_type::none) {
+	  if(uu->exception==exception_type::branch or uu->load_exception) {
 	    delay_slot_exception = true;
 	  }
 	  else {
@@ -589,16 +591,12 @@ extern "C" {
     
     simCache *l1d = machine_state.l1d;
     uint64_t last_hits = 0, last_misses = 0;
-    int64_t braindead = (2*sim_param::mem_latency);
-    if(braindead < 1000) {
-      braindead = 1000;
-    }
     while(not(machine_state.terminate_sim)) {
       global::curr_cycle++;
       uint64_t delta = global::curr_cycle - machine_state.last_retire_cycle;
-      if(delta > braindead) {
+      if(delta > (sim_param::mem_latency*2)) {
 	std::cerr << "no retirement in "
-		  << braindead
+		  << sim_param::mem_latency*2
 		  << " cycles, last pc = "
 		  << std::hex
 		  << machine_state.last_retire_pc
@@ -1141,7 +1139,7 @@ void run_ooo_core(sim_state &machine_state) {
     static_cast<double>(machine_state.total_dispatched_insns) / get_curr_cycle();
   *global::sim_log << dispatched_insns_per_cycle << " insns dispatched per cycle\n";
 
-#if 1
+#if 0
   *global::sim_log << "PC : "
 		   << std::hex
 		   << machine_state.last_retire_pc
@@ -1153,13 +1151,6 @@ void run_ooo_core(sim_state &machine_state) {
 		     << std::hex << machine_state.arch_grf[i] << std::dec
 		     << "(" << machine_state.arch_grf[i] << ")\n";
   }
-  for(int i = 0; i < 32; i++) {
-    *global::sim_log << "cpr1_" << i << " : 0x" 
-		     << std::hex
-		     << machine_state.arch_cpr1[i]
-		     << std::dec << "\n";
-  }
-  *global::sim_log << "icnt : " << machine_state.icnt << "\n";
 #endif
     
 #if 0

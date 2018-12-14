@@ -1195,14 +1195,10 @@ public:
       {
       case load_type::lh:
       case load_type::lhu:
-	if((effective_address & 0x1) != 0) {
-	  m->exception = exception_type::load;
-	}
+	m->load_exception |= ((effective_address & 0x1) != 0);
 	break;
       case load_type::lw:
-	if((effective_address & 0x3) != 0) {
-	  m->exception = exception_type::load;
-	}
+	m->load_exception |= ((effective_address & 0x3) != 0);
 	break;
       case load_type::lwl:
       case load_type::lwr:
@@ -1223,7 +1219,7 @@ public:
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       sparse_mem & mem = *(machine_state.mem);
-      if(m->exception == exception_type::none) {
+      if(not(m->load_exception)) {
 	switch(lt)
 	  {
 	  case load_type::lb:
@@ -1299,7 +1295,7 @@ public:
     }
   }
   bool retire(sim_state &machine_state) override {
-    if(m->exception == exception_type::load) {
+    if(m->load_exception) {
       die();
     }
 
@@ -1452,7 +1448,7 @@ public:
 
     for(size_t i = 0; load_violation and (i < machine_state.load_tbl_freevec.size()); i++ ){
       if(machine_state.load_tbl[i]!=nullptr) {
-	machine_state.load_tbl[i]->exception = exception_type::load;
+	machine_state.load_tbl[i]->load_exception = true;
       }
     }
     
@@ -1542,15 +1538,11 @@ public:
     switch(lt)
       {
       case load_type::ldc1:
-	if((effective_address & 0x7) != 0) {
-	  m->exception = exception_type::load;
-	}
+	m->load_exception |= ((effective_address & 0x7) != 0);
 	b = 8;
 	break;
       case load_type::lwc1:
-	if((effective_address & 0x3) != 0) {
-	  m->exception = exception_type::load;
-	}
+	m->load_exception |= ((effective_address & 0x3) != 0);
 	break;
       default:
 	break;
@@ -1567,7 +1559,7 @@ public:
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
       sparse_mem & mem = *(machine_state.mem);
-      if(m->exception == exception_type::none) {
+      if(not(m->load_exception)) {
 	switch(lt)
 	  {
 	  case load_type::ldc1: {
@@ -1756,7 +1748,7 @@ public:
     }
     for(size_t i = 0; load_violation and (i < machine_state.load_tbl_freevec.size()); i++ ){
       if(machine_state.load_tbl[i]!=nullptr) {
-	machine_state.load_tbl[i]->exception = exception_type::load;
+	machine_state.load_tbl[i]->load_exception = true;
       }
     }
 
