@@ -122,6 +122,7 @@ double timestamp() {
 }
 
 void dbt_backtrace() {
+#ifdef __linux__
   unw_cursor_t cursor;
   unw_context_t context;
   
@@ -153,4 +154,5 @@ void dbt_backtrace() {
       std::printf(" -- error: unable to obtain symbol name for this frame\n");
     }
   }
+#endif
 }
