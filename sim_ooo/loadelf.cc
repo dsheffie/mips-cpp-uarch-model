@@ -11,12 +11,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <errno.h>
-
-#ifdef __APPLE__
-#include "osx_elf.h"
-#else
 #include <elf.h>
-#endif
 
 #include "helper.hh"
 #include "profileMips.hh"
