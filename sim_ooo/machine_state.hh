@@ -1,4 +1,4 @@
-#ifndef __machinestatehh__
+ #ifndef __machinestatehh__
 #define __machinestatehh__
 
 #include "globals.hh"
@@ -102,6 +102,7 @@ public:
   std::vector<sim_bitvec> bht;
   
   uint64_t icnt = 0, maxicnt = ~(0UL), skipicnt = 0;
+  uint64_t fetched_insns = 0;
   uint64_t n_branches = 0, n_jumps = 0;
   uint64_t mispredicted_branches = 0;
   uint64_t mispredicted_jumps = 0;

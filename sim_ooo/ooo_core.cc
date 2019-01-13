@@ -182,6 +182,7 @@ void fetch(sim_state &machine_state) {
       if(predict_taken)
 	taken_branches++;
     }
+    machine_state.fetched_insns += fetch_amt;
     gthread_yield();
   }
   gthread_terminate();
@@ -1176,12 +1177,19 @@ void run_ooo_core(sim_state &machine_state) {
   }
 #endif
 
+
+  uint64_t retired_insns = (machine_state.icnt-machine_state.skipicnt);
+  double nonsquash_fract = 100.0 *static_cast<double>(retired_insns) /
+    static_cast<double>(machine_state.fetched_insns);
   
   *global::sim_log << "SIMULATION COMPLETE : "
-	    << (machine_state.icnt-machine_state.skipicnt)
+	    << retired_insns
 	    << " inst retired in "
 	    << get_curr_cycle() << " cycles\n";
-
+  *global::sim_log << machine_state.fetched_insns
+		   << " fetched insns\n";
+  *global::sim_log << nonsquash_fract << " % of fetched insns retire\n";
+  
   *global::sim_log << ipc << " instructions/cycle\n";
   *global::sim_log << machine_state.n_branches << " branches\n";
   *global::sim_log << machine_state.mispredicted_branches 
@@ -1204,10 +1212,10 @@ void run_ooo_core(sim_state &machine_state) {
 	    << machine_state.ref_state->icnt << "\n";
 
   if(get_curr_cycle() != 0) {
-    double avg_latency = 0;
+    double avg_latency = 0.0;
     for(auto &p : insn_lifetime_map) {
       //global::sim_log << p.first << " cycles : " << p.second << " insns\n";
-      avg_latency += (p.first * p.second);
+      avg_latency += static_cast<double>(p.first) * static_cast<double>(p.second);
     }
     avg_latency /= get_curr_cycle();
     *global::sim_log << avg_latency << " cycles is the average instruction lifetime\n";
