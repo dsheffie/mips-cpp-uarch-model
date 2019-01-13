@@ -1,5 +1,5 @@
 #include "branch_predictor.hh"
-#include "mips_op.hh"
+#include "machine_state.hh"
 #include "globals.hh"
 #include "sim_parameters.hh"
 

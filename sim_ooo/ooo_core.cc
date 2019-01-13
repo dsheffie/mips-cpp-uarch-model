@@ -27,7 +27,7 @@
 #include "mips_op.hh"
 #include "sim_parameters.hh"
 #include "sim_cache.hh"
-
+#include "machine_state.hh"
 
 extern std::map<uint32_t, uint32_t> branch_target_map;
 extern std::map<uint32_t, int32_t> branch_prediction_map;

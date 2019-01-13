@@ -11,6 +11,7 @@
 #include "parseMips.hh"
 #include "sim_parameters.hh"
 #include "sim_cache.hh"
+#include "machine_state.hh"
 
 char* get_open_string(sparse_mem &mem, uint32_t offset);
 

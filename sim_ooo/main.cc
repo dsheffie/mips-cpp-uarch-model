@@ -25,6 +25,7 @@
 #include "profileMips.hh"
 #include "globals.hh"
 #include "mips_op.hh"
+#include "machine_state.hh"
 
 #define SAVE_SIM_PARAM_LIST
 #include "sim_parameters.hh"
