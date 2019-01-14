@@ -1188,7 +1188,7 @@ void run_ooo_core(sim_state &machine_state) {
 	    << get_curr_cycle() << " cycles\n";
   *global::sim_log << machine_state.fetched_insns
 		   << " fetched insns\n";
-  *global::sim_log << nonsquash_fract << " % of fetched insns retire\n";
+  *global::sim_log << nonsquash_fract << "% of fetched insns retire\n";
   
   *global::sim_log << ipc << " instructions/cycle\n";
   *global::sim_log << machine_state.n_branches << " branches\n";
