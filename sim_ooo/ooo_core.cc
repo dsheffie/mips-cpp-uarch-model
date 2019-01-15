@@ -59,7 +59,7 @@ void fetch(sim_state &machine_state) {
   
   while(not(machine_state.terminate_sim)) {
     int fetch_amt = 0, taken_branches = 0;
-    for(; not(fetch_queue.full()) and (fetch_amt < sim_param::fetch_bw) and not(machine_state.nuke); fetch_amt++) {
+    for(; not(fetch_queue.full()) and (fetch_amt < sim_param::fetch_bw) and not(machine_state.nuke); ) {
       
       if(machine_state.delay_slot_npc) {
 	uint32_t inst = bswap(mem.get32(machine_state.delay_slot_npc));
@@ -67,6 +67,7 @@ void fetch(sim_state &machine_state) {
 				  machine_state.delay_slot_npc+4,
 				  global::curr_cycle, false, false);
 	fetch_queue.push(f);
+	fetch_amt++;
 	machine_state.delay_slot_npc = 0;
 	if(enable_oracle) {
 	  machine_state.oracle_state->steps--;
@@ -136,6 +137,7 @@ void fetch(sim_state &machine_state) {
 	  predict_taken = true;
 	  f->return_stack_idx = return_stack.get_tos_idx();
 	  return_stack.push(machine_state.fetch_pc + 8);
+	  fetch_amt++;
 	}
 	else if(is_j(inst)) {
 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
@@ -178,6 +180,7 @@ void fetch(sim_state &machine_state) {
       f->pop_return_stack = used_return_addr_stack;
       
       fetch_queue.push(f);
+      fetch_amt++;
       machine_state.fetch_pc = npc;
       if(predict_taken)
 	taken_branches++;
