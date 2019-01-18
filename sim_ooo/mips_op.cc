@@ -1216,6 +1216,10 @@ public:
       m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
     }
   }
+  int64_t get_latency() const override {
+    return sim_param::l1d_latency;
+  }
+  
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
@@ -1367,6 +1371,9 @@ public:
     else {
       m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
     }
+  }
+  int64_t get_latency() const override {
+    return sim_param::l1d_latency;
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -1683,6 +1690,9 @@ public:
       m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
     }
   }
+  int64_t get_latency() const override {
+    return sim_param::l1d_latency;
+  }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
@@ -1812,6 +1822,9 @@ public:
     int64_t y = a*b;
     machine_state.gpr_prf[m->prf_idx] = static_cast<int32_t>(y);
     m->complete_cycle = get_curr_cycle() + 4;
+  }
+  int64_t get_latency() const override {
+    return 4;
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -2060,6 +2073,23 @@ public:
     
     m->complete_cycle = get_curr_cycle() + latency;
   }
+  int64_t get_latency() const override {
+    switch(mdt)
+      {
+      case mult_div_types::mult: 
+      case mult_div_types::madd: 
+      case mult_div_types::msub: 
+      case mult_div_types::multu:
+	return 4;
+      case mult_div_types::div:
+      case mult_div_types::divu:
+	return 32;
+      default:
+	die();
+      }
+    return 0;
+  }
+  
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
@@ -2969,6 +2999,27 @@ public:
     else
       execute_float(machine_state);
   }
+  int64_t get_latency() const override {
+    switch(fot)
+      {
+      case fp_op_type::add:
+      case fp_op_type::sub:
+	return 2;
+      case fp_op_type::mul:
+	return 3;
+      case fp_op_type::div:
+      case fp_op_type::sqrt:
+	return 32;
+      case fp_op_type::abs:
+      case fp_op_type::mov:
+      case fp_op_type::neg:
+	return 1;
+      default:
+	die();
+      }
+    return 0;
+  }
+					
   bool ready(sim_state &machine_state) const override {
     if(m->src0_prf != -1 and not(machine_state.cpr1_valid[m->src0_prf])) {
       return false;
@@ -3082,7 +3133,7 @@ protected:
     
     machine_state.cpr1_prf[m->prf_idx] = dest[0];
     machine_state.cpr1_prf[m->aux_prf_idx] = dest[1];
-    m->complete_cycle = get_curr_cycle() + 3;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void execute_float(sim_state &machine_state) {
     load_thunk<float> src0, src1, src2, dest;
@@ -3093,7 +3144,7 @@ protected:
     dest.DT() = src0.DT()*src1.DT() + src2.DT();
     
     machine_state.cpr1_prf[m->prf_idx] = dest[0];
-    m->complete_cycle = get_curr_cycle() + 2;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
 public:
   fp_fma(op_type fmt, sim_op op) : fmt(fmt), mips_op(op){
@@ -3110,6 +3161,9 @@ public:
   }
   int get_src2() const override {
     return (m->inst >> 21) & 31; /* fr */
+  }
+  int64_t get_latency() const override {
+    return 3;
   }
   bool allocate(sim_state &machine_state) override {
     bool allocated = false;
@@ -4088,6 +4142,8 @@ void mips_op::log_retire(sim_state &machine_state) const {
   //std::cout << machine_state.rob.size() << "\n";
 }
 
-void mips_op::log_undo(sim_state &machine_state) const {
+void mips_op::log_undo(sim_state &machine_state) const {}
 
+int64_t mips_op::get_latency() const {
+  return 1;
 }

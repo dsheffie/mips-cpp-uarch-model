@@ -264,7 +264,7 @@ public:
   virtual void undo(sim_state &machine_state);
   virtual void log_retire(sim_state &machine_state) const;
   virtual void log_undo(sim_state &machine_state) const;
-  
+  virtual int64_t get_latency() const;
   virtual bool stop_sim() const {
     return false;
   }
