@@ -10,6 +10,7 @@
 #include <sys/mman.h>
 #include <signal.h>
 #include <cxxabi.h>
+#include <setjmp.h>
 #include <cstdint>
 #include <cstdlib>
 #include <string>
@@ -45,6 +46,8 @@ state_t *s = nullptr;
 
 static sim_state machine_state;
 
+static jmp_buf jenv;
+
 static void catchUnixSignal(int sig) {
   switch(sig)
     {
@@ -55,6 +58,7 @@ static void catchUnixSignal(int sig) {
     case SIGINT:
       std::cerr << KRED << "\ncaught SIGINT!\n" << KNRM;
       machine_state.terminate_sim = true;
+      longjmp(jenv, 1);
       break;
     default:
       break;
@@ -217,7 +221,13 @@ int main(int argc, char *argv[]) {
 
   initialize_ooo_core(machine_state, l1d, use_oracle,
 		      use_syscall_skip, skipicnt, maxicnt, s, sm);
-  run_ooo_core(machine_state);
+  
+  if(setjmp(jenv)>0) {
+    std::cerr << "return from longjmp\n";
+  }
+  if(not(machine_state.terminate_sim)) {
+    run_ooo_core(machine_state);
+  }
 
   if(hash) {
     *global::sim_log << std::hex << "crc32="

@@ -1128,8 +1128,7 @@ void run_ooo_core(sim_state &machine_state) {
   uint64_t total_insns =  machine_state.icnt - machine_state.skipicnt;
   *global::sim_log << "executed " << total_insns << " insns\n";
   
-  double ipc = static_cast<double>(machine_state.icnt-machine_state.skipicnt) /
-    get_curr_cycle();
+  double ipc = static_cast<double>(total_insns) / get_curr_cycle();
 
   double allocd_insns_per_cycle =
     static_cast<double>(machine_state.total_allocated_insns) / get_curr_cycle();
@@ -1197,7 +1196,9 @@ void run_ooo_core(sim_state &machine_state) {
   *global::sim_log << machine_state.n_branches << " branches\n";
   *global::sim_log << machine_state.mispredicted_branches 
 	    << " mispredicted branches\n";
-
+  
+  double mpki = (machine_state.mispredicted_branches/static_cast<double>(total_insns))*1000.0;
+  *global::sim_log << mpki << " branch mispredicts per kilo-instruction\n";
   
   *global::sim_log << machine_state.n_jumps << " jumps\n";
   *global::sim_log << machine_state.mispredicted_jumps 
