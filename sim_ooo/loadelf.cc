@@ -46,36 +46,32 @@ void load_elf(const char* fn, state_t *ms) {
 
   fd = open(fn, O_RDONLY);
   if(fd<0) {
-    printf("INTERP: open() returned %d\n", fd);
+    std::cerr << __PRETTY_FUNCTION__ << ": open() returned " << fd << "\n";
     exit(-1);
   }
   rc = fstat(fd,&s);
   if(rc<0) {
-    printf("INTERP: fstat() returned %d\n", rc);
+    std::cerr << __PRETTY_FUNCTION__ << ": fstat() returned " << rc << "\n";
     exit(-1);
   }
   buf = (char*)mmap(nullptr, s.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
   eh32 = (Elf32_Ehdr *)buf;
   close(fd);
     
-  if(!checkElf(eh32) || !check32Bit(eh32)) {
-    printf("INTERP: Bogus binary\n");
+  if(not(checkElf(eh32)) or not(check32Bit(eh32))) {
+    std::cerr << __PRETTY_FUNCTION__ << ": bogus binary\n";
     exit(-1);
   }
 
   /* Check for a MIPS machine */
-#ifdef MIPSEL
-    if(!checkLittleEndian(eh32)) {
-      printf("INTERP : not little endian\n");
-    }
-#else
-    if(!checkBigEndian(eh32)) {
-      printf("INTERP : not big endian\n");
-    }
-#endif
-    
+  if(not(checkBigEndian(eh32))) {
+    std::cerr << __PRETTY_FUNCTION__ << ": not big endian ELF\n";
+    exit(-1);
+
+  }
+  
   if(bswap(eh32->e_machine) != 8) {
-    printf("INTERP : non-mips binary..goodbye\n");
+    std::cerr << __PRETTY_FUNCTION__ << ": not MIPS binary\n";
     exit(-1);
   }
 
@@ -109,6 +105,5 @@ void load_elf(const char* fn, state_t *ms) {
       //code_sz += p_filesz;
     }
   }
-  //std::cout << "loaded " << code_sz << " code bytes\n";
   munmap(buf, s.st_size);
 }
