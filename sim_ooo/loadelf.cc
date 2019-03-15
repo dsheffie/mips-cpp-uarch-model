@@ -11,7 +11,15 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <errno.h>
+
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#if TARGET_OS_MAC
+#include <libelf/gelf.h>
+#endif /* TARGET_OS_MAC */
+#else
 #include <elf.h>
+#endif
 
 #include "helper.hh"
 #include "profileMips.hh"

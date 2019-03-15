@@ -15,9 +15,9 @@ ifeq ($(UNAME_S),FreeBSD)
 endif
 
 ifeq ($(UNAME_S),Darwin)
-	CXX = clang++ -march=native
-	OBJ += gthread_asm_osx.o
-	EXTRA_LD = -L/usr/local/lib -lboost_program_options-mt
+	CXX = clang++ -march=native -I/opt/local/include
+	OBJ += gthread_asm_darwin.o
+	EXTRA_LD = -L/opt/local/lib -lboost_program_options-mt
 endif
 
 CXXFLAGS = -std=c++11 -g $(OPT) $(LLVM_CXXFLAGS)
