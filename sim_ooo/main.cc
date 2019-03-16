@@ -245,6 +245,10 @@ int main(int argc, char *argv[]) {
   delete s;
   delete sm;
 
+  if(l1d) {
+    *global::sim_log << *l1d;
+  }
+  
   if(l3d) {
     delete l3d;
   }
@@ -252,7 +256,6 @@ int main(int argc, char *argv[]) {
     delete l2d;
   }
   if(l1d) {
-    *global::sim_log << *l1d;
     delete l1d;
   }
   

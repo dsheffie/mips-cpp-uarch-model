@@ -8,7 +8,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-pre = re.compile('c (\d+), i (\d+), a ipc (\d+(.\d+)?), w ipc (\d+(.\d+)?), a br (\d+(.\d+)?), w br (\d+(.\d+)?)(, dcu hit rate \d+.\d+, window dcu hit rate \d+.\d+)?\n')
+pre = re.compile('c (\d+), i (\d+), *')
 
 z = list()
 max_cycle = 0
@@ -19,8 +19,7 @@ with open(sys.argv[1]) as fp:
             g = mtx.groups()
             try:
                 cycle = int(g[0])
-                a_ipc = float(g[2])
-                w_ipc = float(g[4])
+                insns = int(g[1])
             except ValueError:
                 continue
 
@@ -29,19 +28,19 @@ with open(sys.argv[1]) as fp:
             else:
                 continue
             
-            t = [cycle,a_ipc,w_ipc]
+            t = [insns,cycle]
             z.append(t)
 
 l = len(z)
-t = [x[0] for x in z[0:l]]
-a = [x[1] for x in z[0:l]]
-w = [x[2] for x in z[0:l]]
+print('collected %d samples' % l)
+i = [x[0] for x in z[0:l]]
+c = [x[1] for x in z[0:l]]
 
 
 with PdfPages('results.pdf') as pdf:
     plt.rc('text', usetex=True)
     plt.figure()
-    plt.plot(t,w,t,a)
+    plt.plot(i,c)
     pdf.savefig()  # saves the current figure into a pdf page
     plt.close()
 
