@@ -13,6 +13,7 @@
 
 #include "profileMips.hh"
 #include "parseMips.hh"
+#include "sim_cache.hh"
 #include "helper.hh"
 #include "globals.hh"
 
@@ -1059,8 +1060,7 @@ static void _bgez_bltz(uint32_t inst, state_t *s)
 
 
 
-static void _lw(uint32_t inst, state_t *s)
-{
+static void _lw(uint32_t inst, state_t *s) {
   uint32_t rt = (inst >> 16) & 31;
   uint32_t rs = (inst >> 21) & 31;
   int16_t himm = (int16_t)(inst & ((1<<16) - 1));
@@ -1068,6 +1068,9 @@ static void _lw(uint32_t inst, state_t *s)
   uint32_t ea = (uint32_t)s->gpr[rs] + imm;
 
   s->gpr[rt] = bswap(*((int32_t*)(s->mem + ea))); 
+  if(s->l1d) {
+    s->l1d->read(ea&(~3U), 4);
+  }
   s->pc += 4;
 }
 
@@ -1141,6 +1144,9 @@ static void _sw(uint32_t inst, state_t *s)
   int32_t imm = (int32_t)himm;
   uint32_t ea = s->gpr[rs] + imm;
   *((int32_t*)(s->mem + ea)) = bswap(s->gpr[rt]);
+  if(s->l1d) {
+    s->l1d->write(ea&(~3U), 4);
+  }
   s->pc += 4;
 }
 
@@ -1483,6 +1489,9 @@ static void _ldc1(uint32_t inst, state_t *s)
   //std::cout << "FS ldc1 : " << std::hex << "EA=" << ea << ","
   //<< (bswap(*((uint64_t*)(s->mem + ea)))) << std::dec << "\n";
   *((int64_t*)(s->cpr1 + ft)) = bswap(*((int64_t*)(s->mem + ea))); 
+  if(s->l1d) {
+    s->l1d->read(ea&(~7U), 8);
+  }
   s->pc += 4;
 }
 static void _sdc1(uint32_t inst, state_t *s)
@@ -1493,6 +1502,9 @@ static void _sdc1(uint32_t inst, state_t *s)
   int32_t imm = (int32_t)himm;
   uint32_t ea = s->gpr[rs] + imm;
   *((int64_t*)(s->mem + ea)) = bswap((*(int64_t*)(s->cpr1 + ft)));
+  if(s->l1d) {
+    s->l1d->write(ea&(~7U), 8);
+  }
   s->pc += 4;
 }
 static void _lwc1(uint32_t inst, state_t *s)
@@ -1504,6 +1516,9 @@ static void _lwc1(uint32_t inst, state_t *s)
   uint32_t ea = s->gpr[rs] + imm;
   uint32_t v = bswap(*((uint32_t*)(s->mem + ea))); 
   *((float*)(s->cpr1 + ft)) = *((float*)&v);
+  if(s->l1d) {
+    s->l1d->read(ea&(~3U), 4);
+  }
   s->pc += 4;
 }
 static void _swc1(uint32_t inst, state_t *s)
@@ -1515,6 +1530,9 @@ static void _swc1(uint32_t inst, state_t *s)
   uint32_t ea = s->gpr[rs] + imm;
   uint32_t v = *((uint32_t*)(s->cpr1+ft));
   *((uint32_t*)(s->mem + ea)) = bswap(v);
+  if(s->l1d) {
+    s->l1d->write(ea&(~3U), 4);
+  }
   s->pc += 4;
 }
 

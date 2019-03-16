@@ -99,6 +99,7 @@ int main(int argc, char *argv[]) {
   bool use_checkpoint = false, use_oracle = false, hash=false;
   bool use_syscall_skip = false, use_mem_model = false;
   bool clear_checkpoint_icnt = false;
+  bool warmstart = true;
   po::options_description desc("Options");
   po::variables_map vm;
   
@@ -119,6 +120,7 @@ int main(int argc, char *argv[]) {
     ("use_l2", po::value<bool>(&use_l2)->default_value(true), "use l2 cache model")
     ("use_l3", po::value<bool>(&use_l3)->default_value(true), "use l3 cache model")
     ("interp,i", po::value<bool>(&global::use_interp_check)->default_value(true), "use interpreter check")
+    ("warmstart", po::value<bool>(&warmstart)->default_value(true), "use warmstart with interpreter")
 #define SIM_PARAM(A,B,C,D) (#A,po::value<int>(&sim_param::A)->default_value(B), #A)
     SIM_PARAM_LIST;
 #undef SIM_PARAM
@@ -209,7 +211,10 @@ int main(int argc, char *argv[]) {
 			    sim_param::l1d_sets,
 			    "l1d",
 			    sim_param::l1d_latency, l2d);
-    
+    if(warmstart) {
+      s->l1d = l1d;
+    }
+
     *global::sim_log << "l1d capacity = " << l1d->capacity() << "\n";
     if(l2d) {
       *global::sim_log << "l2d capacity = " << l2d->capacity() << "\n";

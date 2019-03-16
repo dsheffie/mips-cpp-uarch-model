@@ -515,8 +515,10 @@ void initialize_ooo_core(sim_state &machine_state,
 			 simCache *l1d,
 			 bool use_oracle,
 			 bool use_syscall_skip,
-			 uint64_t skipicnt, uint64_t maxicnt,
-			 state_t *s, const sparse_mem *sm) {
+			 uint64_t skipicnt, 
+			 uint64_t maxicnt,
+			 state_t *s,
+			 const sparse_mem *sm) {
 
   machine_state.l1d = l1d;
   

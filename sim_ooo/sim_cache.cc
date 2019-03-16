@@ -582,8 +582,6 @@ uint32_t simCache::write(sim_op op, uint32_t addr, uint32_t num_bytes) {
   return lat;
 }
 
-
-
 void simCache::getStats() {
   std::string s;
   size_t total = hits+misses;

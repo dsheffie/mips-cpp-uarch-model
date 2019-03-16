@@ -267,8 +267,20 @@ public:
   
   uint32_t read(mips_meta_op *op, uint32_t addr, uint32_t num_bytes);
   uint32_t write(mips_meta_op *op, uint32_t addr, uint32_t num_bytes);
+
   void nuke_inflight();
   virtual void tick();
+
+  /* warm-start uarch simulator with these methods */
+  void read(uint32_t addr, uint32_t num_bytes) {
+    uint32_t lat = 0;
+    access(addr,num_bytes,opType::READ,lat);
+  }
+  void write(uint32_t addr, uint32_t num_bytes) {
+    uint32_t lat = 0;
+    access(addr,num_bytes,opType::WRITE,lat);
+  }
+
   const size_t &getHits() const {
     return hits;
   }

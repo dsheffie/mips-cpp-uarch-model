@@ -10,8 +10,9 @@
 #include "mips_encoding.hh"
 #include "sparse_mem.hh"
 
-#define MARGS 20
+const static int MARGS = 20;
 
+class simCache;
 
 typedef struct {
   uint32_t tv_sec;
@@ -66,7 +67,7 @@ struct state_t {
   bool was_branch_or_jump = false;
   bool was_likely_branch = false;
   bool took_branch_or_jump = false;
-  
+  simCache *l1d = nullptr;
   state_t(sparse_mem &mem) : mem(mem), pc(0), lo(0), hi(0),
 			     icnt(0), brk(0),
 			     syscall(0), steps(0) {
