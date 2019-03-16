@@ -524,13 +524,13 @@ void initialize_ooo_core(sim_state &machine_state,
   machine_state.l1d = l1d;
   
   if(use_syscall_skip) {
-    while(s->syscall==0) {
+    while(s->syscall==0 and not(s->brk)) {
       execMips(s);
     }
     s->pc+=4;
   }
   else if(skipicnt != 0) {
-    while(s->icnt < skipicnt) {
+    while((s->icnt < skipicnt) and not(s->brk)) {
       execMips(s);
     }
   }
