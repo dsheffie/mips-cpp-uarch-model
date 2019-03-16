@@ -5,7 +5,7 @@ OBJ = githash.o save_state.o main.o loadelf.o parseMips.o helper.o profileMips.o
 ifeq ($(UNAME_S),Linux)
 	CXX = g++ -march=native -flto
 	OBJ += gthread_asm.o
-	EXTRA_LD = -lunwind -lboost_program_options
+	EXTRA_LD = -lunwind -lboost_program_options -ltcmalloc_minimal
 endif
 
 ifeq ($(UNAME_S),FreeBSD)
