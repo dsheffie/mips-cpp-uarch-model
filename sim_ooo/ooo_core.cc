@@ -442,6 +442,9 @@ void retire(sim_state &machine_state) {
 	}
       }
 
+      if(machine_state.l1d) {
+	machine_state.l1d->nuke_inflight();
+      }
       undo_rob_entry undo_rob(machine_state);
       int64_t c = rob.traverse_and_apply(undo_rob);
       int64_t sleep_cycles = (c + sim_param::retire_bw - 1) / sim_param::retire_bw;
@@ -462,9 +465,7 @@ void retire(sim_state &machine_state) {
 	  delete d;
 	}
       }
-      if(machine_state.l1d) {
-	machine_state.l1d->nuke_inflight();
-      }
+
       //machine_state.return_stack.clear();
       machine_state.decode_queue.clear();
       machine_state.fetch_queue.clear();

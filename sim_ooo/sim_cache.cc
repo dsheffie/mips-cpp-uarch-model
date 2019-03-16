@@ -546,7 +546,7 @@ void simCache::tick() {
   
   for(auto it = inflight.begin(); it != inflight.end(); /* nil */) {
     sim_op o = *it;
-    if(o->aux_cycle == get_curr_cycle()) {
+     if(o->aux_cycle == get_curr_cycle()) {
       size_t was = inflight.size();
       o->complete_cycle = o->aux_cycle + 1;
       it = inflight.erase(it);
