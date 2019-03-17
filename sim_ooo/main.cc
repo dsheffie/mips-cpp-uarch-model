@@ -233,9 +233,13 @@ int main(int argc, char *argv[]) {
   if(not(machine_state.terminate_sim)) {
     run_ooo_core(machine_state);
   }
-
+  
+  *global::sim_log << std::hex << "sparse mem bytes allocated = "
+		     << machine_state.mem->bytes_allocated()
+		     << std::dec << "\n";
+  
   if(hash) {
-    *global::sim_log << std::hex << "crc32="
+    *global::sim_log << std::hex << "crc32 = "
 		     << machine_state.mem->crc32()
 		     << std::dec << "\n";
   }

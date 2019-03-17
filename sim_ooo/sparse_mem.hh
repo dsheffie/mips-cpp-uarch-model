@@ -131,6 +131,9 @@ public:
   uint64_t count() const {
     return present_bitvec.popcount();
   }
+  uint64_t bytes_allocated() const {
+    return pgsize * count();
+  }
 };
 
 template <bool do_write>
