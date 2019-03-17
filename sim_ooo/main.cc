@@ -234,9 +234,9 @@ int main(int argc, char *argv[]) {
     run_ooo_core(machine_state);
   }
   
-  *global::sim_log << std::hex << "sparse mem bytes allocated = "
-		     << machine_state.mem->bytes_allocated()
-		     << std::dec << "\n";
+  *global::sim_log << "sparse mem bytes allocated = "
+		   << machine_state.mem->bytes_allocated()
+		   << "\n";
   
   if(hash) {
     *global::sim_log << std::hex << "crc32 = "
