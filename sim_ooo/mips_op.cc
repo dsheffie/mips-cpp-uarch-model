@@ -1369,7 +1369,7 @@ public:
       machine_state.l1d->write(m,effective_address & (~3U), 4);
     }
     else {
-      m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
+      m->complete_cycle = get_curr_cycle() + 1;/*sim_param::l1d_latency;*/
     }
   }
   int64_t get_latency() const override {
@@ -3645,6 +3645,12 @@ public:
 	/* nuke caches */
 	if(machine_state.l1d) {
 	  machine_state.l1d->flush();
+	}
+	break;
+      case 52:
+	/* flush cacheline */
+	if(machine_state.l1d) {
+	  machine_state.l1d->flush_line((uint32_t)src_regs[0]);
 	}
 	break;
       case 55:

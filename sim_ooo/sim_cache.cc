@@ -71,6 +71,14 @@ void highAssocCache::flush() {
   }
 }
 
+void highAssocCache::flush_line(uint32_t addr) {
+
+  if(next_level) {
+    next_level->flush_line(addr);
+  }
+}
+
+
 highAssocCache::highAssocCache(size_t bytes_per_line, size_t assoc, size_t num_sets, 
 			       std::string name, int latency, simCache *next_level) :
   simCache(bytes_per_line, assoc, num_sets, name, latency, next_level) {
@@ -109,6 +117,13 @@ void lowAssocCache::flush() {
   }
   if(next_level) {
     next_level->flush();
+  }
+}
+
+void lowAssocCache::flush_line(uint32_t addr) {
+
+  if(next_level) {
+    next_level->flush_line(addr);
   }
 }
 
@@ -232,6 +247,12 @@ void directMappedCache::flush() {
   }
 }
 
+void directMappedCache::flush_line(uint32_t addr) {
+  if(next_level) {
+    next_level->flush_line(addr);
+  }
+}
+
 fullAssocCache::~fullAssocCache() {}
 
 
@@ -267,6 +288,12 @@ void fullAssocCache::flush() {
   }
 }
 
+void fullAssocCache::flush_line(uint32_t addr) {
+  if(next_level) {
+    next_level->flush_line(addr);
+  }
+}
+
 setAssocCache::setAssocCache(size_t bytes_per_line, size_t assoc, size_t num_sets, 
 			     std::string name, int latency, simCache *next_level) :
   simCache(bytes_per_line, assoc, num_sets, name, latency, next_level) {
@@ -291,11 +318,42 @@ void setAssocCache::flush() {
   }
 }
 
+void setAssocCache::flush_line(uint32_t addr) {
+  uint32_t w,t;
+  uint32_t b = index(addr, w, t);
+#if 0
+  std::cerr << "flush 0x"
+	    << std::hex
+	    << addr
+	    << " maps to way "
+	    << w
+	    << " with tag "
+	    << t
+	    << "\n";
+#endif
+  sets[w]->flush_line(t);
+  if(next_level) {
+    next_level->flush_line(addr);
+  }
+}
+
 bool setAssocCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) {
   uint32_t w,t;
   lat += latency;
   uint32_t b = index(addr, w, t);
   bool hit = sets[w]->access(t,o);
+#if 0
+  std::cerr << "access 0x"
+	    << std::hex
+	    << addr
+	    << " maps to way "
+	    << w
+	    << " with tag "
+	    << t
+	    << ", hit = "
+	    << hit
+	    << "\n";
+#endif
   if(not(hit)) {
     if(next_level) {
       size_t reload_addr = addr & (~(bytes_per_line-1));
@@ -314,6 +372,12 @@ void fullRandAssocCache::flush() {
   tags.clear();
   if(next_level) {
     next_level->flush();
+  }
+}
+
+void fullRandAssocCache::flush_line(uint32_t addr) {
+  if(next_level) {
+    next_level->flush_line(addr);
   }
 }
 
@@ -566,7 +630,11 @@ void simCache::nuke_inflight() {
 
 uint32_t simCache::read(sim_op op, uint32_t addr, uint32_t num_bytes) {
   uint32_t lat = 0;
-  access(addr,num_bytes,opType::READ,lat);
+  bool hit = access(addr,num_bytes,opType::READ,lat);
+  if(not(hit) and false) {
+    assert(op);
+    std::cerr << "read: " << std::hex << op->pc << std::dec << " missed\n";
+  }
   op->aux_cycle = lat + get_curr_cycle();
   assert(not(inflight.full()));
   inflight.push(op);
@@ -575,7 +643,18 @@ uint32_t simCache::read(sim_op op, uint32_t addr, uint32_t num_bytes) {
 
 uint32_t simCache::write(sim_op op, uint32_t addr, uint32_t num_bytes) {
   uint32_t lat = 0;
-  access(addr,num_bytes,opType::WRITE,lat);
+  bool hit = access(addr,num_bytes,opType::WRITE,lat);
+  if(not(hit) and false) {
+    assert(op);
+    std::cerr << "write: "
+	      << std::hex
+	      << op->pc
+	      << std::dec
+	      << " missed, push out "
+	      << lat
+	      << "\n";
+  }
+  lat = 1;
   op->aux_cycle = lat + get_curr_cycle();
   assert(not(inflight.full()));
   inflight.push(op);
@@ -649,6 +728,12 @@ void realLRUCache::flush() {
   }
   if(next_level) {
     next_level->flush();
+  }
+}
+
+void realLRUCache::flush_line(uint32_t addr) {
+  if(next_level) {
+    next_level->flush_line(addr);
   }
 }
 

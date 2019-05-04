@@ -30,14 +30,24 @@ static const uint32_t K1SIZE = 0x80000000;
 
 void dbt_backtrace();
 
-#define die() {								\
-    std::cerr << __PRETTY_FUNCTION__ << " @ " << __FILE__ << ":"	\
-	      << __LINE__ << " called die\n";				\
+#define terminate_prog() {						\
     dbt_backtrace();							\
     abort();								\
   }
 
+#define die() {								\
+    std::cerr << __PRETTY_FUNCTION__ << " @ " << __FILE__ << ":"	\
+	      << __LINE__ << " called die\n";				\
+    terminate_prog();							\
+  }
 
+#define unimplemented() {						\
+    std::cerr << __PRETTY_FUNCTION__ << " @ " << __FILE__ << ":"	\
+	      << __LINE__ << " is unimplemented, terminating\n";	\
+    terminate_prog();							\
+  }
+
+#undef terminate
 
 double timestamp();
 

@@ -297,6 +297,7 @@ public:
   void getStats();
   double computeAMAT() const;
   virtual void flush() = 0;
+  virtual void flush_line(uint32_t addr) = 0;
 };
 
 std::ostream &operator<<(std::ostream &out, const simCache &cache);
@@ -332,6 +333,7 @@ public:
   ~directMappedCache();
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
   void flush() override;
+  void flush_line(uint32_t addr) override;
 };
 
 class fullAssocCache: public simCache {
@@ -348,6 +350,7 @@ public:
   ~fullAssocCache();
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
   void flush() override;
+  void flush_line(uint32_t addr) override;
 };
 
 class lowAssocCache : public simCache {
@@ -357,6 +360,7 @@ class lowAssocCache : public simCache {
   ~lowAssocCache();
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
   void flush() override;
+  void flush_line(uint32_t addr) override;
  private:
   void updateLRU(uint32_t idx,uint32_t w);
   int32_t findLRU(uint32_t w);
@@ -395,6 +399,12 @@ class setAssocCache: public simCache {
       rw_hits(rw_hits), rw_misses(rw_misses),
       lhits(0), lmisses(0) {
     }
+    void flush_line(uint32_t tag) {
+      auto it = entries.find(tag);
+      if(it != entries.end()) {
+	entries.erase(it);
+      }
+    }
     bool access(uint32_t tag, opType o) {
       bool h = false;
       auto it = entries.find(tag);
@@ -431,6 +441,7 @@ public:
   ~setAssocCache();
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
   void flush() override;
+  void flush_line(uint32_t addr) override;
 };
 
 
@@ -446,6 +457,7 @@ public:
   ~fullRandAssocCache() {}
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
   void flush() override;
+  void flush_line(uint32_t addr) override;
 };
 
 
@@ -456,6 +468,7 @@ class realLRUCache : public simCache {
   ~realLRUCache();
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
   void flush() override;
+  void flush_line(uint32_t addr) override;
 private:
   /* all bits are valid */
   uint8_t *allvalid;
@@ -475,19 +488,20 @@ class highAssocCache : public simCache {
   ~highAssocCache();
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;
   void flush() override;
+  void flush_line(uint32_t addr) override;
  private:
   void updateLRU(uint32_t idx,uint32_t w);
   int32_t findLRU(uint32_t w);
   
   uint8_t *allvalid;
   /* cache valid bits */
-   uint8_t **valid;
-   
-  /* tree-lru bits */
-   uint8_t **lru;
+  uint8_t **valid;
   
-   /* cache tag bits */
-   uint32_t **tag;
+  /* tree-lru bits */
+  uint8_t **lru;
+  
+  /* cache tag bits */
+  uint32_t **tag;
 
 };
 
