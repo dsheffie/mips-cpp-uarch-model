@@ -289,6 +289,12 @@ void fullAssocCache::flush() {
 }
 
 void fullAssocCache::flush_line(uint32_t addr) {
+  uint32_t w,t;
+  uint32_t b = index(addr, w, t);
+  auto it = entries.find(t);
+  if(it != entries.end()) {
+    entries.erase(it);
+  }
   if(next_level) {
     next_level->flush_line(addr);
   }

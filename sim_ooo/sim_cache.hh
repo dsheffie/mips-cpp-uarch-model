@@ -342,7 +342,7 @@ class fullAssocCache: public simCache {
   std::vector<uint64_t> hitdepth;
 public:
   fullAssocCache(size_t bytes_per_line, size_t assoc, size_t num_sets, 
-		std::string name, int latency, simCache *next_level) :
+		 std::string name, int latency, simCache *next_level) :
     simCache(bytes_per_line, assoc, num_sets, name, latency, next_level) {
     hitdepth.resize(assoc);
     std::fill(hitdepth.begin(), hitdepth.end(), 0);

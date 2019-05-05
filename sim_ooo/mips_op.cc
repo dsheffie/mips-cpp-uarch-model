@@ -3478,6 +3478,41 @@ public:
 };
 
 
+class sync_op : public mips_op {
+public:
+  sync_op(sim_op op) : mips_op(op) {
+    this->op_class = mips_op_type::system;
+  }
+  bool allocate(sim_state &machine_state) override {
+    machine_state.alloc_blocked = true;
+    return true;
+  }
+  bool ready(sim_state &machine_state) const override {
+    return true;
+  }
+  void execute(sim_state &machine_state) override {
+    m->complete_cycle = get_curr_cycle() + 1;
+  }
+  void complete(sim_state &machine_state) override {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+    }
+  }
+  bool retire(sim_state &machine_state) override {
+    retired = true;
+    machine_state.icnt++;
+    m->retire_cycle = get_curr_cycle();
+    log_retire(machine_state);
+    machine_state.alloc_blocked = false;
+    return true;
+  }
+  void undo(sim_state &machine_state) override {
+    machine_state.alloc_blocked = false;
+    log_undo(machine_state);
+  }
+};
+
+
 class monitor_op : public mips_op {
 protected:
   int32_t src_regs[4] = {0};
@@ -3847,7 +3882,7 @@ static mips_op* decode_rtype_insn(sim_op m_op) {
     case 0x0D: /* break */
       return new break_op(m_op);
     case 0x0f: /* sync */
-      return new nop(m_op);
+      return new sync_op(m_op);
     case 0x10: /* mfhi */
       return new lo_hi_move(m_op, lo_hi_move::lo_hi_type::mfhi);
     case 0x11: /* mthi */ 

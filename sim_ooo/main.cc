@@ -206,11 +206,13 @@ int main(int argc, char *argv[]) {
 			      "l2d",
 			      sim_param::l2d_latency, l3d);
     }
+    
     l1d = new setAssocCache(sim_param::l1d_linesize,
 			    sim_param::l1d_assoc,
 			    sim_param::l1d_sets,
 			    "l1d",
 			    sim_param::l1d_latency, l2d);
+
     if(warmstart) {
       s->l1d = l1d;
     }
