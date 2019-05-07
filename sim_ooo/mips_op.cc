@@ -3079,6 +3079,7 @@ class fp_fma : public mips_op {
 public:
   enum class op_type {f32, f64};
 protected:
+  bool msub;
   op_type fmt;
   bool allocate_double(sim_state &machine_state) {
     if(machine_state.cpr1_freevec.num_free() < 2)
@@ -3129,7 +3130,12 @@ protected:
     src2[0] = machine_state.cpr1_prf[m->src4_prf];
     src2[1] = machine_state.cpr1_prf[m->src5_prf];
 
-    dest.DT() = src0.DT()*src1.DT() + src2.DT();
+    if(msub) {
+      dest.DT() = src0.DT()*src1.DT() - src2.DT();
+    }
+    else {
+      dest.DT() = src0.DT()*src1.DT() + src2.DT();
+    }
     
     machine_state.cpr1_prf[m->prf_idx] = dest[0];
     machine_state.cpr1_prf[m->aux_prf_idx] = dest[1];
@@ -3141,13 +3147,19 @@ protected:
     src1[0] = machine_state.cpr1_prf[m->src1_prf];
     src2[0] = machine_state.cpr1_prf[m->src2_prf];
 
-    dest.DT() = src0.DT()*src1.DT() + src2.DT();
+    if(msub) {
+      dest.DT() = src0.DT()*src1.DT() - src2.DT();
+    }
+    else {
+      dest.DT() = src0.DT()*src1.DT() + src2.DT();
+    }
     
     machine_state.cpr1_prf[m->prf_idx] = dest[0];
     m->complete_cycle = get_curr_cycle() + get_latency();
   }
 public:
-  fp_fma(op_type fmt, sim_op op) : fmt(fmt), mips_op(op){
+  fp_fma(bool msub, op_type fmt, sim_op op) :
+    msub(msub), fmt(fmt), mips_op(op){
     this->op_class = mips_op_type::fp; 
   }
   int get_dest() const override {
@@ -4068,10 +4080,14 @@ static mips_op* decode_special3_insn(sim_op m_op) {
 static mips_op* decode_coproc1x_insn(sim_op m_op) {
   uint32_t id = (m_op->inst  >> 3) & 0x7;
   uint32_t fmt = m_op->inst & 0x7;
+  auto fma_fmt = fmt==0?fp_fma::op_type::f32:fp_fma::op_type::f64;
+  
   switch(id)
     {
     case 4:
-      return new fp_fma(fmt==0?fp_fma::op_type::f32:fp_fma::op_type::f64,m_op);
+      return new fp_fma(false,fma_fmt,m_op);
+    case 5:
+      return new fp_fma(true,fma_fmt,m_op);
     default:
       std::cerr << "unimplemented coproc id = " << id
 		<< ", fmt = " << fmt
