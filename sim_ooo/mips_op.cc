@@ -1489,7 +1489,6 @@ public:
 
 class fp_load_op : public mips_load {
 public:
-public:
   fp_load_op(sim_op op, load_type lt) : mips_load(op) {
     this->lt = lt;
   }
@@ -1526,9 +1525,7 @@ public:
       machine_state.cpr1_freevec.set_bit(m->aux_prf_idx);
       machine_state.cpr1_rat[get_dest()+1] = m->aux_prf_idx;
       machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
-    }
-
-    
+    }    
     return true;
   }
   bool ready(sim_state &machine_state) const override {
