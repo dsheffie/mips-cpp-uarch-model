@@ -100,7 +100,7 @@ public:
       die();
     }
     machine_state.cpr0_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf];
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -161,7 +161,7 @@ public:
   }
   void execute(sim_state &machine_state) override {
     machine_state.cpr1_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf];
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -222,7 +222,7 @@ public:
       die();
     }
     machine_state.gpr_prf[m->prf_idx] = machine_state.cpr1_prf[m->src0_prf];
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -313,7 +313,7 @@ public:
   }
   void execute(sim_state &machine_state) override {
     machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf];
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
 
   void complete(sim_state &machine_state) override {
@@ -351,7 +351,7 @@ public:
     return true;
   }
   void execute(sim_state &machine_state) override {
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -522,7 +522,7 @@ public:
 	  die();
 	}
     }
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -631,7 +631,7 @@ public:
       default:
 	die();
       }
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   
   void complete(sim_state &machine_state) override {
@@ -680,7 +680,7 @@ public:
     uint32_t uimm32 = m->inst & ((1<<16) - 1);
     uimm32 <<= 16;
     machine_state.gpr_prf[m->prf_idx] = uimm32;
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
 };
 
@@ -802,7 +802,7 @@ public:
     if(get_dest() != -1) {
       machine_state.gpr_prf[m->prf_idx] = m->pc + 8;
     }
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   bool retire(sim_state &machine_state) override {
     if(m->prev_prf_idx != -1) {
@@ -1076,7 +1076,7 @@ public:
     if(m->exception == exception_type::branch) {
       machine_state.alloc_blocked = true;
     }
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -1818,7 +1818,7 @@ public:
     int64_t b = static_cast<int64_t>(machine_state.gpr_prf[m->src0_prf]);
     int64_t y = a*b;
     machine_state.gpr_prf[m->prf_idx] = static_cast<int32_t>(y);
-    m->complete_cycle = get_curr_cycle() + 4;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   int64_t get_latency() const override {
     return 4;
@@ -1885,7 +1885,7 @@ public:
     else {
       machine_state.gpr_prf[m->prf_idx] = __builtin_clz(machine_state.gpr_prf[m->src0_prf]);
     }
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -2162,7 +2162,7 @@ public:
       default:
 	die();
       }
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -2218,7 +2218,7 @@ public:
     uint32_t size = ((m->inst >> 11) & 31) + 1;
     machine_state.gpr_prf[m->prf_idx] = (machine_state.gpr_prf[m->src0_prf] >> pos) &
       ((1<<size)-1);
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -2287,7 +2287,7 @@ public:
     uint32_t v = (machine_state.gpr_prf[m->src0_prf] & mask) << op;
     uint32_t c = (machine_state.gpr_prf[m->src1_prf] & cmask) | v;
     machine_state.gpr_prf[m->prf_idx] = c;
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -2362,7 +2362,7 @@ public:
       r = z ? machine_state.gpr_prf[m->src1_prf] : machine_state.gpr_prf[m->src0_prf];
     }
     machine_state.gpr_prf[m->prf_idx] = r;
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -2502,7 +2502,7 @@ public:
       default:
 	die();
       }
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   bool retire(sim_state &machine_state) override {
     machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
@@ -2627,7 +2627,7 @@ public:
       default:
 	die();
       }
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   bool retire(sim_state &machine_state) override {
     machine_state.cpr1_freevec.clear_bit(m->prev_prf_idx);
@@ -2813,7 +2813,7 @@ public:
       default:
 	die();
       }
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   bool retire(sim_state &machine_state) override {
     machine_state.fcr1_freevec.clear_bit(m->prev_prf_idx);
@@ -3330,7 +3330,7 @@ public:
       default:
 	die();
       }
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -3415,7 +3415,7 @@ public:
       }
     machine_state.cpr1_prf[m->prf_idx] = dest[0];
     machine_state.cpr1_prf[m->aux_prf_idx] = dest[1];
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -3464,7 +3464,7 @@ public:
     return true;
   }
   void execute(sim_state &machine_state) override {
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -3500,7 +3500,7 @@ public:
     return true;
   }
   void execute(sim_state &machine_state) override {
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -3584,7 +3584,7 @@ public:
     src_regs[2] = machine_state.gpr_prf[m->src2_prf];
     src_regs[3] = machine_state.gpr_prf[m->src3_prf];
     m->correct_pc = src_regs[3];
-    m->complete_cycle = get_curr_cycle() + 1;
+    m->complete_cycle = get_curr_cycle() + get_latency();
     m->exception = exception_type::branch;
   }
   void complete(sim_state &machine_state) override {
@@ -4193,6 +4193,7 @@ void mips_op::undo(sim_state &machine_state) {
 }
 
 void mips_op::log_retire(sim_state &machine_state) const {
+  //*global::sim_log  << *this << "\n";
   //std::cout << machine_state.rob.size() << "\n";
 }
 
