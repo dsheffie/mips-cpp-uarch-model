@@ -1499,7 +1499,16 @@ public:
     return  (m->inst >> 16) & 31;
   }
   bool allocate(sim_state &machine_state) override {
-    int num_needed_regs = lt==load_type::ldc1 ? 2 : 1;
+    int num_needed_regs = 1;
+    switch(lt)
+      {
+      case load_type::ldc1:
+      case load_type::ldxc1:
+	num_needed_regs = 2;
+	break;
+      default:
+	break;
+      }
     if(machine_state.cpr1_freevec.num_free() < num_needed_regs)
       return false;
 
@@ -1512,6 +1521,12 @@ public:
     machine_state.load_tbl[m->load_tbl_idx] = m;
     
     m->src0_prf = machine_state.gpr_rat[get_src0()];
+
+    if(get_src1()!=-1) {
+      assert(lt == load_type::lwxc1 or lt == load_type::ldxc1);
+      m->src1_prf = machine_state.gpr_rat[get_src1()];
+    }
+    
     m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
     m->aux_prev_prf_idx = machine_state.cpr1_rat[get_dest()+1];
     
@@ -1520,7 +1535,7 @@ public:
     machine_state.cpr1_rat[get_dest()] = m->prf_idx;
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
 
-    if(lt == load_type::ldc1) {
+    if(lt == load_type::ldc1 or lt == load_type::ldxc1) {
       m->aux_prf_idx = machine_state.cpr1_freevec.find_first_unset();
       machine_state.cpr1_freevec.set_bit(m->aux_prf_idx);
       machine_state.cpr1_rat[get_dest()+1] = m->aux_prf_idx;
@@ -1532,6 +1547,10 @@ public:
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf)))
       return false;
 
+    if(get_src1()!=-1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+      return false;
+    }
+    
     if(stall_for_load(machine_state))
       return false;
 
@@ -1542,14 +1561,19 @@ public:
     uint32_t b = 4;
     switch(lt)
       {
+      case load_type::ldxc1:
+	effective_address += machine_state.gpr_prf[m->src1_prf];
       case load_type::ldc1:
 	m->load_exception |= ((effective_address & 0x7) != 0);
 	b = 8;
 	break;
+      case load_type::lwxc1:
+	effective_address += machine_state.gpr_prf[m->src1_prf];
       case load_type::lwc1:
 	m->load_exception |= ((effective_address & 0x3) != 0);
 	break;
       default:
+	die();
 	break;
       }
 
@@ -1567,6 +1591,7 @@ public:
       if(not(m->load_exception)) {
 	switch(lt)
 	  {
+	  case load_type::ldxc1:
 	  case load_type::ldc1: {
 	    load_thunk<uint64_t> ld(bswap(*((uint64_t*)(mem + effective_address))));
 	    machine_state.cpr1_prf[m->prf_idx] = ld[0];
@@ -1575,6 +1600,7 @@ public:
 	    machine_state.cpr1_valid.set_bit(m->aux_prf_idx);
 	    break;
 	  }
+	  case load_type::lwxc1:
 	  case load_type::lwc1:
 	    machine_state.cpr1_prf[m->prf_idx] = bswap(*((uint32_t*)(mem + effective_address)));
 	    machine_state.cpr1_valid.set_bit(m->prf_idx);
