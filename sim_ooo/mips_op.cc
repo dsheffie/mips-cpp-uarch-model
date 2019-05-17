@@ -3723,6 +3723,10 @@ public:
 	  machine_state.l1d->flush_line((uint32_t)src_regs[0]);
 	}
 	break;
+      case 53: {
+	machine_state.gpr_prf[m->prf_idx] = machine_state.icnt;
+	break;
+      }
       case 55:
 	*((uint32_t*)(mem + (uint32_t)src_regs[0] + 0)) = bswap(K1SIZE);
 	/* No Icache */
