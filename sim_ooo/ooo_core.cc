@@ -855,7 +855,7 @@ extern "C" {
 	      u->ready_cycle = cs;					\
 	    }								\
 	  }								\
-	  for(auto it = RS.begin(); it != RS.end() and (ns < NUM); /*nil*/ ) { \
+	  for(auto it = RS.begin(); it != RS.end() and (ns <= NUM); /*nil*/ ) { \
 	    sim_op u = *it;						\
 	    if(u->op->ready(machine_state) and	(cs >= (sim_param::ready_to_dispatch_latency+u->ready_cycle)) ) { \
 	      it = RS.erase(it);					\
