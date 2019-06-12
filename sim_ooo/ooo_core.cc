@@ -1201,7 +1201,7 @@ void run_ooo_core(sim_state &machine_state) {
 	    << " mispredicted branches\n";
   
   double mpki = (machine_state.mispredicted_branches/static_cast<double>(total_insns))*1000.0;
-  *global::sim_log << mpki << " branch mispredicts per kilo-instruction\n";
+  *global::sim_log << mpki << " MPKI\n";
   
   *global::sim_log << machine_state.n_jumps << " jumps\n";
   *global::sim_log << machine_state.mispredicted_jumps 
