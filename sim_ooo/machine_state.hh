@@ -13,6 +13,8 @@
 #include "counter2b.hh"
 #include "perceptron.hh"
 
+#include <array>
+
 struct state_t;
 class simCache;
 class mips_meta_op;
