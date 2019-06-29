@@ -19,6 +19,7 @@ class mips_meta_op;
 
 class sim_state {
 public:
+  const static int max_op_lat = 128;
   bool terminate_sim = false;
   bool nuke = false;
   bool alloc_blocked = false;
@@ -100,6 +101,8 @@ public:
   loop_predictor *loop_pred = nullptr;
   sim_bitvec bhr;
   std::vector<sim_bitvec> bht;
+
+  std::array<int,max_op_lat> wr_ports;
   
   uint64_t icnt = 0, maxicnt = ~(0UL), skipicnt = 0;
   uint64_t fetched_insns = 0;

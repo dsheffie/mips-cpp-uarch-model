@@ -283,7 +283,9 @@ public:
   virtual int get_src3() const {
     return -1;
   }
-  
+  int count_rd_ports() const {
+    return (get_src0()!=-1) + (get_src1()!=-1) + (get_src2()!=-1) + (get_src3()!=-1);
+  }
   mips_op_type get_op_class() const {
     return op_class;
   }
