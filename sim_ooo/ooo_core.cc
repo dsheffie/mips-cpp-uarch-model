@@ -277,6 +277,7 @@ void retire(sim_state &machine_state) {
 	    error = true;
 	  }
 	}
+	
 	for(int i = 0; i < 32; i++) {
 	  if(s->cpr1[i] != machine_state.arch_cpr1[i]) {
 	    std::cerr << "uarch cpr1 " << i << " : " 
@@ -448,12 +449,28 @@ void retire(sim_state &machine_state) {
       for(int i = 0; i < 34; i++) {
 	if(machine_state.gpr_rat[i] != machine_state.gpr_rat_retire[i]) {
 	  std::cerr << "rat entry " << i << " mismatch\n";
-	  std::cout << "gpr_rat[" << i << "] = "
+	  std::cerr << "gpr_rat[" << i << "] = "
 		    << machine_state.gpr_rat[i] << "\n";
-	  std::cout << "gpr_rat_retire[" << i << "] = "
+	  std::cerr << "gpr_rat_retire[" << i << "] = "
 		    << machine_state.gpr_rat_retire[i] << "\n";
 	  error = true;
 	}
+      }
+      if(machine_state.gpr_freevec != machine_state.gpr_freevec_retire) {
+	std::cerr << "gpr freevec mismatch!\n";
+	error = true;
+      }
+      if(machine_state.cpr0_freevec != machine_state.cpr0_freevec_retire) {
+	std::cerr << "cpr0 freevec mismatch!\n";
+	error = true;
+      }
+      if(machine_state.cpr1_freevec != machine_state.cpr1_freevec_retire) {
+	std::cerr << "cpr1 freevec mismatch!\n";
+	error = true;
+      }
+      if(machine_state.fcr1_freevec != machine_state.fcr1_freevec_retire) {
+	std::cerr << "fcr1 freevec mismatch!\n";
+	error = true;
       }
       for(int i = 0; i < 32; i++) {
 	error |= machine_state.cpr0_rat_retire[i] != machine_state.cpr0_rat[i];
@@ -1014,14 +1031,17 @@ void sim_state::initialize_rat_mappings() {
     gpr_rat[i] = i;
     gpr_rat_retire[i] = i;
     gpr_freevec.set_bit(i);
+    gpr_freevec_retire.set_bit(i);
     gpr_valid.set_bit(i);
     cpr0_rat[i] = i;
     cpr0_rat_retire[i] = i;
     cpr0_freevec.set_bit(i);
+    cpr0_freevec_retire.set_bit(i);
     cpr0_valid.set_bit(i);
     cpr1_rat[i] = i;
     cpr1_rat_retire[i] = i;
     cpr1_freevec.set_bit(i);
+    cpr1_freevec_retire.set_bit(i);
     cpr1_valid.set_bit(i);
   }
   /* lo and hi regs */
@@ -1029,12 +1049,14 @@ void sim_state::initialize_rat_mappings() {
     gpr_rat[i] = i;
     gpr_rat_retire[i] = i;
     gpr_freevec.set_bit(i);
+    gpr_freevec_retire.set_bit(i);
     gpr_valid.set_bit(i);
   }
   for(int i = 0; i < 5; i++) {
     fcr1_rat[i] = i;
     fcr1_rat_retire[i] = i;
     fcr1_freevec.set_bit(i);
+    fcr1_freevec_retire.set_bit(i);
     fcr1_valid.set_bit(i);
   }
 }
@@ -1058,6 +1080,10 @@ void sim_state::initialize() {
   cpr0_freevec.clear_and_resize(sim_param::num_cpr0_prf);
   cpr1_freevec.clear_and_resize(sim_param::num_cpr1_prf);
   fcr1_freevec.clear_and_resize(sim_param::num_fcr1_prf);
+  gpr_freevec_retire.clear_and_resize(sim_param::num_gpr_prf);
+  cpr0_freevec_retire.clear_and_resize(sim_param::num_cpr0_prf);
+  cpr1_freevec_retire.clear_and_resize(sim_param::num_cpr1_prf);
+  fcr1_freevec_retire.clear_and_resize(sim_param::num_fcr1_prf);
   
   load_tbl_freevec.clear_and_resize(sim_param::load_tbl_size);
   load_tbl = new mips_meta_op*[sim_param::load_tbl_size];

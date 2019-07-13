@@ -72,6 +72,10 @@ public:
   sim_bitvec cpr0_freevec;
   sim_bitvec cpr1_freevec;
   sim_bitvec fcr1_freevec;
+  sim_bitvec gpr_freevec_retire;
+  sim_bitvec cpr0_freevec_retire;
+  sim_bitvec cpr1_freevec_retire;
+  sim_bitvec fcr1_freevec_retire;
   sim_bitvec load_tbl_freevec;
   sim_bitvec store_tbl_freevec;
   

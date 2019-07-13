@@ -31,7 +31,7 @@ uint32_t xorshift32(uint32_t x, uint32_t t) {
 
 
 int main() {
-  uint32_t z = func(1, 32, 1<<24);
+  uint32_t z = func(1, 24, 1<<28);
   std::cout << "asm x = " << z << "\n";
   return 0;
 }

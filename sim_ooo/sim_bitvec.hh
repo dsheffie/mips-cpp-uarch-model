@@ -54,6 +54,21 @@ public:
   bool operator[](size_t idx) const {
     return get_bit(idx);
   }
+  bool operator==(const sim_bitvec_template &other) const {
+    if((n_bits != other.n_bits) or (n_words != other.n_words)
+       or (ln2_bits != other.ln2_bits)) {
+      return false;
+    }
+    for(size_t w = 0; w < n_words; w++) {
+      if(arr[w] != other.arr[w]) {
+	return false;
+      }
+    }
+    return true;
+  }
+  bool operator!=(const sim_bitvec_template &other) const {
+    return not(*this==other);
+  }
   void set_bit(size_t idx) {
     if(idx >= n_bits) {
       std::cerr << "fatal : trying to access bit "

@@ -115,6 +115,8 @@ public:
     machine_state.icnt++;
     m->retire_cycle = get_curr_cycle();
     machine_state.cpr0_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.cpr0_freevec_retire.set_bit(m->prf_idx);
+    machine_state.cpr0_freevec_retire.clear_bit(m->prev_prf_idx);
     log_retire(machine_state);
     return true;
   }
@@ -179,6 +181,9 @@ public:
     machine_state.arch_cpr1_last_pc[get_dest()] = m->pc;
     m->retire_cycle = get_curr_cycle();
     machine_state.cpr1_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.cpr1_freevec_retire.set_bit(m->prf_idx);
+    machine_state.cpr1_freevec_retire.clear_bit(m->prev_prf_idx);
+
     log_retire(machine_state);
     return true;
   }
@@ -243,6 +248,9 @@ public:
     retired = true;
     m->retire_cycle = get_curr_cycle();
     machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+    machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
+
     log_retire(machine_state);
     return true;
   }
@@ -334,6 +342,9 @@ public:
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     m->retire_cycle = get_curr_cycle();
     machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+    machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
+
     log_retire(machine_state);
     return true;
   }
@@ -553,6 +564,8 @@ public:
     m->retire_cycle = get_curr_cycle();
     if(m->prf_idx != -1) {
       machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+      machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+      machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
     }
     log_retire(machine_state);
     return true;
@@ -658,6 +671,8 @@ public:
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+    machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
     m->retire_cycle = get_curr_cycle();
     log_retire(machine_state);
     return true;
@@ -818,6 +833,8 @@ public:
       machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
       machine_state.arch_grf_last_pc[get_dest()] = m->pc;
       machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+      machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+      machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
     }
     retired = true;
     machine_state.icnt++;
@@ -1323,6 +1340,8 @@ public:
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+    machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
     m->retire_cycle = get_curr_cycle();
     log_retire(machine_state);
     return true;
@@ -1632,6 +1651,8 @@ public:
     machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
     machine_state.arch_cpr1_last_pc[get_dest()] = m->pc;
     machine_state.cpr1_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.cpr1_freevec_retire.set_bit(m->prf_idx);
+    machine_state.cpr1_freevec_retire.clear_bit(m->prev_prf_idx);
     
     if(m->aux_prf_idx != -1) {
       machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
@@ -1639,6 +1660,8 @@ public:
       machine_state.arch_cpr1[get_dest()+1] = machine_state.cpr1_prf[m->aux_prf_idx];
       machine_state.arch_cpr1_last_pc[get_dest()+1] = m->pc;
       machine_state.cpr1_rat_retire[get_dest()+1] = m->aux_prf_idx;
+      machine_state.cpr1_freevec_retire.set_bit(m->aux_prf_idx);
+      machine_state.cpr1_freevec_retire.clear_bit(m->aux_prev_prf_idx);
     }
     m->retire_cycle = get_curr_cycle();
     log_retire(machine_state);
@@ -1875,6 +1898,8 @@ public:
     retired = true;
     machine_state.icnt++;
     machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+    machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
     m->retire_cycle = get_curr_cycle();
     log_retire(machine_state);
     return true;
@@ -1940,6 +1965,8 @@ public:
     retired = true;
     machine_state.icnt++;
     machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+    machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
     m->retire_cycle = get_curr_cycle();
     log_retire(machine_state);
     return true;
@@ -2147,6 +2174,10 @@ public:
 
     machine_state.gpr_rat_retire[32] = m->lo_prf_idx;
     machine_state.gpr_rat_retire[33] = m->hi_prf_idx;
+    machine_state.gpr_freevec_retire.set_bit(m->lo_prf_idx);
+    machine_state.gpr_freevec_retire.clear_bit(m->prev_lo_prf_idx);
+    machine_state.gpr_freevec_retire.set_bit(m->hi_prf_idx);
+    machine_state.gpr_freevec_retire.clear_bit(m->prev_hi_prf_idx);
 
     m->retire_cycle = get_curr_cycle();
     log_retire(machine_state);
@@ -2221,6 +2252,8 @@ public:
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
 
     machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+    machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
     
     m->retire_cycle = get_curr_cycle();
     log_retire(machine_state);
@@ -2279,6 +2312,8 @@ public:
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+    machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
     m->retire_cycle = get_curr_cycle();
     log_retire(machine_state);
     return true;
@@ -2349,6 +2384,8 @@ public:
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+    machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
     m->retire_cycle = get_curr_cycle();
     log_retire(machine_state);
     return true;
@@ -2426,6 +2463,8 @@ public:
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     m->retire_cycle = get_curr_cycle();
     machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+    machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
     log_retire(machine_state);
     return true;
   }
@@ -2558,11 +2597,15 @@ public:
     machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
     machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
     machine_state.cpr1_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.cpr1_freevec_retire.set_bit(m->prf_idx);
+    machine_state.cpr1_freevec_retire.clear_bit(m->prev_prf_idx);
     if(fmt == FMT_D) {
       machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
       machine_state.cpr1_valid.clear_bit(m->aux_prev_prf_idx);
       machine_state.arch_cpr1[get_dest()+1] = machine_state.cpr1_prf[m->aux_prf_idx];
       machine_state.cpr1_rat_retire[get_dest()+1] = m->aux_prf_idx;
+      machine_state.cpr1_freevec_retire.set_bit(m->aux_prf_idx);
+      machine_state.cpr1_freevec_retire.clear_bit(m->aux_prev_prf_idx);
     }
     retired = true;
     machine_state.icnt++;
@@ -2685,11 +2728,15 @@ public:
     machine_state.cpr1_valid.clear_bit(m->prev_prf_idx);
     machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
     machine_state.cpr1_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.cpr1_freevec_retire.set_bit(m->prf_idx);
+    machine_state.cpr1_freevec_retire.clear_bit(m->prev_prf_idx);
     if(fmt == FMT_D) {
       machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
       machine_state.cpr1_valid.clear_bit(m->aux_prev_prf_idx);
       machine_state.arch_cpr1[get_dest()+1] = machine_state.cpr1_prf[m->aux_prf_idx];
       machine_state.cpr1_rat_retire[get_dest()+1] = m->aux_prf_idx;
+      machine_state.cpr1_freevec_retire.set_bit(m->aux_prf_idx);
+      machine_state.cpr1_freevec_retire.clear_bit(m->aux_prev_prf_idx);
     }
     retired = true;
     machine_state.icnt++;
@@ -2877,6 +2924,8 @@ public:
     machine_state.arch_fcr1[CP1_CR25] = machine_state.fcr1_prf[m->prf_idx];
     machine_state.arch_fcr1_last_pc[CP1_CR25] = m->pc;
     machine_state.fcr1_rat_retire[CP1_CR25] = m->prf_idx;
+    machine_state.fcr1_freevec_retire.set_bit(m->prf_idx);
+    machine_state.fcr1_freevec_retire.clear_bit(m->prev_prf_idx);
     log_retire(machine_state);
     return true;
   }
@@ -3104,12 +3153,16 @@ public:
     machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
     machine_state.arch_cpr1_last_pc[get_dest()] = m->pc;
     machine_state.cpr1_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.cpr1_freevec_retire.set_bit(m->prf_idx);
+    machine_state.cpr1_freevec_retire.clear_bit(m->prev_prf_idx);
     m->retire_cycle = get_curr_cycle();
     if(m->aux_prf_idx != -1) {
       machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
       machine_state.cpr1_valid.clear_bit(m->aux_prev_prf_idx);
       machine_state.arch_cpr1[get_dest()+1] = machine_state.cpr1_prf[m->aux_prf_idx];
       machine_state.cpr1_rat_retire[get_dest()+1] = m->aux_prf_idx;
+      machine_state.cpr1_freevec_retire.set_bit(m->aux_prf_idx);
+      machine_state.cpr1_freevec_retire.clear_bit(m->aux_prev_prf_idx);
     }
     log_retire(machine_state);
     return true;
@@ -3283,11 +3336,15 @@ public:
     machine_state.arch_cpr1_last_pc[get_dest()] = m->pc;
     m->retire_cycle = get_curr_cycle();
     machine_state.cpr1_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.cpr1_freevec_retire.set_bit(m->prf_idx);
+    machine_state.cpr1_freevec_retire.clear_bit(m->prev_prf_idx);
     if(m->aux_prf_idx != -1) {
       machine_state.cpr1_freevec.clear_bit(m->aux_prev_prf_idx);
       machine_state.cpr1_valid.clear_bit(m->aux_prev_prf_idx);
       machine_state.arch_cpr1[get_dest()+1] = machine_state.cpr1_prf[m->aux_prf_idx];
       machine_state.cpr1_rat_retire[get_dest()+1] = m->aux_prf_idx;
+      machine_state.cpr1_freevec_retire.set_bit(m->aux_prf_idx);
+      machine_state.cpr1_freevec_retire.clear_bit(m->aux_prev_prf_idx);
     }
     log_retire(machine_state);
     return true;
@@ -3403,6 +3460,8 @@ public:
     machine_state.arch_cpr1[get_dest()] = machine_state.cpr1_prf[m->prf_idx];
     machine_state.arch_cpr1_last_pc[get_dest()] = m->pc;
     machine_state.cpr1_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.cpr1_freevec_retire.set_bit(m->prf_idx);
+    machine_state.cpr1_freevec_retire.clear_bit(m->prev_prf_idx);
     retired = true;
     machine_state.icnt++;
     m->retire_cycle = get_curr_cycle();
@@ -3494,6 +3553,12 @@ public:
 
     machine_state.cpr1_rat_retire[get_dest()] = m->prf_idx;
     machine_state.cpr1_rat_retire[get_dest()+1] = m->aux_prf_idx;
+
+    machine_state.cpr1_freevec_retire.set_bit(m->prf_idx);
+    machine_state.cpr1_freevec_retire.clear_bit(m->prev_prf_idx);
+    machine_state.cpr1_freevec_retire.set_bit(m->aux_prf_idx);
+    machine_state.cpr1_freevec_retire.clear_bit(m->aux_prev_prf_idx);
+    
     
     retired = true;
     machine_state.icnt++;
@@ -3789,6 +3854,8 @@ public:
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
     machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+    machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+    machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
     m->retire_cycle = get_curr_cycle();
     machine_state.alloc_blocked = false;
     log_retire(machine_state);

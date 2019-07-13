@@ -25,16 +25,9 @@ func:
 	xor	$4,$2,$4
 
 	andi $11,$4,1
-	beq $11,$0,.L2
+	beq $11,$0,.L4
 	div     $0, $10, $5
-	b .L3
-	nop
-.L2:		
-	b .L4
-	nop
-.L3:
-	addiu $12,$12,1
-	nop
+	addiu $12,$12,1	
 .L4:	
 	mfhi    $11
 	//reset when we hit limit
