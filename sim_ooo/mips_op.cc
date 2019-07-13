@@ -817,6 +817,7 @@ public:
       machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
       machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
       machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+      machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
     }
     retired = true;
     machine_state.icnt++;
