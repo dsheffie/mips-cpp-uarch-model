@@ -328,14 +328,10 @@ void retire(sim_state &machine_state) {
       u->op->retire(machine_state);
       num_retired_insns++;
 #if 0
-      if(num_retired_insns > 1845) {	
+      if(true) {	
 	std::cerr << num_retired_insns
 		  << " : "
 		  << *(u->op)
-		  << " "
-		  << std::hex
-		  << machine_state.mem->crc32()
-		  << std::dec
 		  << "\n";
       }
 #endif
@@ -447,6 +443,30 @@ void retire(sim_state &machine_state) {
       }
       undo_rob_entry undo_rob(machine_state);
       int64_t c = rob.traverse_and_apply(undo_rob);
+
+      bool error = false;
+      for(int i = 0; i < 34; i++) {
+	if(machine_state.gpr_rat[i] != machine_state.gpr_rat_retire[i]) {
+	  std::cerr << "rat entry " << i << " mismatch\n";
+	  std::cout << "gpr_rat[" << i << "] = "
+		    << machine_state.gpr_rat[i] << "\n";
+	  std::cout << "gpr_rat_retire[" << i << "] = "
+		    << machine_state.gpr_rat_retire[i] << "\n";
+	  error = true;
+	}
+      }
+      for(int i = 0; i < 32; i++) {
+	error |= machine_state.cpr0_rat_retire[i] != machine_state.cpr0_rat[i];
+	error |= machine_state.cpr1_rat_retire[i] != machine_state.cpr1_rat[i];
+      }
+      for(int i = 0; i < 5; i++) {
+	error |= machine_state.fcr1_rat_retire[i] != machine_state.fcr1_rat[i];
+      }
+      if(error) {
+	std::cout << "error at icnt " << machine_state.icnt << "\n";
+	exit(-1);
+      }
+      
       int64_t sleep_cycles = (c + sim_param::retire_bw - 1) / sim_param::retire_bw;
       for(int64_t i = 0; i < sleep_cycles; i++) {
 	gthread_yield();
@@ -992,23 +1012,28 @@ void sim_state::copy_state(const state_t *s) {
 void sim_state::initialize_rat_mappings() {
   for(int i = 0; i < 32; i++) {
     gpr_rat[i] = i;
+    gpr_rat_retire[i] = i;
     gpr_freevec.set_bit(i);
     gpr_valid.set_bit(i);
     cpr0_rat[i] = i;
+    cpr0_rat_retire[i] = i;
     cpr0_freevec.set_bit(i);
     cpr0_valid.set_bit(i);
     cpr1_rat[i] = i;
+    cpr1_rat_retire[i] = i;
     cpr1_freevec.set_bit(i);
     cpr1_valid.set_bit(i);
   }
   /* lo and hi regs */
   for(int i = 32; i < 34; i++) {
     gpr_rat[i] = i;
+    gpr_rat_retire[i] = i;
     gpr_freevec.set_bit(i);
     gpr_valid.set_bit(i);
   }
   for(int i = 0; i < 5; i++) {
     fcr1_rat[i] = i;
+    fcr1_rat_retire[i] = i;
     fcr1_freevec.set_bit(i);
     fcr1_valid.set_bit(i);
   }

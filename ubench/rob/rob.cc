@@ -148,6 +148,7 @@ double avg_time(size_t len, int num_nops, uint32_t &t, int iterations=1024*1024)
 int main() {
   int len = 1<<24;
   size_t *arr = nullptr;
+  static const int max_nops = 300;
   arr = (size_t*)malloc(sizeof(size_t)*len);
   nodes = (list*)malloc(sizeof(list)*len);
   
@@ -163,14 +164,14 @@ int main() {
   nodes[arr[len-1]].next = &nodes[arr[0]];
   free(arr);
   
-  for(int nops = 1; nops <= 64; nops++) {
+  for(int nops = 1; nops <= max_nops; nops++) {
     uint8_t *buf = new uint8_t[bufsz];
     make_code(buf,nops,32);
     impls[nops] = buf;
   }
   asm("syscall");
   std::ofstream out("sim.txt");
-  for(int nops = 2; nops <= 300; nops++) {
+  for(int nops = 2; nops <= max_nops; nops++) {
     uint32_t t;
     uint32_t ic = icnt();
     double a = avg_time(len,nops,t);

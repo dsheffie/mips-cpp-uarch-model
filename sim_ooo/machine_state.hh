@@ -41,6 +41,11 @@ public:
   int32_t cpr1_rat[32];
   int32_t fcr1_rat[5];
 
+  int32_t gpr_rat_retire[34];
+  int32_t cpr0_rat_retire[32];
+  int32_t cpr1_rat_retire[32];
+  int32_t fcr1_rat_retire[5];
+
   int num_gpr_prf_ = -1;
   int num_cpr0_prf_ = -1;
   int num_cpr1_prf_ = -1;
