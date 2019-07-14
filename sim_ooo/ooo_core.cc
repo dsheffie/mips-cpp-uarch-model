@@ -43,7 +43,7 @@ public:
     machine_state(machine_state) {}
   virtual bool operator()(sim_op e){
     if(e) {
-      e->op->rollback(machine_state);
+      //e->op->rollback(machine_state);
       delete e;
       return true;
     }
@@ -325,8 +325,9 @@ void retire(sim_state &machine_state) {
 	execMips(s);
       }
 
-      //std::cout << *(u->op) << "\n";
       u->op->retire(machine_state);
+
+
       num_retired_insns++;
 #if 0
       if(true) {	
@@ -444,7 +445,9 @@ void retire(sim_state &machine_state) {
       }
       rollback_rob_entry undo_rob(machine_state);
       int64_t c = rob.traverse_and_apply(undo_rob);
-
+      
+      //std::cout << "rolling back @ cycle " << get_curr_cycle() << "\n";
+      
       memcpy(&machine_state.gpr_rat, &machine_state.gpr_rat_retire,
 	     sizeof(int32_t)*sim_state::num_gpr_regs);
       memcpy(&machine_state.cpr0_rat, &machine_state.cpr0_rat_retire,
@@ -453,10 +456,25 @@ void retire(sim_state &machine_state) {
 	     sizeof(int32_t)*sim_state::num_cpr1_regs);
       memcpy(&machine_state.fcr1_rat, &machine_state.fcr1_rat_retire,
 	     sizeof(int32_t)*sim_state::num_fcr1_regs);
-      machine_state.gpr_freevec = machine_state.gpr_freevec_retire;
-      machine_state.cpr0_freevec = machine_state.cpr0_freevec_retire;
-      machine_state.cpr1_freevec = machine_state.cpr1_freevec_retire;
-      machine_state.fcr1_freevec = machine_state.fcr1_freevec_retire;
+      
+      machine_state.gpr_freevec.copy(machine_state.gpr_freevec_retire);
+      machine_state.cpr0_freevec.copy(machine_state.cpr0_freevec_retire);
+      machine_state.cpr1_freevec.copy(machine_state.cpr1_freevec_retire);
+      machine_state.fcr1_freevec.copy(machine_state.fcr1_freevec_retire);
+      
+      
+      //std::cerr << "gpr freevec used = "
+      //<< machine_state.gpr_freevec.popcount()
+      //<< "\n";
+      //std::cerr << "cpr1 freevec used = "
+      //<< machine_state.cpr1_freevec.popcount()
+      //<< "\n";
+
+      assert(machine_state.gpr_freevec.popcount()==sim_state::num_gpr_regs);
+      assert(machine_state.cpr1_freevec.popcount()==sim_state::num_cpr1_regs);
+
+      
+
       
       machine_state.gpr_valid.clear();
       machine_state.cpr0_valid.clear();
@@ -531,6 +549,7 @@ void retire(sim_state &machine_state) {
       }
 	
       gthread_yield();
+      //std::cout << "rolling back complete @ cycle " << get_curr_cycle() << "\n";
     }
     else {
       gthread_yield();
@@ -836,7 +855,9 @@ extern "C" {
 #if 0
 	  std::cout << "can't allocate due to lack of "
 	  	    << u->op->get_op_class()
-		    << " resources\n";
+		    << " resources @ cycle "
+		    << get_curr_cycle()
+		    << "\n";
 #endif
 	  break;
 	}
@@ -845,6 +866,15 @@ extern "C" {
 	assert(u->op != nullptr);
 
 	if(not(u->op->allocate(machine_state))) {
+#if 0
+	  std::cout << "allocation failed @ cycle "
+		    << get_curr_cycle()
+		    << " for 0x"
+		    << std::hex
+		    << u->pc
+		    << std::dec
+		    << "\n";
+#endif
 	  break;
 	}
 	u->alloc_id = alloc_counter++;

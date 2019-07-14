@@ -46,6 +46,12 @@ public:
     arr = new E[n_words];
     memset(arr, 0, sizeof(E)*n_words);
   }
+  void copy(const sim_bitvec_template &other) {
+    assert(n_bits == other.n_bits);
+    assert(n_words == other.n_words);
+    assert(ln2_bits == other.ln2_bits);
+    memcpy(arr, other.arr, sizeof(E)*n_words);
+  }
   bool get_bit(size_t idx) const {
     uint64_t w_idx = idx / bpw;
     uint64_t b_idx = idx % bpw;

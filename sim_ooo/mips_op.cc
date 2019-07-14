@@ -147,8 +147,9 @@ public:
     m->src0_prf = machine_state.gpr_rat[get_src0()];
     m->prev_prf_idx = machine_state.cpr1_rat[get_dest()];
     int64_t prf_id = machine_state.cpr1_freevec.find_first_unset();
-    if(prf_id == -1)
+    if(prf_id == -1) {
       return false;
+    }
     assert(prf_id >= 0);
     machine_state.cpr1_freevec.set_bit(prf_id);
     machine_state.cpr1_rat[get_dest()] = prf_id;
@@ -190,7 +191,7 @@ public:
   void rollback(sim_state &machine_state) override {
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
-    machine_state.cpr1_valid.set_bit(m->prf_idx);
+    machine_state.cpr1_valid.clear_bit(m->prf_idx);
     log_rollback(machine_state);
   }
 };
@@ -1339,9 +1340,11 @@ public:
     
     machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
     machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+
     machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
     machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
     machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
+    
     m->retire_cycle = get_curr_cycle();
     log_retire(machine_state);
     return true;
@@ -4327,6 +4330,14 @@ void mips_op::rollback(sim_state &machine_state) {
 void mips_op::log_retire(sim_state &machine_state) const {
   //*global::sim_log  << *this << "\n";
   //std::cout << machine_state.rob.size() << "\n";
+
+  //std::cout << *this << " : retirement freevec = "
+  //<< machine_state.gpr_freevec_retire.popcount()
+  //<< "\n";
+  
+  //assert(machine_state.gpr_freevec_retire.popcount()==sim_state::num_gpr_regs);
+  //assert(machine_state.cpr1_freevec_retire.popcount()==sim_state::num_cpr1_regs);
+  
 }
 
 void mips_op::log_rollback(sim_state &machine_state) const {}
