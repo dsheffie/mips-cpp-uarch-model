@@ -445,44 +445,37 @@ void retire(sim_state &machine_state) {
       undo_rob_entry undo_rob(machine_state);
       int64_t c = rob.traverse_and_apply(undo_rob);
 
-      bool error = false;
-      for(int i = 0; i < 34; i++) {
-	if(machine_state.gpr_rat[i] != machine_state.gpr_rat_retire[i]) {
-	  std::cerr << "rat entry " << i << " mismatch\n";
-	  std::cerr << "gpr_rat[" << i << "] = "
-		    << machine_state.gpr_rat[i] << "\n";
-	  std::cerr << "gpr_rat_retire[" << i << "] = "
-		    << machine_state.gpr_rat_retire[i] << "\n";
-	  error = true;
-	}
+      memcpy(&machine_state.gpr_rat, &machine_state.gpr_rat_retire,
+	     sizeof(int32_t)*sim_state::num_gpr_regs);
+      memcpy(&machine_state.cpr0_rat, &machine_state.cpr0_rat_retire,
+	     sizeof(int32_t)*sim_state::num_cpr0_regs);
+      memcpy(&machine_state.cpr1_rat, &machine_state.cpr1_rat_retire,
+	     sizeof(int32_t)*sim_state::num_cpr1_regs);
+      memcpy(&machine_state.fcr1_rat, &machine_state.fcr1_rat_retire,
+	     sizeof(int32_t)*sim_state::num_fcr1_regs);
+      machine_state.gpr_freevec = machine_state.gpr_freevec_retire;
+      machine_state.cpr0_freevec = machine_state.cpr0_freevec_retire;
+      machine_state.cpr1_freevec = machine_state.cpr1_freevec_retire;
+      machine_state.fcr1_freevec = machine_state.fcr1_freevec_retire;
+      
+      machine_state.gpr_valid.clear();
+      machine_state.cpr0_valid.clear();
+      machine_state.cpr1_valid.clear();
+      machine_state.fcr1_valid.clear();
+
+      for(int i = 0; i < sim_state::num_gpr_regs; i++) {
+	machine_state.gpr_valid.set_bit(machine_state.gpr_rat[i]);
       }
-      if(machine_state.gpr_freevec != machine_state.gpr_freevec_retire) {
-	std::cerr << "gpr freevec mismatch!\n";
-	error = true;
+      for(int i = 0; i < sim_state::num_cpr0_regs; i++) {
+	machine_state.cpr0_valid.set_bit(machine_state.cpr0_rat[i]);
       }
-      if(machine_state.cpr0_freevec != machine_state.cpr0_freevec_retire) {
-	std::cerr << "cpr0 freevec mismatch!\n";
-	error = true;
+      for(int i = 0; i < sim_state::num_cpr1_regs; i++) {
+	machine_state.cpr1_valid.set_bit(machine_state.cpr1_rat[i]);
       }
-      if(machine_state.cpr1_freevec != machine_state.cpr1_freevec_retire) {
-	std::cerr << "cpr1 freevec mismatch!\n";
-	error = true;
+      for(int i = 0; i < sim_state::num_fcr1_regs; i++) {
+	machine_state.fcr1_valid.set_bit(machine_state.fcr1_rat[i]);
       }
-      if(machine_state.fcr1_freevec != machine_state.fcr1_freevec_retire) {
-	std::cerr << "fcr1 freevec mismatch!\n";
-	error = true;
-      }
-      for(int i = 0; i < 32; i++) {
-	error |= machine_state.cpr0_rat_retire[i] != machine_state.cpr0_rat[i];
-	error |= machine_state.cpr1_rat_retire[i] != machine_state.cpr1_rat[i];
-      }
-      for(int i = 0; i < 5; i++) {
-	error |= machine_state.fcr1_rat_retire[i] != machine_state.fcr1_rat[i];
-      }
-      if(error) {
-	std::cout << "error at icnt " << machine_state.icnt << "\n";
-	exit(-1);
-      }
+      
       
       int64_t sleep_cycles = (c + sim_param::retire_bw - 1) / sim_param::retire_bw;
       for(int64_t i = 0; i < sleep_cycles; i++) {
