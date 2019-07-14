@@ -502,8 +502,7 @@ void retire(sim_state &machine_state) {
 	machine_state.fcr1_valid.set_bit(machine_state.fcr1_rat[i]);
       }
       
-
-      if(sim_param::flash_clear==0) {
+      if(sim_param::flash_restart==0) {
 	int64_t sleep_cycles = (c + sim_param::retire_bw - 1) / sim_param::retire_bw;
 	for(int64_t i = 0; i < sleep_cycles; i++) {
 	  gthread_yield();
