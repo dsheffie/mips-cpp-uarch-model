@@ -43,7 +43,7 @@ public:
     machine_state(machine_state) {}
   virtual bool operator()(sim_op e){
     if(e) {
-      //e->op->rollback(machine_state);
+      e->op->rollback(machine_state);
       delete e;
       return true;
     }
@@ -443,10 +443,21 @@ void retire(sim_state &machine_state) {
       if(machine_state.l1d) {
 	machine_state.l1d->nuke_inflight();
       }
+
+#if 0
       rollback_rob_entry undo_rob(machine_state);
       int64_t c = rob.traverse_and_apply(undo_rob);
-      
-      //std::cout << "rolling back @ cycle " << get_curr_cycle() << "\n";
+#endif
+
+      /* quick way to reset rob with flash copied tables */
+      int64_t c = 0;
+      for(size_t i = 0, len = rob.capacity(); i < len; i++) {
+	if(rob.at(i)) {
+	  delete rob.at(i);
+	  rob.at(i) = nullptr;
+	  c++;
+	}
+      }
       
       memcpy(&machine_state.gpr_rat, &machine_state.gpr_rat_retire,
 	     sizeof(int32_t)*sim_state::num_gpr_regs);
@@ -472,9 +483,6 @@ void retire(sim_state &machine_state) {
 
       assert(machine_state.gpr_freevec.popcount()==sim_state::num_gpr_regs);
       assert(machine_state.cpr1_freevec.popcount()==sim_state::num_cpr1_regs);
-
-      
-
       
       machine_state.gpr_valid.clear();
       machine_state.cpr0_valid.clear();
@@ -494,10 +502,12 @@ void retire(sim_state &machine_state) {
 	machine_state.fcr1_valid.set_bit(machine_state.fcr1_rat[i]);
       }
       
-      
-      int64_t sleep_cycles = (c + sim_param::retire_bw - 1) / sim_param::retire_bw;
-      for(int64_t i = 0; i < sleep_cycles; i++) {
-	gthread_yield();
+
+      if(sim_param::flash_clear==0) {
+	int64_t sleep_cycles = (c + sim_param::retire_bw - 1) / sim_param::retire_bw;
+	for(int64_t i = 0; i < sleep_cycles; i++) {
+	  gthread_yield();
+	}
       }
       rob.clear();
 	
