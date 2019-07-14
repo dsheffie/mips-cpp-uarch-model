@@ -120,7 +120,7 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     if(m->prev_prf_idx != -1) {
       machine_state.cpr0_rat[get_dest()] = m->prev_prf_idx;
     }
@@ -128,7 +128,7 @@ public:
       machine_state.cpr0_freevec.clear_bit(m->prf_idx);
       machine_state.cpr0_valid.clear_bit(m->prf_idx);
     }
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -187,11 +187,11 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
     machine_state.cpr1_valid.set_bit(m->prf_idx);
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -254,7 +254,7 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     if(m->prev_prf_idx != -1) {
       machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     }
@@ -262,7 +262,7 @@ public:
       machine_state.gpr_freevec.clear_bit(m->prf_idx);
       machine_state.gpr_valid.clear_bit(m->prf_idx);
     }
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -348,11 +348,11 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 
 };
@@ -378,8 +378,8 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
-    log_undo(machine_state);
+  void rollback(sim_state &machine_state) override {
+    log_rollback(machine_state);
   }
 };
 
@@ -570,7 +570,7 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     if(get_dest() > 0) {
       if(m->prev_prf_idx != -1) {
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
@@ -580,7 +580,7 @@ public:
 	machine_state.gpr_valid.clear_bit(m->prf_idx);
       }
     }
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -677,7 +677,7 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     if(get_dest() > 0) {
       if(m->prev_prf_idx != -1) {
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
@@ -687,7 +687,7 @@ public:
 	machine_state.gpr_valid.clear_bit(m->prf_idx);
       }
     }
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -874,7 +874,7 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     if(get_dest() != -1) {
       if(m->prev_prf_idx != -1) {
 	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
@@ -888,7 +888,7 @@ public:
 	(m->return_stack_idx != -1)) {
       machine_state.return_stack.set_tos_idx(m->return_stack_idx);
     }
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -1154,8 +1154,8 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
-    log_undo(machine_state);
+  void rollback(sim_state &machine_state) override {
+    log_rollback(machine_state);
   }
 };
 
@@ -1346,13 +1346,13 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
     machine_state.load_tbl_freevec.clear_bit(m->load_tbl_idx);
     machine_state.load_tbl[m->load_tbl_idx] = nullptr;
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -1506,10 +1506,10 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.store_tbl_freevec.clear_bit(m->store_tbl_idx);
     machine_state.store_tbl[m->store_tbl_idx] = nullptr;
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -1667,7 +1667,7 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.load_tbl[m->load_tbl_idx] = nullptr;
     machine_state.load_tbl_freevec.clear_bit(m->load_tbl_idx);
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
@@ -1678,7 +1678,7 @@ public:
       machine_state.cpr1_freevec.clear_bit(m->aux_prf_idx);
       machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
     }
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -1829,10 +1829,10 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.store_tbl_freevec.clear_bit(m->store_tbl_idx);
     machine_state.store_tbl[m->store_tbl_idx] = nullptr;
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -1904,11 +1904,11 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -1971,11 +1971,11 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -2183,14 +2183,14 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.gpr_rat[32] = m->prev_lo_prf_idx;
     machine_state.gpr_rat[33] = m->prev_hi_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->lo_prf_idx);
     machine_state.gpr_freevec.clear_bit(m->hi_prf_idx);
     machine_state.gpr_valid.clear_bit(m->lo_prf_idx);
     machine_state.gpr_valid.clear_bit(m->hi_prf_idx);
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -2259,11 +2259,11 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -2318,11 +2318,11 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -2390,11 +2390,11 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -2468,11 +2468,11 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -2613,7 +2613,7 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
@@ -2622,7 +2622,7 @@ public:
       machine_state.cpr1_freevec.clear_bit(m->aux_prf_idx);
       machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
     }
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -2744,7 +2744,7 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
@@ -2753,7 +2753,7 @@ public:
       machine_state.cpr1_freevec.clear_bit(m->aux_prf_idx);
       machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
     }
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -2929,11 +2929,11 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.fcr1_rat[CP1_CR25] = m->prev_prf_idx;
     machine_state.fcr1_freevec.clear_bit(m->prf_idx);
     machine_state.fcr1_valid.clear_bit(m->prf_idx);
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 
 };
@@ -3168,7 +3168,7 @@ public:
     return true;
   }
 
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
@@ -3177,7 +3177,7 @@ public:
       machine_state.cpr1_freevec.clear_bit(m->aux_prf_idx);
       machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
     }
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }  
 };
 
@@ -3349,7 +3349,7 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
@@ -3358,7 +3358,7 @@ public:
       machine_state.cpr1_freevec.clear_bit(m->aux_prf_idx);
       machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
     }
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -3468,11 +3468,11 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -3566,14 +3566,14 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.cpr1_rat[get_dest()] = m->prev_prf_idx;
     machine_state.cpr1_rat[get_dest()+1] = m->aux_prev_prf_idx;
     machine_state.cpr1_freevec.clear_bit(m->prf_idx);
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
     machine_state.cpr1_freevec.clear_bit(m->aux_prf_idx);
     machine_state.cpr1_valid.clear_bit(m->aux_prf_idx);
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -3607,8 +3607,8 @@ public:
   bool stop_sim() const override {
     return true;
   }
-  void undo(sim_state &machine_state) override {
-    log_undo(machine_state);
+  void rollback(sim_state &machine_state) override {
+    log_rollback(machine_state);
   }
 };
 
@@ -3641,9 +3641,9 @@ public:
     machine_state.alloc_blocked = false;
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.alloc_blocked = false;
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -3861,12 +3861,12 @@ public:
     log_retire(machine_state);
     return true;
   }
-  void undo(sim_state &machine_state) override {
+  void rollback(sim_state &machine_state) override {
     machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
     machine_state.gpr_freevec.clear_bit(m->prf_idx);
     machine_state.gpr_valid.clear_bit(m->prf_idx);
     machine_state.alloc_blocked = false;
-    log_undo(machine_state);
+    log_rollback(machine_state);
   }
 };
 
@@ -4319,8 +4319,8 @@ bool mips_op::ready(sim_state &machine_state) const {
   return false;
 }
 
-void mips_op::undo(sim_state &machine_state) {
-  log_undo(machine_state);
+void mips_op::rollback(sim_state &machine_state) {
+  log_rollback(machine_state);
   die();
 }
 
@@ -4329,7 +4329,7 @@ void mips_op::log_retire(sim_state &machine_state) const {
   //std::cout << machine_state.rob.size() << "\n";
 }
 
-void mips_op::log_undo(sim_state &machine_state) const {}
+void mips_op::log_rollback(sim_state &machine_state) const {}
 
 int64_t mips_op::get_latency() const {
   return 1;

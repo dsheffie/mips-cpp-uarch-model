@@ -35,15 +35,15 @@ extern std::map<uint32_t, int32_t> branch_prediction_map;
 static std::map<int64_t, uint64_t> insn_lifetime_map;
 
 
-class undo_rob_entry : public sim_queue<sim_op>::funcobj {
+class rollback_rob_entry : public sim_queue<sim_op>::funcobj {
 protected:
   sim_state &machine_state;
 public:
-  undo_rob_entry(sim_state &machine_state) :
+  rollback_rob_entry(sim_state &machine_state) :
     machine_state(machine_state) {}
   virtual bool operator()(sim_op e){
     if(e) {
-      e->op->undo(machine_state);
+      e->op->rollback(machine_state);
       delete e;
       return true;
     }
@@ -442,7 +442,7 @@ void retire(sim_state &machine_state) {
       if(machine_state.l1d) {
 	machine_state.l1d->nuke_inflight();
       }
-      undo_rob_entry undo_rob(machine_state);
+      rollback_rob_entry undo_rob(machine_state);
       int64_t c = rob.traverse_and_apply(undo_rob);
 
       memcpy(&machine_state.gpr_rat, &machine_state.gpr_rat_retire,
