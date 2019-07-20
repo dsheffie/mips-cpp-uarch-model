@@ -60,4 +60,5 @@ public:
   void update(uint32_t addr, uint64_t idx, bool taken) override;
 };
 
+
 #endif

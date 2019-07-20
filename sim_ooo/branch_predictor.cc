@@ -24,7 +24,7 @@ gshare::~gshare() {
 }
 
 uint32_t gshare::predict(uint64_t &idx) const {
-  idx = ((machine_state.fetch_pc>>2) ^ machine_state.bhr.to_integer());
+  idx = ((machine_state.fetch_pc>>2) ^ machine_state.bhr.hash());
   idx &= (1UL << sim_param::lg_pht_entries) - 1;
   return pht->get_value(idx);
 }
@@ -45,7 +45,7 @@ gselect::~gselect() {
 uint32_t gselect::predict(uint64_t &idx) const {
   uint64_t addr = static_cast<uint64_t>(machine_state.fetch_pc>>2);
   addr &= (1UL << sim_param::gselect_addr_bits) - 1;
-  uint64_t hbits = static_cast<uint64_t>(machine_state.bhr.to_integer()) << sim_param::gselect_addr_bits;
+  uint64_t hbits = static_cast<uint64_t>(machine_state.bhr.hash()) << sim_param::gselect_addr_bits;
   idx = addr | hbits;
   idx &= (1UL << sim_param::lg_pht_entries)-1;
   return pht->get_value(idx);
@@ -100,7 +100,7 @@ bimode::~bimode() {
 uint32_t bimode::predict(uint64_t &idx) const {
   uint32_t c_idx = (machine_state.fetch_pc>>2) &
     ((1U << lg_c_pht_entries) - 1);
-  idx = ((machine_state.fetch_pc>>2) ^ machine_state.bhr.to_integer());
+  idx = ((machine_state.fetch_pc>>2) ^ machine_state.bhr.hash());
   idx &= (1UL << lg_d_pht_entries) - 1;
   if(c_pht->get_value(c_idx) < 2) {
     return nt_pht->get_value(idx);

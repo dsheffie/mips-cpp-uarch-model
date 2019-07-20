@@ -1337,3 +1337,4 @@ void run_ooo_core(sim_state &machine_state) {
   *global::sim_log << "simulation took " << now << " seconds\n";
   
 }  
+
