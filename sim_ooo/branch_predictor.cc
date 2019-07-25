@@ -3,6 +3,84 @@
 #include "globals.hh"
 #include "sim_parameters.hh"
 
+
+class gshare : public branch_predictor {
+protected:
+  twobit_counter_array *pht;
+public:
+  gshare(sim_state &ms) : branch_predictor(ms) {
+    pht = new twobit_counter_array(1UL << sim_param::lg_pht_entries);
+  }
+  ~gshare() {
+    delete pht;
+  }
+  uint32_t predict(uint64_t &idx) const override {
+    idx = ((machine_state.fetch_pc>>2) ^ machine_state.bhr.hash());
+    idx &= (1UL << sim_param::lg_pht_entries) - 1;
+    return pht->get_value(idx);
+  }
+  void update(uint32_t addr, uint64_t idx, bool taken) override {
+    pht->update(idx, taken);
+  }
+};
+
+class gselect : public gshare {
+protected:
+  twobit_counter_array *pht;
+public:
+  gselect(sim_state &ms) : gshare(ms) {}
+  ~gselect() {}
+  uint32_t predict(uint64_t &idx) const override {
+    uint64_t addr = static_cast<uint64_t>(machine_state.fetch_pc>>2);
+    addr &= (1UL << sim_param::gselect_addr_bits) - 1;
+    uint64_t hbits = static_cast<uint64_t>(machine_state.bhr.hash()) << sim_param::gselect_addr_bits;
+    idx = addr | hbits;
+    idx &= (1UL << sim_param::lg_pht_entries)-1;
+    return pht->get_value(idx);
+  }
+};
+
+class gnoalias : public branch_predictor {
+protected:
+  std::map<uint64_t, uint8_t> pht;
+public:
+  gnoalias(sim_state &ms);
+  ~gnoalias();
+  uint32_t predict(uint64_t &idx) const override;
+  void update(uint32_t addr, uint64_t idx, bool taken) override;
+};
+
+class bimode : public branch_predictor {
+protected:
+  const uint32_t lg_d_pht_entries;
+  const uint32_t lg_c_pht_entries;
+  twobit_counter_array *c_pht, *t_pht, *nt_pht;
+  
+public:
+  bimode(sim_state &ms);
+  ~bimode();
+  uint32_t predict(uint64_t &idx) const override;
+  void update(uint32_t addr, uint64_t idx, bool taken) override;
+};
+
+branch_predictor* branch_predictor::get_predictor(int id, sim_state &ms) {
+  switch(id)
+    {
+    case 6:
+      return new gshare(ms);
+    case 7:
+      return new gselect(ms);
+    case 8:
+      return new gnoalias(ms);
+    case 9:
+      return new bimode(ms);
+    default:
+      break;
+    }
+  return new gshare(ms);
+}
+							     
+
 branch_predictor::branch_predictor(sim_state &ms) :
   machine_state(ms) {
 }
@@ -14,46 +92,6 @@ uint32_t branch_predictor::predict(uint64_t &idx) const {
 }
 
 void branch_predictor::update(uint32_t addr, uint64_t idx, bool taken) {}
-
-gshare::gshare(sim_state &ms) : branch_predictor(ms) {
-  pht = new twobit_counter_array(1UL << sim_param::lg_pht_entries);
-}
-
-gshare::~gshare() {
-  delete pht;
-}
-
-uint32_t gshare::predict(uint64_t &idx) const {
-  idx = ((machine_state.fetch_pc>>2) ^ machine_state.bhr.hash());
-  idx &= (1UL << sim_param::lg_pht_entries) - 1;
-  return pht->get_value(idx);
-}
-
-void gshare::update(uint32_t addr, uint64_t idx, bool taken) {
-  pht->update(idx, taken);
-}
-
-
-gselect::gselect(sim_state &ms) : branch_predictor(ms) {
-  pht = new twobit_counter_array(1UL << sim_param::lg_pht_entries);
-}
-
-gselect::~gselect() {
-  delete pht;
-}
-
-uint32_t gselect::predict(uint64_t &idx) const {
-  uint64_t addr = static_cast<uint64_t>(machine_state.fetch_pc>>2);
-  addr &= (1UL << sim_param::gselect_addr_bits) - 1;
-  uint64_t hbits = static_cast<uint64_t>(machine_state.bhr.hash()) << sim_param::gselect_addr_bits;
-  idx = addr | hbits;
-  idx &= (1UL << sim_param::lg_pht_entries)-1;
-  return pht->get_value(idx);
-}
-
-void gselect::update(uint32_t addr, uint64_t idx, bool taken) {
-  pht->update(idx, taken);
-}
 
 
 gnoalias::gnoalias(sim_state &ms) :

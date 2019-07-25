@@ -4,6 +4,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <boost/functional/hash.hpp>
+
 #include "helper.hh"
 
 template <typename E>
@@ -32,9 +34,10 @@ public:
     memset(arr, 0, sizeof(E)*n_words);
   }
   uint64_t hash() const {
-    uint64_t h = 0;
+    size_t h = 0;
     for(size_t i = 0; i < n_words; i++) {
-      h ^= arr[i] + 0x9e3779b9 + (h<<6) + (h>>2);
+      boost::hash_combine(h, arr[i]);
+      //h ^= arr[i] + 0x9e3779b9 + (h<<6) + (h>>2);
     }
     return h;
   }
