@@ -44,8 +44,8 @@ class gnoalias : public branch_predictor {
 protected:
   std::map<uint64_t, uint8_t> pht;
 public:
-  gnoalias(sim_state &ms);
-  ~gnoalias();
+  gnoalias(sim_state &ms) : branch_predictor(ms) {}
+  ~gnoalias() {}
   uint32_t predict(uint64_t &idx) const override;
   void update(uint32_t addr, uint64_t idx, bool taken) override;
 };
@@ -79,25 +79,6 @@ branch_predictor* branch_predictor::get_predictor(int id, sim_state &ms) {
     }
   return new gshare(ms);
 }
-							     
-
-branch_predictor::branch_predictor(sim_state &ms) :
-  machine_state(ms) {
-}
-
-branch_predictor::~branch_predictor() {}
-
-uint32_t branch_predictor::predict(uint64_t &idx) const {
-  return 0;
-}
-
-void branch_predictor::update(uint32_t addr, uint64_t idx, bool taken) {}
-
-
-gnoalias::gnoalias(sim_state &ms) :
-  branch_predictor(ms) {}
-
-gnoalias::~gnoalias() {}
 
 uint32_t gnoalias::predict(uint64_t &idx) const {
   uint64_t addr = static_cast<uint64_t>(machine_state.fetch_pc>>2);
