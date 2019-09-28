@@ -85,7 +85,20 @@ void fetch(sim_state &machine_state) {
 
       if(enable_oracle) {
 	if(machine_state.oracle_state->steps == 0 and not(machine_state.oracle_state->brk)) {
-	  assert(machine_state.oracle_state->pc == machine_state.fetch_pc);
+	  if(machine_state.oracle_state->pc != machine_state.fetch_pc) {
+	    std::cerr << "oracle/sim mismatch @ insn "
+		      << machine_state.icnt
+		      << " : "
+		      << " oracle pc "
+		      << std::hex
+		      << machine_state.oracle_state->pc
+		      << " / sim pc "
+		      << machine_state.fetch_pc
+		      << std::dec
+		      << "\n";
+	    machine_state.terminate_sim = true;
+	    fetch_amt = sim_param::fetch_bw;
+	  }
 	  machine_state.oracle_state->was_branch_or_jump = false;
 	  machine_state.oracle_state->was_likely_branch = false;
 	  machine_state.oracle_state->took_branch_or_jump = false;
