@@ -55,8 +55,8 @@
   SIM_PARAM(l1d_misses_inflight,1,1,false)				\
   SIM_PARAM(branch_predictor,6,0,false)					\
   SIM_PARAM(num_tage_tbls,4,1,false)					\
-  SIM_PARAM(lg_tage_bimode_tbl_entries,12,1,true)			\
-  SIM_PARAM(lg_tage_tagged_tbl_entries,10,1,true)
+  SIM_PARAM(lg_tage_bimode_tbl_entries,12,1,false)			\
+  SIM_PARAM(lg_tage_tagged_tbl_entries,10,1,false)
 
 
 namespace sim_param {
