@@ -164,7 +164,7 @@ public:
 
   void reinit(uint32_t pc,
 	      uint32_t inst,
-	      uint32_t fetch_cycle) {
+	      uint64_t fetch_cycle) {
     this->pc = pc;
     this->inst = inst;
     this->fetch_cycle = fetch_cycle;
@@ -220,7 +220,7 @@ public:
 
   mips_meta_op(uint32_t pc,
 	       uint32_t inst,
-	       uint32_t fetch_cycle) :
+	       uint64_t fetch_cycle) :
     pc(pc), inst(inst),
     fetch_npc(0),
     fetch_cycle(fetch_cycle),
@@ -230,7 +230,7 @@ public:
   mips_meta_op(uint32_t pc,
 	       uint32_t inst,
 	       uint32_t fetch_npc,
-	       uint32_t fetch_cycle,
+	       uint64_t fetch_cycle,
 	       bool predict_taken,
 	       bool pop_return_stack) :
     pc(pc), inst(inst),

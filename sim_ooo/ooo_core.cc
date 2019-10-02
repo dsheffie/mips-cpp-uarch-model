@@ -32,7 +32,7 @@
 extern std::map<uint32_t, uint32_t> branch_target_map;
 extern std::map<uint32_t, int32_t> branch_prediction_map;
 
-static std::map<int64_t, uint64_t> insn_lifetime_map;
+static std::map<int64_t, int64_t> insn_lifetime_map;
 
 
 class rollback_rob_entry : public sim_queue<sim_op>::funcobj {
@@ -63,9 +63,12 @@ void fetch(sim_state &machine_state) {
       
       if(machine_state.delay_slot_npc) {
 	uint32_t inst = bswap(mem.get32(machine_state.delay_slot_npc));
-	auto f = new mips_meta_op(machine_state.delay_slot_npc, inst,
+	auto f = new mips_meta_op(machine_state.delay_slot_npc,
+				  inst,
 				  machine_state.delay_slot_npc+4,
-				  global::curr_cycle, false, false);
+				  global::curr_cycle,
+				  false,
+				  false);
 	fetch_queue.push(f);
 	fetch_amt++;
 	machine_state.delay_slot_npc = 0;
@@ -351,8 +354,8 @@ void retire(sim_state &machine_state) {
       }
 #endif
       stuck_cnt = 0;
-	
-      insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
+      int64_t insn_lifetime = static_cast<int64_t>(u->retire_cycle) - static_cast<int64_t>(u->fetch_cycle);
+      insn_lifetime_map[insn_lifetime]++;
       machine_state.last_retire_cycle = get_curr_cycle();
       machine_state.last_retire_pc = u->pc;
 	
@@ -399,7 +402,12 @@ void retire(sim_state &machine_state) {
 	    //std::cerr << "retire for " << *(u->op) << "\n";
 	    u->op->retire(machine_state);
 	    num_retired_insns++;
-	    insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
+	    int64_t lifetime_cycles = static_cast<int64_t>(u->retire_cycle)-static_cast<int64_t>(u->fetch_cycle);
+	    //if(lifetime_cycles > 1000) {
+	    //std::cerr << "@ cycle " << get_curr_cycle() << ":" << *(u->op) << " has a huge lifetime!\n";
+	    // die();
+	    //}
+	    insn_lifetime_map[lifetime_cycles]++;
 	    machine_state.last_retire_cycle = get_curr_cycle();
 	    machine_state.last_retire_pc = u->pc;
 	    //std::cout << std::hex << u->pc << ":" << std::hex
@@ -410,7 +418,12 @@ void retire(sim_state &machine_state) {
 	    num_retired_insns++;
 	    machine_state.last_retire_cycle = get_curr_cycle();
 	    machine_state.last_retire_pc = uu->pc;
-	    insn_lifetime_map[uu->retire_cycle - uu->fetch_cycle]++;
+	    lifetime_cycles = static_cast<int64_t>(uu->retire_cycle)-static_cast<int64_t>(uu->fetch_cycle);
+	    //if(lifetime_cycles > 1000) {
+	    //std::cerr << "@ cycle " << get_curr_cycle() << ":" << *(uu->op) << " has a huge lifetime!\n";
+	    //die();
+	    //}
+	    insn_lifetime_map[lifetime_cycles]++;
 	    //std::cout << std::hex << uu->pc << ":" << std::hex
 	    //<< getAsmString(uu->inst, uu->pc) << "\n";
 	    if(global::use_interp_check and (s->pc == u->pc)) {
@@ -427,7 +440,12 @@ void retire(sim_state &machine_state) {
 	  //std::cerr << "retire for " << *(u->op) << "\n";
 	  u->op->retire(machine_state);
 	  num_retired_insns++;
-	  insn_lifetime_map[u->retire_cycle - u->fetch_cycle]++;
+	  int64_t lifetime_cycles = static_cast<int64_t>(u->retire_cycle)-static_cast<int64_t>(u->fetch_cycle);
+	  //if(lifetime_cycles > 1000) {
+	  //std::cerr << "@ cycle " << get_curr_cycle() << ":" << *(u->op) << " has a huge lifetime!\n";
+	  //die();
+	  //}
+	  insn_lifetime_map[lifetime_cycles]++;
 	  machine_state.last_retire_cycle = get_curr_cycle();
 	  machine_state.last_retire_pc = u->pc;
 	  if(global::use_interp_check and (s->pc == u->pc)) {
@@ -1314,11 +1332,12 @@ void run_ooo_core(sim_state &machine_state) {
 
   if(get_curr_cycle() != 0) {
     double avg_latency = 0.0;
+    double d_cycles = static_cast<double>(get_curr_cycle());
     for(auto &p : insn_lifetime_map) {
-      //global::sim_log << p.first << " cycles : " << p.second << " insns\n";
-      avg_latency += static_cast<double>(p.first) * static_cast<double>(p.second);
+      avg_latency += (static_cast<double>(p.first) * static_cast<double>(p.second)) / d_cycles;
+      //*global::sim_log << p.first << " cycles : " << p.second << " insns, avg latency "
+      //<< avg_latency << "\n";
     }
-    avg_latency /= get_curr_cycle();
     *global::sim_log << avg_latency << " cycles is the average instruction lifetime\n";
   }
   
