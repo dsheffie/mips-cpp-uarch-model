@@ -9,6 +9,8 @@
 
 #include <cstdio>
 #include <cstdarg>
+#include <ostream>
+#include <map>
 
 static const char KNRM[] = "\x1B[0m";
 static const char KRED[] = "\x1B[31m";
@@ -55,6 +57,14 @@ uint32_t update_crc(uint32_t crc, uint8_t *buf, size_t len);
 uint32_t crc32(uint8_t *buf, size_t len);
 
 int32_t remapIOFlags(int32_t flags);
+
+template <typename X, typename Y>
+void mapToCSV(const std::map<X,Y> &m, const std::string &fname) {
+  std::ofstream out(fname);
+  for(auto & p : m) {
+    out << p.first << "," << p.second << "\n";
+  }
+}
 
 template <class T>
 std::string toString(T x) {
