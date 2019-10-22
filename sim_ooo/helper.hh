@@ -5,6 +5,7 @@
 #include <vector>
 #include <cstdint>
 #include <iostream>
+#include <fstream>
 #include <type_traits>
 
 #include <cstdio>
