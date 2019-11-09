@@ -3743,7 +3743,6 @@ public:
 	  break;
 	}
 	else {
-
 	  machine_state.terminate_sim = true;
 	}
 	break;
@@ -3861,6 +3860,8 @@ public:
     machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
     m->retire_cycle = get_curr_cycle();
     machine_state.alloc_blocked = false;
+    machine_state.fetch_blocked = false;
+
     log_retire(machine_state);
     return true;
   }

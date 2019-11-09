@@ -25,7 +25,7 @@ public:
   bool terminate_sim = false;
   bool nuke = false;
   bool alloc_blocked = false;
-  
+  bool fetch_blocked = false;
   uint32_t delay_slot_npc = 0;
   uint32_t fetch_pc = 0;
 
@@ -115,20 +115,20 @@ public:
 
   branch_predictor *branch_pred = nullptr;
   loop_predictor *loop_pred = nullptr;
-  sim_bitvec bhr;
+  /* use smaller data-type */
+  sim_bitvec_template<uint8_t> bhr;
   std::vector<sim_bitvec> bht;
 
   std::array<int,max_op_lat> wr_ports;
   
   uint64_t icnt = 0, maxicnt = ~(0UL), skipicnt = 0;
-  uint64_t fetched_insns = 0;
   uint64_t n_branches = 0, n_jumps = 0;
   uint64_t mispredicted_branches = 0;
   uint64_t mispredicted_jumps = 0;
   uint64_t mispredicted_jrs = 0;
   uint64_t mispredicted_jalrs = 0;
   uint64_t nukes = 0, branch_nukes = 0, load_nukes = 0;
-
+  uint64_t fetched_insns = 0;
   uint64_t total_ready_insns = 0;
   uint64_t total_allocated_insns = 0;
   uint64_t total_dispatched_insns = 0;

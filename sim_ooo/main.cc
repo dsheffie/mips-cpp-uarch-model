@@ -121,6 +121,7 @@ int main(int argc, char *argv[]) {
     ("use_l3", po::value<bool>(&use_l3)->default_value(true), "use l3 cache model")
     ("interp,i", po::value<bool>(&global::use_interp_check)->default_value(true), "use interpreter check")
     ("warmstart", po::value<bool>(&warmstart)->default_value(true), "use warmstart with interpreter")
+    //("scale", po::value<int>(&uarch_scale)->default_value(1), "scale uarch parameters")
 #define SIM_PARAM(A,B,C,D) (#A,po::value<int>(&sim_param::A)->default_value(B), #A)
     SIM_PARAM_LIST;
 #undef SIM_PARAM

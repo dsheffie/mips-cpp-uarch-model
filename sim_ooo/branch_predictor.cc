@@ -13,9 +13,12 @@ namespace {
       int64_t useful : 2;
     };
     uint64_t lg_entries = 0;
+    int tbl_id = -1;
+    uint64_t h_bits = 0;
     tage_tbl_entry *tbl = nullptr;
   public:
-    tage_tbl(uint64_t lg_entries) : lg_entries(lg_entries) {
+    tage_tbl(uint64_t lg_entries, int tbl_id, uint64_t h_bits) :
+      lg_entries(lg_entries), tbl_id(tbl_id), h_bits(h_bits) {
       tbl = new tage_tbl_entry[1UL<<lg_entries];
       memset(tbl,0,sizeof(tage_tbl_entry)*(1UL<<lg_entries));
     }
@@ -32,8 +35,10 @@ namespace {
     tage(sim_state &ms) : branch_predictor(ms) {
       bimode_tbl = new twobit_counter_array(1UL<<sim_param::lg_tage_bimode_tbl_entries);
       tagged_tbls = new tage_tbl*[sim_param::num_tage_tbls];
+      uint64_t tagged_len = 1UL<<sim_param::lg_tage_tagged_tbl_entries;
       for(int i = 0; i < sim_param::num_tage_tbls; i++) {
-	tagged_tbls[i] = new tage_tbl(1UL<<sim_param::lg_tage_tagged_tbl_entries);
+	/* power of 2 geometric series */
+	tagged_tbls[i] = new tage_tbl(tagged_len, i, 1UL<<(i+1));
       }
     }
     ~tage() {

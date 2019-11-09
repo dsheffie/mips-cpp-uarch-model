@@ -26,6 +26,11 @@ struct state_t;
 class sim_state;
 class simCache;
 
+inline bool is_monitor(uint32_t inst) {
+  uint32_t opcode = inst>>26;
+  uint32_t funct = inst & 63;
+  return (opcode==0) and (funct == 0x05);
+}
 
 inline bool is_jr(uint32_t inst) {
   uint32_t opcode = inst>>26;
@@ -119,6 +124,7 @@ class mips_op;
 
 class mips_meta_op {
 public:
+  uint64_t fetch_icnt = 0;
   uint32_t pc = 0;
   uint32_t inst = 0;
   uint32_t fetch_npc = 0;  
@@ -165,6 +171,7 @@ public:
   void reinit(uint32_t pc,
 	      uint32_t inst,
 	      uint64_t fetch_cycle) {
+    fetch_icnt = 0;
     this->pc = pc;
     this->inst = inst;
     this->fetch_cycle = fetch_cycle;
@@ -218,22 +225,28 @@ public:
     push_return_stack = false;
   }
 
-  mips_meta_op(uint32_t pc,
+  mips_meta_op(uint64_t fetch_icnt,
+	       uint32_t pc,
 	       uint32_t inst,
 	       uint64_t fetch_cycle) :
-    pc(pc), inst(inst),
+    fetch_icnt(fetch_icnt),
+    pc(pc),
+    inst(inst),
     fetch_npc(0),
     fetch_cycle(fetch_cycle),
     predict_taken(false),
     pop_return_stack(false)  {}
   
-  mips_meta_op(uint32_t pc,
+  mips_meta_op(uint64_t fetch_icnt,
+	       uint32_t pc,
 	       uint32_t inst,
 	       uint32_t fetch_npc,
 	       uint64_t fetch_cycle,
 	       bool predict_taken,
 	       bool pop_return_stack) :
-    pc(pc), inst(inst),
+    fetch_icnt(fetch_icnt),
+    pc(pc),
+    inst(inst),
     fetch_npc(fetch_npc),
     fetch_cycle(fetch_cycle),
     predict_taken(predict_taken),

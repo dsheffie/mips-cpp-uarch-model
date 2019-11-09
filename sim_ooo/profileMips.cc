@@ -50,6 +50,7 @@ void branch(uint32_t inst, state_t *s) {
   uint32_t npc = s->pc+4; 
   bool isLikely = false, takeBranch = false;
   s->was_branch_or_jump = true;
+  s->hbuf[(s->icnt-1)%HWINDOW].was_branch_or_jump = true;
   switch(bt)
     {
     case branch_type::beql:
@@ -95,8 +96,9 @@ void branch(uint32_t inst, state_t *s) {
     default:
       die();
     }
-
-  s->was_likely_branch = isLikely;
+  uint32_t idx = (s->icnt-1)%HWINDOW;
+  s->hbuf[idx].was_likely_branch = isLikely;
+  s->hbuf[idx].took_branch_or_jump = takeBranch;
   s->pc += 4;
   if(isLikely) {
     if(takeBranch) {
@@ -113,7 +115,8 @@ void branch(uint32_t inst, state_t *s) {
       s->pc = (imm+npc);
     }
   }
-  s->took_branch_or_jump = takeBranch;
+  s->hbuf[idx].next_pc = s->pc;
+
 }
 
 static inline void _bgez_bltz(uint32_t inst, state_t *s) {
@@ -271,6 +274,12 @@ void execMips(state_t *s) {
   uint32_t rs = (inst >> 21) & 31;
   uint32_t rt = (inst >> 16) & 31;
   uint32_t rd = (inst >> 11) & 31;
+  s->hbuf[s->icnt%HWINDOW].fetch_pc = s->pc;
+  s->hbuf[s->icnt%HWINDOW].next_pc = s->pc+4;
+  s->hbuf[s->icnt%HWINDOW].was_branch_or_jump = false;
+  s->hbuf[s->icnt%HWINDOW].was_likely_branch = false;
+  s->hbuf[s->icnt%HWINDOW].took_branch_or_jump = false;
+  s->hbuf[s->icnt%HWINDOW].icnt = s->icnt;
   s->icnt++;
   
   if(isRType) {
@@ -309,8 +318,9 @@ void execMips(state_t *s) {
 	s->pc += 4;
 	break;
       case 0x08: { /* jr */
-	s->was_branch_or_jump = true;
-	s->took_branch_or_jump = true;
+	s->hbuf[(s->icnt-1)%HWINDOW].was_branch_or_jump = true;
+	s->hbuf[(s->icnt-1)%HWINDOW].took_branch_or_jump = true;
+	s->hbuf[(s->icnt-1)%HWINDOW].next_pc = s->gpr[rs];
 	uint32_t jaddr = s->gpr[rs];
 	s->pc += 4;
 	execMips(s);
@@ -318,8 +328,9 @@ void execMips(state_t *s) {
 	break;
       }
       case 0x09: { /* jalr */
-	s->was_branch_or_jump = true;
-	s->took_branch_or_jump = true;
+	s->hbuf[(s->icnt-1)%HWINDOW].was_branch_or_jump = true;
+	s->hbuf[(s->icnt-1)%HWINDOW].took_branch_or_jump = true;
+	s->hbuf[(s->icnt-1)%HWINDOW].next_pc = s->gpr[rs];
 	uint32_t jaddr = s->gpr[rs];
 	s->gpr[31] = s->pc+8;
 	s->pc += 4;
@@ -463,14 +474,15 @@ void execMips(state_t *s) {
   else if(isJType) {
     uint32_t jaddr = inst & ((1<<26)-1);
     jaddr <<= 2;
+    uint32_t idx = (s->icnt-1)%HWINDOW;
     if(opcode==0x2) { /* j */
-      s->was_branch_or_jump = true;
-      s->took_branch_or_jump = true;
+      s->hbuf[idx].was_branch_or_jump = true;
+      s->hbuf[idx].took_branch_or_jump = true;
       s->pc += 4;
     }
     else if(opcode==0x3) { /* jal */
-      s->was_branch_or_jump = true;
-      s->took_branch_or_jump = true;
+      s->hbuf[idx].was_branch_or_jump = true;
+      s->hbuf[idx].took_branch_or_jump = true;
       s->gpr[31] = s->pc+8;
       s->pc += 4;
     }
@@ -481,6 +493,7 @@ void execMips(state_t *s) {
     jaddr |= (s->pc & (~((1<<28)-1)));
     execMips(s);
     s->pc = jaddr;
+    s->hbuf[idx].next_pc = jaddr;
   }
   else if(isCoproc0) {  
     switch(rs) 
@@ -1358,8 +1371,9 @@ static void _monitorBody(uint32_t inst, state_t *s) {
       exit(-1);
       break;
     }
-  s->was_branch_or_jump = true;
-  s->took_branch_or_jump = true;
+  s->hbuf[(s->icnt-1)%HWINDOW].was_branch_or_jump = true;
+  s->hbuf[(s->icnt-1)%HWINDOW].took_branch_or_jump = true;
+  s->hbuf[(s->icnt-1)%HWINDOW].next_pc = s->gpr[31];
   s->pc = s->gpr[31];
 }
 
