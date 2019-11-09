@@ -49,7 +49,6 @@ void branch(uint32_t inst, state_t *s) {
   int32_t imm = ((int32_t)himm) << 2;
   uint32_t npc = s->pc+4; 
   bool isLikely = false, takeBranch = false;
-  s->was_branch_or_jump = true;
   s->hbuf[(s->icnt-1)%HWINDOW].was_branch_or_jump = true;
   switch(bt)
     {
@@ -256,7 +255,6 @@ void mkMonitorVectors(state_t *s) {
 
 void execMips(state_t *s) {
   if(s->brk) return;
-  s->steps++;
   sparse_mem &mem = s->mem;
   uint32_t inst = bswap(mem.get32(s->pc));
 
@@ -528,7 +526,6 @@ void execMips(state_t *s) {
     switch(opcode) 
       {
       case 0x01:
-	s->was_branch_or_jump = true;
 	_bgez_bltz(inst, s); 
 	break;
       case 0x04:
@@ -1271,7 +1268,14 @@ static void _monitorBody(uint32_t inst, state_t *s) {
       /* int write(int file, char *ptr, int len) */
       fd = s->gpr[R_a0];
       nr = s->gpr[R_a2];
-      s->gpr[R_v0] = per_page_rdwr<true>(s->mem, fd, s->gpr[R_a1], nr);
+      if(s->silent and (fd==STDOUT_FILENO or fd==STDERR_FILENO)) {
+	fd = open("/dev/null", O_WRONLY);
+	s->gpr[R_v0] = per_page_rdwr<true>(s->mem, fd, s->gpr[R_a1], nr);
+	close(fd);
+      }
+      else {
+	s->gpr[R_v0] = per_page_rdwr<true>(s->mem, fd, s->gpr[R_a1], nr);
+      }
       break;
     case 9:
       /* off_t lseek(int fd, off_t offset, int whence); */

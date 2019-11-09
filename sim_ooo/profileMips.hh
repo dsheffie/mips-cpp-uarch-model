@@ -65,21 +65,18 @@ struct state_t {
   uint64_t icnt;
   uint8_t brk;
   uint8_t syscall;
-  int steps;
   int call_site;
   int32_t gpr[32];
   uint32_t cpr0[32];
   uint32_t cpr1[32];
   uint32_t fcr1[5];
   int num_open_fd = 0;
-  bool was_branch_or_jump = false;
-  bool was_likely_branch = false;
-  bool took_branch_or_jump = false;
+  bool silent = false;
   simCache *l1d = nullptr;
   history_t hbuf[HWINDOW];
   state_t(sparse_mem &mem) : mem(mem), pc(0), lo(0), hi(0),
 			     icnt(0), brk(0),
-			     syscall(0), steps(0) {
+			     syscall(0) {
     memset(gpr, 0, sizeof(int32_t)*32);
     memset(cpr0, 0, sizeof(uint32_t)*32);
     memset(cpr1, 0, sizeof(uint32_t)*32);
@@ -99,7 +96,6 @@ struct state_t {
     memcpy(cpr0, other->cpr0, sizeof(uint32_t)*32);
     memcpy(cpr1, other->cpr1, sizeof(uint32_t)*32);
     memcpy(fcr1, other->fcr1, sizeof(uint32_t)*5);
-    steps = 0;
   }
 };
 

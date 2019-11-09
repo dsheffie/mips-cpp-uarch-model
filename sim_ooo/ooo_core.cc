@@ -31,7 +31,6 @@
 
 extern std::map<uint32_t, uint32_t> branch_target_map;
 extern std::map<uint32_t, int32_t> branch_prediction_map;
-
 static std::map<int64_t, int64_t> insn_lifetime_map;
 
 
@@ -80,7 +79,6 @@ void fetch(sim_state &machine_state) {
 	machine_state.fetched_insns++;
 	machine_state.delay_slot_npc = 0;
 	if(enable_oracle) {
-	  machine_state.oracle_state->steps--;
 	}
 
 	if(taken_branches == sim_param::taken_branches_per_cycle)
@@ -97,14 +95,9 @@ void fetch(sim_state &machine_state) {
       if(enable_oracle) {
 	if(not(machine_state.oracle_state->brk)) {
 
-	  machine_state.oracle_state->was_branch_or_jump = false;
-	  machine_state.oracle_state->was_likely_branch = false;
-	  machine_state.oracle_state->took_branch_or_jump = false;
-
 	  if(machine_state.fetched_insns == machine_state.oracle_state->icnt) {
 	    execMips(machine_state.oracle_state);
 	  }
-	  machine_state.oracle_state->steps--;
 
 	  auto &hh = machine_state.oracle_state->hbuf[machine_state.fetched_insns%HWINDOW];
 #if 0
@@ -666,6 +659,7 @@ void initialize_ooo_core(sim_state &machine_state,
   if(use_oracle) {
     machine_state.oracle_mem = new sparse_mem(*sm);
     machine_state.oracle_state = new state_t(*machine_state.oracle_mem);
+    machine_state.oracle_state->silent = true;
     machine_state.oracle_state->copy(s);
   }
   machine_state.mem = new sparse_mem(*sm);
