@@ -33,11 +33,24 @@ public:
   void clear() {
     memset(arr, 0, sizeof(E)*n_words);
   }
+  uint64_t hash(uint64_t h_bits) const {
+    size_t h = 0;
+    uint64_t h_words = std::min((n_bits+bpw-1)/bpw, n_words);
+    for(size_t i = 0; i < h_words; i++) {
+      E w = arr[i];
+      if((bpw*(i+1)) > h_bits) {
+	size_t l = bpw - ((bpw*(i+1)) - h_bits);
+	E m = (static_cast<E>(1) << l)-1;
+	w &= m;
+      }
+      boost::hash_combine(h, w);
+    }
+    return h;
+  }
   uint64_t hash() const {
     size_t h = 0;
     for(size_t i = 0; i < n_words; i++) {
       boost::hash_combine(h, arr[i]);
-      //h ^= arr[i] + 0x9e3779b9 + (h<<6) + (h>>2);
     }
     return h;
   }

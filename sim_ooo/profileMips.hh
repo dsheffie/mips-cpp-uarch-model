@@ -11,22 +11,23 @@
 #include "sparse_mem.hh"
 
 const static int MARGS = 20;
+static const int HWINDOW = (1<<16);
 
 class simCache;
 
-typedef struct {
+struct timeval32_t {
   uint32_t tv_sec;
   uint32_t tv_usec;
-} timeval32_t;
+};
 
-typedef struct {
+struct tms32_t {
   uint32_t tms_utime;
   uint32_t tms_stime;
   uint32_t tms_cutime;
   uint32_t tms_cstime;
-} tms32_t;
+};
 
-typedef struct {
+struct stat32_t {
   uint16_t st_dev;
   uint16_t st_ino;
   uint32_t st_mode;
@@ -44,10 +45,17 @@ typedef struct {
   uint32_t st_blksize;
   uint32_t st_blocks;
   uint32_t st_spare4[2];
-} stat32_t;
+};
 
 
-
+struct history_t {
+  uint32_t fetch_pc = 0;
+  uint32_t next_pc = 0;
+  bool was_branch_or_jump = false;
+  bool was_likely_branch = false;
+  bool took_branch_or_jump = false;
+  uint64_t icnt;
+};
 
 struct state_t {
   sparse_mem &mem;
@@ -57,24 +65,23 @@ struct state_t {
   uint64_t icnt;
   uint8_t brk;
   uint8_t syscall;
-  int steps;
   int call_site;
   int32_t gpr[32];
   uint32_t cpr0[32];
   uint32_t cpr1[32];
   uint32_t fcr1[5];
   int num_open_fd = 0;
-  bool was_branch_or_jump = false;
-  bool was_likely_branch = false;
-  bool took_branch_or_jump = false;
+  bool silent = false;
   simCache *l1d = nullptr;
+  history_t hbuf[HWINDOW];
   state_t(sparse_mem &mem) : mem(mem), pc(0), lo(0), hi(0),
 			     icnt(0), brk(0),
-			     syscall(0), steps(0) {
+			     syscall(0) {
     memset(gpr, 0, sizeof(int32_t)*32);
     memset(cpr0, 0, sizeof(uint32_t)*32);
     memset(cpr1, 0, sizeof(uint32_t)*32);
     memset(fcr1, 0, sizeof(uint32_t)*5);
+    memset(hbuf, 0, sizeof(hbuf));
 
   }
   void copy(const state_t *other) {
@@ -89,7 +96,6 @@ struct state_t {
     memcpy(cpr0, other->cpr0, sizeof(uint32_t)*32);
     memcpy(cpr1, other->cpr1, sizeof(uint32_t)*32);
     memcpy(fcr1, other->fcr1, sizeof(uint32_t)*5);
-    steps = 0;
   }
 };
 

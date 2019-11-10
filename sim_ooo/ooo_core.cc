@@ -31,7 +31,6 @@
 
 extern std::map<uint32_t, uint32_t> branch_target_map;
 extern std::map<uint32_t, int32_t> branch_prediction_map;
-
 static std::map<int64_t, int64_t> insn_lifetime_map;
 
 
@@ -59,11 +58,17 @@ void fetch(sim_state &machine_state) {
   
   while(not(machine_state.terminate_sim)) {
     int fetch_amt = 0, taken_branches = 0;
-    for(; not(fetch_queue.full()) and (fetch_amt < sim_param::fetch_bw) and not(machine_state.nuke); ) {
+    for(; not(fetch_queue.full()) and (fetch_amt < sim_param::fetch_bw) and not(machine_state.nuke) and not(machine_state.fetch_blocked); ) {
       
       if(machine_state.delay_slot_npc) {
 	uint32_t inst = bswap(mem.get32(machine_state.delay_slot_npc));
-	auto f = new mips_meta_op(machine_state.delay_slot_npc,
+
+	if(is_monitor(inst)) {
+	  machine_state.fetch_blocked = true;
+	}
+	
+	auto f = new mips_meta_op(machine_state.fetched_insns,
+				  machine_state.delay_slot_npc,
 				  inst,
 				  machine_state.delay_slot_npc+4,
 				  global::curr_cycle,
@@ -71,9 +76,9 @@ void fetch(sim_state &machine_state) {
 				  false);
 	fetch_queue.push(f);
 	fetch_amt++;
+	machine_state.fetched_insns++;
 	machine_state.delay_slot_npc = 0;
 	if(enable_oracle) {
-	  machine_state.oracle_state->steps--;
 	}
 
 	if(taken_branches == sim_param::taken_branches_per_cycle)
@@ -85,60 +90,79 @@ void fetch(sim_state &machine_state) {
       uint32_t npc = machine_state.fetch_pc + 4;
       bool predict_taken = false;
       bool oracle_taken = false, oracle_nullify = false;
+      uint32_t oracle_npc = 0;
 
       if(enable_oracle) {
-	if(machine_state.oracle_state->steps == 0 and not(machine_state.oracle_state->brk)) {
-	  if(machine_state.oracle_state->pc != machine_state.fetch_pc) {
-	    std::cerr << "oracle/sim mismatch @ insn "
-		      << machine_state.icnt
-		      << " : "
-		      << " oracle pc "
-		      << std::hex
-		      << machine_state.oracle_state->pc
-		      << " / sim pc "
-		      << machine_state.fetch_pc
-		      << std::dec
-		      << "\n";
-	    machine_state.terminate_sim = true;
-	    fetch_amt = sim_param::fetch_bw;
+	if(not(machine_state.oracle_state->brk)) {
+
+	  if(machine_state.fetched_insns == machine_state.oracle_state->icnt) {
+	    execMips(machine_state.oracle_state);
 	  }
-	  machine_state.oracle_state->was_branch_or_jump = false;
-	  machine_state.oracle_state->was_likely_branch = false;
-	  machine_state.oracle_state->took_branch_or_jump = false;
-	  execMips(machine_state.oracle_state);
-	  machine_state.oracle_state->steps--;
-	  if(machine_state.oracle_state->was_branch_or_jump and
-	     machine_state.oracle_state->took_branch_or_jump) {
+
+	  auto &hh = machine_state.oracle_state->hbuf[machine_state.fetched_insns%HWINDOW];
+#if 0
+	  std::cout << std::hex
+		    << "oracle pc = " << hh.fetch_pc
+	    	    << " oracle npc = " << hh.next_pc
+		    << " fetch pc = " << machine_state.fetch_pc
+		    << " was_branch_or_jump = "
+		    << hh.was_branch_or_jump
+		    << ", was_likely_branch = "
+		    << hh.was_likely_branch
+		    << ", took_branch_or_jump = "
+		    << hh.took_branch_or_jump
+		    << std::dec
+		    << " uarch sim fetched "
+		    << machine_state.fetched_insns
+		    << " oracle fetched "
+		    << hh.icnt
+		    << "\n";
+#endif	  
+	  assert(hh.icnt == machine_state.fetched_insns);     
+	  assert(hh.fetch_pc == machine_state.fetch_pc);
+
+	  bool jump = is_jal(inst) or is_jr(inst) or is_j(inst);
+	  if(jump) {
+	    assert(hh.was_branch_or_jump and hh.took_branch_or_jump);
+	  }
+	  
+	  if(hh.was_branch_or_jump and hh.took_branch_or_jump) {
 	    oracle_taken = true;
+	    oracle_npc = hh.next_pc;
 	  }
-	  else if(machine_state.oracle_state->was_likely_branch and
-		  not(machine_state.oracle_state->took_branch_or_jump)) {
+	  else if(hh.was_likely_branch and not(hh.took_branch_or_jump)) {
 	    oracle_nullify = true;
 	  }
-	}
-	else {
-	  machine_state.oracle_state->steps--;
 	}
       }
 	
       auto it = branch_prediction_map.find(machine_state.fetch_pc);
       bool used_return_addr_stack = false;
       
-      mips_meta_op *f = new mips_meta_op(machine_state.fetch_pc, inst, global::curr_cycle);
+      mips_meta_op *f = new mips_meta_op(machine_state.fetched_insns,
+					 machine_state.fetch_pc,
+					 inst,
+					 global::curr_cycle);
       bool backwards_br = (get_branch_target(machine_state.fetch_pc, inst) < machine_state.fetch_pc);
+
+      if(is_monitor(inst)) {
+	machine_state.fetch_blocked = true;
+      }
+
       
       if(enable_oracle) {
 	if(oracle_taken) {
 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	  npc = machine_state.oracle_state->pc;
+	  npc = oracle_npc;
 	  predict_taken = true;
+	  //std::cerr << "PREDICT TAKEN with npc of " << std::hex << npc << std::dec << "\n";
 	}
 	else if(oracle_nullify) {
+	  //std::cerr << "PREDICT NULLIFY\n";
 	  npc = machine_state.fetch_pc + 8;
 	}
       }
       else {
-	
 	f->prediction = machine_state.branch_pred->predict(f->pht_idx);
 	
 	if(is_jr(inst)) {
@@ -190,18 +214,18 @@ void fetch(sim_state &machine_state) {
 	  }
 	}
       }
-	
       f->fetch_npc = npc;
       f->predict_taken = predict_taken;
       f->pop_return_stack = used_return_addr_stack;
       
       fetch_queue.push(f);
       fetch_amt++;
+      machine_state.fetched_insns++;
       machine_state.fetch_pc = npc;
       if(predict_taken)
 	taken_branches++;
     }
-    machine_state.fetched_insns += fetch_amt;
+
     gthread_yield();
   }
   gthread_terminate();
@@ -382,6 +406,7 @@ void retire(sim_state &machine_state) {
       bool is_load_exception = u->load_exception;
       uint32_t exc_pc = u->pc;
       bool delay_slot_exception = false;
+      
       if(u->exception==exception_type::branch) {
 	if(u->has_delay_slot) {
 	  /* wait for branch delay instr to allocate */
@@ -459,15 +484,22 @@ void retire(sim_state &machine_state) {
       machine_state.nuke = true;
       stuck_cnt = 0;
       if(delay_slot_exception) {
+	assert(not(enable_oracle));
 	machine_state.fetch_pc = u->pc;
       }
       else {
 	if(u->exception == exception_type::branch) {
 	  machine_state.fetch_pc = u->correct_pc;
+	  if(enable_oracle) {
+	    assert((u->fetch_icnt+1)==machine_state.fetched_insns);
+	  }
 	  delete u;
 	}
 	else {
 	  machine_state.fetch_pc = u->pc;
+	  if(enable_oracle) {
+	    machine_state.fetched_insns = u->fetch_icnt;
+	  }
 	}
       }
 
@@ -475,10 +507,6 @@ void retire(sim_state &machine_state) {
 	machine_state.l1d->nuke_inflight();
       }
 
-#if 0
-      rollback_rob_entry undo_rob(machine_state);
-      int64_t c = rob.traverse_and_apply(undo_rob);
-#endif
 
       /* quick way to reset rob with flash copied tables */
       int64_t c = 0;
@@ -559,6 +587,7 @@ void retire(sim_state &machine_state) {
       machine_state.fetch_queue.clear();
       machine_state.delay_slot_npc = 0;
       machine_state.alloc_blocked = false;
+      machine_state.fetch_blocked = false;
       for(int i = 0; i < machine_state.num_alu_rs; i++) {
 	machine_state.alu_rs.at(i).clear();
       }
@@ -583,10 +612,10 @@ void retire(sim_state &machine_state) {
       }
       machine_state.nuke = false;
 
-      if(enable_oracle) {
-	machine_state.oracle_state->copy(machine_state.ref_state);
-	machine_state.oracle_mem->copy(machine_state.ref_state->mem);
-      }
+      // if(enable_oracle) {
+      // 	machine_state.oracle_state->copy(machine_state.ref_state);
+      // 	machine_state.oracle_mem->copy(machine_state.ref_state->mem);
+      // }
 	
       gthread_yield();
       //std::cout << "rolling back complete @ cycle " << get_curr_cycle() << "\n";
@@ -630,6 +659,7 @@ void initialize_ooo_core(sim_state &machine_state,
   if(use_oracle) {
     machine_state.oracle_mem = new sparse_mem(*sm);
     machine_state.oracle_state = new state_t(*machine_state.oracle_mem);
+    machine_state.oracle_state->silent = true;
     machine_state.oracle_state->copy(s);
   }
   machine_state.mem = new sparse_mem(*sm);
@@ -1335,9 +1365,8 @@ void run_ooo_core(sim_state &machine_state) {
     double d_cycles = static_cast<double>(get_curr_cycle());
     for(auto &p : insn_lifetime_map) {
       avg_latency += (static_cast<double>(p.first) * static_cast<double>(p.second)) / d_cycles;
-      //*global::sim_log << p.first << " cycles : " << p.second << " insns, avg latency "
-      //<< avg_latency << "\n";
     }
+    mapToCSV(insn_lifetime_map,"insn_lifetime_map.csv");
     *global::sim_log << avg_latency << " cycles is the average instruction lifetime\n";
   }
   
