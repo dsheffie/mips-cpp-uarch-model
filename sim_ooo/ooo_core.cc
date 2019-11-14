@@ -33,6 +33,13 @@ extern std::map<uint32_t, uint32_t> branch_target_map;
 extern std::map<uint32_t, int32_t> branch_prediction_map;
 static std::map<int64_t, int64_t> insn_lifetime_map;
 
+template <typename T>
+T mod(T x, T y) {
+  if(isPow2(y)) {
+    return x & (y-1);
+  }
+  return x % y;
+}
 
 class rollback_rob_entry : public sim_queue<sim_op>::funcobj {
 protected:
@@ -860,7 +867,7 @@ extern "C" {
 	    die();
 	  case mips_op_type::alu: {
 	    int64_t p = alu_alloc.find_first_unset_rr();
-	    int64_t rs_id = p % sim_param::num_alu_ports;
+	    int64_t rs_id = mod(static_cast<int>(p),sim_param::num_alu_ports);
 	    if(p!=-1 and not(machine_state.alu_rs.at(rs_id).full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.alu_rs.at(rs_id));
@@ -871,7 +878,7 @@ extern "C" {
 	    break;
 	  case mips_op_type::fp: {
 	    int64_t p = fpu_alloc.find_first_unset_rr();
-	    int64_t rs_id = p % sim_param::num_fpu_ports;
+	    int64_t rs_id = mod(static_cast<int>(p),sim_param::num_fpu_ports);
 	    if(p!=-1 and not(machine_state.fpu_rs.at(rs_id).full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.fpu_rs.at(rs_id));
@@ -890,7 +897,7 @@ extern "C" {
 	    break;
 	  case mips_op_type::load: {
 	    int64_t p = load_alloc.find_first_unset_rr();
-	    int64_t rs_id = p % sim_param::num_load_ports;
+	    int64_t rs_id = mod(static_cast<int>(p),sim_param::num_load_ports);
 	    if(p!=-1 and not(machine_state.load_rs.at(rs_id).full())) {
 		rs_available = true;
 		rs_queue = &(machine_state.load_rs.at(rs_id));
@@ -901,7 +908,7 @@ extern "C" {
 	  }
 	  case mips_op_type::store: {
 	    int64_t p = store_alloc.find_first_unset_rr();
-	    int64_t rs_id = p % sim_param::num_store_ports;
+	    int64_t rs_id = mod(static_cast<int>(p),sim_param::num_store_ports);
 	    if(p!=-1 and not(machine_state.store_rs.at(rs_id).full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.store_rs.at(rs_id));
