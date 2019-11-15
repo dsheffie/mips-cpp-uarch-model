@@ -105,6 +105,14 @@ bool isPow2(T x) {
 }
 
 template <typename T, typename std::enable_if<std::is_integral<T>::value,T>::type* = nullptr>
+T mod(T x, T y) {
+  if(isPow2(y)) {
+    return x & (y-1);
+  }
+  return x % y;
+}
+
+template <typename T, typename std::enable_if<std::is_integral<T>::value,T>::type* = nullptr>
 T ln2(T x) {
   T y = 1, l =0;
   while(y < x) {

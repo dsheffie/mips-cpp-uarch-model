@@ -135,7 +135,7 @@ public:
       if(get_bit(b)==false) {
 	return b;
       }
-      b = (b+1) % n_bits;
+      b = mod((b+1), n_bits);
     }
     return -1;
   }

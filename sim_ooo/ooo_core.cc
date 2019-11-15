@@ -33,13 +33,6 @@ extern std::map<uint32_t, uint32_t> branch_target_map;
 extern std::map<uint32_t, int32_t> branch_prediction_map;
 static std::map<int64_t, int64_t> insn_lifetime_map;
 
-template <typename T>
-T mod(T x, T y) {
-  if(isPow2(y)) {
-    return x & (y-1);
-  }
-  return x % y;
-}
 
 class rollback_rob_entry : public sim_queue<sim_op>::funcobj {
 protected:
