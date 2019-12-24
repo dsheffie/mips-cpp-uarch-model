@@ -100,6 +100,7 @@ int main(int argc, char *argv[]) {
   bool use_syscall_skip = false, use_mem_model = false;
   bool clear_checkpoint_icnt = false;
   bool warmstart = true;
+  int uarch_scale = 1;
   po::options_description desc("Options");
   po::variables_map vm;
   
@@ -116,12 +117,12 @@ int main(int argc, char *argv[]) {
     ("clricnt", po::value<bool>(&clear_checkpoint_icnt)->default_value(false), "clear icnt after loading checkpoint")
     ("syscallskip,s", po::value<bool>(&use_syscall_skip)->default_value(false), "skip syscalls")
     ("log,l", po::value<std::string>(&logfile), "log to file")
-    ("mem_model", po::value<bool>(&use_mem_model)->default_value(false), "use memory model")
+    ("mem_model", po::value<bool>(&use_mem_model)->default_value(true), "use memory model")
     ("use_l2", po::value<bool>(&use_l2)->default_value(true), "use l2 cache model")
     ("use_l3", po::value<bool>(&use_l3)->default_value(true), "use l3 cache model")
-    ("interp,i", po::value<bool>(&global::use_interp_check)->default_value(true), "use interpreter check")
+    ("interp,i", po::value<bool>(&global::use_interp_check)->default_value(false), "use interpreter check")
     ("warmstart", po::value<bool>(&warmstart)->default_value(true), "use warmstart with interpreter")
-    //("scale", po::value<int>(&uarch_scale)->default_value(1), "scale uarch parameters")
+    ("scale", po::value<int>(&uarch_scale)->default_value(1), "scale uarch parameters")
 #define SIM_PARAM(A,B,C,D) (#A,po::value<int>(&sim_param::A)->default_value(B), #A)
     SIM_PARAM_LIST;
 #undef SIM_PARAM
@@ -162,7 +163,29 @@ int main(int argc, char *argv[]) {
   }
   SIM_PARAM_LIST;
 #undef SIM_PARAM
+
+  sim_param::rob_size *= uarch_scale;
+  sim_param::fetchq_size *= uarch_scale;
+  sim_param::decodeq_size *= uarch_scale;
+  sim_param::fetch_bw *= uarch_scale;
+  sim_param::decode_bw *= uarch_scale;
+  sim_param::alloc_bw *= uarch_scale;
+  sim_param::retire_bw *= uarch_scale;
   
+  sim_param::num_gpr_prf *= uarch_scale;
+  sim_param::num_cpr0_prf *= uarch_scale;
+  sim_param::num_cpr1_prf *= uarch_scale;
+  sim_param::num_fcr1_prf *= uarch_scale;
+  sim_param::num_fpu_ports *= uarch_scale;
+  sim_param::num_alu_ports *= uarch_scale;
+  sim_param::num_load_ports *= uarch_scale;
+  sim_param::num_store_ports *= uarch_scale;
+  sim_param::num_alu_sched_entries *= uarch_scale;
+  sim_param::num_fpu_sched_entries *= uarch_scale;
+  sim_param::num_jmp_sched_entries *= uarch_scale;
+  sim_param::num_load_sched_entries *= uarch_scale;
+  sim_param::num_store_sched_entries *= uarch_scale;
+
   /* Build argc and argv */
   global::sysArgc = buildArgcArgv(filename.c_str(),sysArgs.c_str(),&global::sysArgv);
   initParseTables();
@@ -237,9 +260,9 @@ int main(int argc, char *argv[]) {
     run_ooo_core(machine_state);
   }
   
-  *global::sim_log << "sparse mem bytes allocated = "
-		   << machine_state.mem->bytes_allocated()
-		   << "\n";
+  //*global::sim_log << "sparse mem bytes allocated = "
+  //		   << machine_state.mem->bytes_allocated()
+  //		   << "\n";
   
   if(hash) {
     *global::sim_log << std::hex << "crc32 = "

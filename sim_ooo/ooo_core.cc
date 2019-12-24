@@ -118,8 +118,21 @@ void fetch(sim_state &machine_state) {
 		    << hh.icnt
 		    << "\n";
 #endif	  
-	  assert(hh.icnt == machine_state.fetched_insns);     
-	  assert(hh.fetch_pc == machine_state.fetch_pc);
+	  if(hh.icnt != machine_state.fetched_insns or
+	     hh.fetch_pc != machine_state.fetch_pc) {
+	    std::cerr << "hh.fetch_pc = "
+		      << std::hex
+		      << hh.fetch_pc
+		      << ",machine_state.fetch_pc = "
+		      << machine_state.fetch_pc
+		      << std::dec
+		      << " hh.icnt = "
+		      << hh.icnt
+		      << ",machine_state.fetched_insns = "
+		      << machine_state.fetched_insns
+		      << "\n";
+	    die();
+	  }
 
 	  bool jump = is_jal(inst) or is_jr(inst) or is_j(inst);
 	  if(jump) {
@@ -1329,10 +1342,11 @@ void run_ooo_core(sim_state &machine_state) {
   double nonsquash_fract = 100.0 *static_cast<double>(retired_insns) /
     static_cast<double>(machine_state.fetched_insns);
   
-  *global::sim_log << "SIMULATION COMPLETE : "
-	    << retired_insns
-	    << " inst retired in "
-	    << get_curr_cycle() << " cycles\n";
+  //*global::sim_log << "SIMULATION COMPLETE : "
+  //<< retired_insns
+  //<< " inst retired in "
+  //<< get_curr_cycle() << " cycles\n";
+  
   *global::sim_log << machine_state.fetched_insns
 		   << " fetched insns\n";
   *global::sim_log << nonsquash_fract << "% of fetched insns retire\n";
@@ -1357,8 +1371,8 @@ void run_ooo_core(sim_state &machine_state) {
   *global::sim_log << machine_state.branch_nukes << " branch nukes\n";
   *global::sim_log << machine_state.load_nukes << " load nukes\n";
   
-  *global::sim_log << "CHECK INSN CNT : "
-	    << machine_state.ref_state->icnt << "\n";
+  //*global::sim_log << "CHECK INSN CNT : "
+  //<< machine_state.ref_state->icnt << "\n";
 
   if(get_curr_cycle() != 0) {
     double avg_latency = 0.0;

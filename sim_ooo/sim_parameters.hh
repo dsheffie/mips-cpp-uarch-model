@@ -29,8 +29,8 @@
   SIM_PARAM(num_load_sched_entries,16,1,false)				\
   SIM_PARAM(num_store_sched_entries,16,1,false)				\
   SIM_PARAM(num_system_sched_entries,1,1,false)				\
-  SIM_PARAM(load_tbl_size,16,1,false)					\
-  SIM_PARAM(store_tbl_size,16,1,false)					\
+  SIM_PARAM(load_tbl_size,64,1,false)					\
+  SIM_PARAM(store_tbl_size,64,1,false)					\
   SIM_PARAM(taken_branches_per_cycle,1,1,false)				\
   SIM_PARAM(num_loop_entries,0,0,true)					\
   SIM_PARAM(lg_pht_entries,16,0,false)					\
