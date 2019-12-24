@@ -15,14 +15,12 @@
 #include <boost/pool/object_pool.hpp>
 #include <boost/dynamic_bitset.hpp>
 #include "sim_list.hh"
+#include "helper.hh"
 
 class mips_meta_op;
 
 enum class opType {READ,WRITE};
 
-#ifndef print_var
-#define print_var(x) { std::cout << #x << " = " << x << "\n"; }
-#endif
 
 class simCache {
 protected:

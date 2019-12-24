@@ -78,8 +78,6 @@ void fetch(sim_state &machine_state) {
 	fetch_amt++;
 	machine_state.fetched_insns++;
 	machine_state.delay_slot_npc = 0;
-	if(enable_oracle) {
-	}
 
 	if(taken_branches == sim_param::taken_branches_per_cycle)
 	  break;
@@ -94,7 +92,7 @@ void fetch(sim_state &machine_state) {
 
       if(enable_oracle) {
 	if(not(machine_state.oracle_state->brk)) {
-
+	  
 	  if(machine_state.fetched_insns == machine_state.oracle_state->icnt) {
 	    execMips(machine_state.oracle_state);
 	  }

@@ -122,6 +122,14 @@ T ln2(T x) {
   return l;
 }
 
+#define print_var(x) {					\
+    std::cerr << #x << " = " << x  << std::endl;	\
+  }
+
+#define print_var_hex(x) {		      \
+    std::cerr << #x << " = " << std::hex << x \
+	      << std::dec << std::endl;	      \
+  }
 
 #ifdef  __FreeBSD__
 /* cribbed straight out of the FreeBSD source */

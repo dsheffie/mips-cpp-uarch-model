@@ -207,7 +207,7 @@ int main(int argc, char *argv[]) {
     mkMonitorVectors(s);
   }
   else {
-    loadState(*s, filename, clear_checkpoint_icnt);
+    loadState(*s, filename, use_oracle or clear_checkpoint_icnt);
   }
   signal(SIGINT, catchUnixSignal);
   
