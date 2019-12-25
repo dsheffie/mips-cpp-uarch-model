@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
     ("maxicnt,m", po::value<uint64_t>(&maxicnt)->default_value(~0UL), "maximum instruction count")
     ("oracle,o", po::value<bool>(&use_oracle)->default_value(false), "use branch oracle")
     ("checkpoint,p", po::value<bool>(&use_checkpoint)->default_value(false), "use a machine checkpoint")
-    ("clricnt", po::value<bool>(&clear_checkpoint_icnt)->default_value(false), "clear icnt after loading checkpoint")
+    ("clricnt", po::value<bool>(&clear_checkpoint_icnt)->default_value(true), "clear icnt after loading checkpoint")
     ("syscallskip,s", po::value<bool>(&use_syscall_skip)->default_value(false), "skip syscalls")
     ("log,l", po::value<std::string>(&logfile), "log to file")
     ("mem_model", po::value<bool>(&use_mem_model)->default_value(true), "use memory model")
