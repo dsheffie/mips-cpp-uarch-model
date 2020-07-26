@@ -752,16 +752,16 @@ extern "C" {
 	uint64_t w_br_and_jmps = br_and_jmps - prev_br_and_jmps;
 	uint64_t w_mispredicts = mispredicts - prev_mispredicts;
 	
-	double pr = static_cast<double>(br_and_jmps - mispredicts) / br_and_jmps;
-	double w_pr = static_cast<double>(w_br_and_jmps - w_mispredicts) / w_br_and_jmps;
+	double pr = 1000.0 * (static_cast<double>(mispredicts) / curr_icnt);
+	double w_pr = 1000.0 * (static_cast<double>(w_mispredicts) / (curr_icnt-prev_icnt));
 
 	
 	*global::sim_log << "c " << global::curr_cycle 
 			      << ", i " << curr_icnt
 			      << ", a ipc "<< ipc
 			      << ", w ipc " << wipc
-			      << ", a br " << pr
-			      << ", w br " << w_pr;
+			      << ", a jpki " << pr
+			      << ", w jpki " << w_pr;
 	
 	if(l1d) {
 	  uint64_t hits = l1d->getHits()-last_hits;
