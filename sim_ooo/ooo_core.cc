@@ -760,8 +760,8 @@ extern "C" {
 			      << ", i " << curr_icnt
 			      << ", a ipc "<< ipc
 			      << ", w ipc " << wipc
-			      << ", a jpki " << pr
-			      << ", w jpki " << w_pr;
+			      << ", a mpki " << pr
+			      << ", w mpki " << w_pr;
 	
 	if(l1d) {
 	  uint64_t hits = l1d->getHits()-last_hits;
