@@ -9,7 +9,7 @@ ifeq ($(UNAME_S),Linux)
 endif
 
 ifeq ($(UNAME_S),FreeBSD)
-	CXX = CC -march=native
+	CXX = CC -march=native -flto
 	OBJ += gthread_asm.o
 	EXTRA_LD = -L/usr/local/lib -lunwind -lboost_program_options -ltcmalloc_minimal
 endif
