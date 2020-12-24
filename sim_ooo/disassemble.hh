@@ -1,8 +1,9 @@
 #include <string>
 #include <cstdint>
+#include <array>
 
-#ifndef __PARSE_MIPS__
-#define __PARSE_MIPS__
+#ifndef __DISASSEMBLE_HH__
+#define __DISASSEMBLE_HH__
 
 #define R_zero 0
 #define R_at 1
@@ -67,15 +68,14 @@
 #define CP1_CR26 3
 #define CP1_CR28 4
 
-void initParseTables();
-bool isBranchOrJump(uint32_t inst);
-bool isFloatingPoint(uint32_t inst);
-bool isMonitor(uint32_t inst);
+const std::string &getCondName(uint32_t c);
+const std::string &getGPRName(uint32_t r);
+
+void initCapstone();
+void stopCapstone();
 
 std::string getAsmString(uint32_t inst,uint32_t addr);
-std::string getGPRName(uint32_t r, bool spaces=false);
-std::string getCondName(uint32_t c);
+void disassemble(std::ostream &out, uint32_t inst, uint32_t addr);
 
-std::string getInstTypeStr(uint32_t idx);
 
 #endif

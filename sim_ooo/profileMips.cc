@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 
 #include "profileMips.hh"
-#include "parseMips.hh"
+#include "disassemble.hh"
 #include "sim_cache.hh"
 #include "helper.hh"
 #include "globals.hh"

@@ -8,7 +8,7 @@
 #include "globals.hh"
 #include "mips_op.hh"
 #include "helper.hh"
-#include "parseMips.hh"
+#include "disassemble.hh"
 #include "sim_parameters.hh"
 #include "sim_cache.hh"
 #include "machine_state.hh"

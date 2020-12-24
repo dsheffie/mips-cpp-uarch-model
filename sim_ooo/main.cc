@@ -18,11 +18,12 @@
 #include <cassert>
 #include <boost/program_options.hpp>
 
+
 #include "sim_cache.hh"
 #include "loadelf.hh"
 #include "save_state.hh"
 #include "helper.hh"
-#include "parseMips.hh"
+#include "disassemble.hh"
 #include "profileMips.hh"
 #include "globals.hh"
 #include "mips_op.hh"
@@ -188,8 +189,8 @@ int main(int argc, char *argv[]) {
 
   /* Build argc and argv */
   global::sysArgc = buildArgcArgv(filename.c_str(),sysArgs.c_str(),&global::sysArgv);
-  initParseTables();
-
+  initCapstone();
+  
   sparse_mem *sm = new sparse_mem(1UL<<32);
   s = new state_t(*sm);
   initState(s);
@@ -296,6 +297,7 @@ int main(int argc, char *argv[]) {
     delete [] global::sysArgv;
   }
 
+  stopCapstone();
   return 0;
 }
 

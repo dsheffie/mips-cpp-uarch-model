@@ -20,7 +20,7 @@
 
 #include "loadelf.hh"
 #include "helper.hh"
-#include "parseMips.hh"
+#include "disassemble.hh"
 #include "profileMips.hh"
 #include "globals.hh"
 #include "gthread.hh"
