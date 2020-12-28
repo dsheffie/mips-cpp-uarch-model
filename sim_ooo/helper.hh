@@ -23,13 +23,13 @@ static const char KCYN[] = "\x1B[36m";
 static const char KWHT[] = "\x1B[37m";
 
 /* from gdb simulator */
-static const uint32_t RSVD_INSTRUCTION  = 0x00000005;
-static const uint32_t RSVD_INSTRUCTION_MASK = 0xFC00003F;
-static const uint32_t RSVD_INSTRUCTION_ARG_SHIFT = 6;
-static const uint32_t RSVD_INSTRUCTION_ARG_MASK = 0xFFFFF;
-static const uint32_t IDT_MONITOR_BASE = 0xBFC00000;
-static const uint32_t IDT_MONITOR_SIZE = 2048;
-static const uint32_t K1SIZE = 0x80000000;
+// static const uint32_t RSVD_INSTRUCTION  = 0x00000005;
+// static const uint32_t RSVD_INSTRUCTION_MASK = 0xFC00003F;
+// static const uint32_t RSVD_INSTRUCTION_ARG_SHIFT = 6;
+// static const uint32_t RSVD_INSTRUCTION_ARG_MASK = 0xFFFFF;
+// static const uint32_t IDT_MONITOR_BASE = 0xBFC00000;
+// static const uint32_t IDT_MONITOR_SIZE = 2048;
+// static const uint32_t K1SIZE = 0x80000000;
 
 void dbt_backtrace();
 

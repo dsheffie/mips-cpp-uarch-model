@@ -230,6 +230,7 @@ static inline mips_type getInsnType(uint32_t insn) {
     return mips_type::itype;
 }
 
+
 static inline bool isFloatingPoint(uint32_t inst) {
   return ((inst>>26) == 0x11);
 }
@@ -257,6 +258,7 @@ static inline uint32_t get_jump_target(uint32_t pc, uint32_t inst) {
   return ((pc + 4)&pc_mask) | jaddr;
 }
 
+#if 0
 static inline bool is_branch(uint32_t inst) {
   uint32_t opcode = inst>>26;
   switch(opcode)
@@ -280,6 +282,7 @@ static inline bool is_branch(uint32_t inst) {
     }
   return false;
 }
+#endif
 
 static inline uint32_t get_branch_target(uint32_t pc, uint32_t inst) {
   int16_t himm = (int16_t)(inst & ((1<<16) - 1));
@@ -328,7 +331,7 @@ static inline bool isDirectBranchOrJump(uint32_t insn, uint32_t addr, uint32_t &
     }
   return false;
 }
-
+#if 0
 static inline bool isBranchOrJump(uint32_t inst) {
   switch(getInsnType(inst))
     {
@@ -348,6 +351,7 @@ static inline bool isBranchOrJump(uint32_t inst) {
     }
   return false;
 }
+#endif
 
 static inline int32_t signExtendImm(itype_t i) {
   return static_cast<int32_t>(static_cast<int16_t>(i.imm));

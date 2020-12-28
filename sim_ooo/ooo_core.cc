@@ -34,6 +34,38 @@ extern std::map<uint32_t, int32_t> branch_prediction_map;
 static std::map<int64_t, int64_t> insn_lifetime_map;
 
 
+static inline bool is_likely_branch(uint32_t inst) {
+  uint32_t opcode = inst>>26;
+  switch(opcode)
+    {
+    case 0x14:
+    case 0x16:
+    case 0x15:
+    case 0x17:
+      return true;
+    default:
+      break;
+    }
+  return false;
+}
+
+static inline bool is_nonlikely_branch(uint32_t inst) {
+  uint32_t opcode = inst>>26;
+  switch(opcode)
+    {
+    case 0x01:
+    case 0x04:
+    case 0x05:
+    case 0x06:
+    case 0x07:
+      return true;
+    default:
+      break;
+    }
+  return false;
+}
+
+
 class rollback_rob_entry : public sim_queue<sim_op>::funcobj {
 protected:
   sim_state &machine_state;
@@ -216,7 +248,7 @@ void fetch(sim_state &machine_state) {
 	  npc = get_branch_target(machine_state.fetch_pc, inst);
 	  predict_taken = true;
 	}
-	else if(is_branch(inst)) {
+	else if(is_nonlikely_branch(inst)) {
 	  uint32_t target = get_branch_target(machine_state.fetch_pc, inst);
 	  if(target < machine_state.fetch_pc) {
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;

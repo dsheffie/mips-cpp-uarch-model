@@ -2,12 +2,12 @@
 #define __state_hh__
 
 #include <fstream>
-#include "mips_encoding.hh"
+#include "mips.hh"
 #include "sparse_mem.hh"
 
 
-const static int MARGS = 20;
 static const int HWINDOW = (1<<16);
+static const uint32_t K1SIZE = 0x80000000;
 
 class simCache;
 
