@@ -21,7 +21,7 @@
 
 #include "sim_cache.hh"
 #include "loadelf.hh"
-#include "save_state.hh"
+#include "saveState.hh"
 #include "helper.hh"
 #include "disassemble.hh"
 #include "interpret.hh"

@@ -81,6 +81,21 @@ std::string toStringHex(T x) {
   return ss.str();
 }
 
+template <typename T, typename std::enable_if<std::is_integral<T>::value, T>::type* = nullptr>
+bool extractBit(T x, uint32_t b) {
+  return (x >> b) & 0x1;
+}
+
+template <typename T, typename std::enable_if<std::is_integral<T>::value, T>::type* = nullptr>
+T setBit(T x, bool v, uint32_t b) {
+  T vv = v ? static_cast<T>(1) : static_cast<T>(0);
+  T t = static_cast<T>(1) << b;
+  T tt = (~t) & x;
+  t  &= ~(vv-1);
+  return (tt | t);
+}
+
+
 #define BS_PRED(SZ) (std::is_integral<T>::value && (sizeof(T)==SZ))
 template <typename T, typename std::enable_if<BS_PRED(1),T>::type* = nullptr>
 T bswap(T x) {
@@ -98,6 +113,51 @@ template <typename T, typename std::enable_if<BS_PRED(8),T>::type* = nullptr>
 T bswap(T x) {
   return __builtin_bswap64(x);
 }
+
+
+#define INTEGRAL_ENABLE_IF(SZ,T) typename std::enable_if<std::is_integral<T>::value and (sizeof(T)==SZ),T>::type* = nullptr
+
+template <bool EL, typename T, INTEGRAL_ENABLE_IF(1,T)>
+T bswap(T x) {
+  return x;
+}
+
+template <bool EL, typename T, INTEGRAL_ENABLE_IF(2,T)> 
+T bswap(T x) {
+  static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, "must be little endian machine");
+  if(EL) 
+    return x;
+  else
+  return  __builtin_bswap16(x);
+}
+
+template <bool EL, typename T, INTEGRAL_ENABLE_IF(4,T)>
+T bswap(T x) {
+  static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, "must be little endian machine");
+  if(EL)
+    return x;
+  else 
+    return  __builtin_bswap32(x);
+}
+
+template <bool EL, typename T, INTEGRAL_ENABLE_IF(8,T)> 
+T bswap(T x) {
+  static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, "must be little endian machine");
+  if(EL)
+    return x;
+  else 
+    return  __builtin_bswap64(x);
+}
+
+#undef INTEGRAL_ENABLE_IF
+
+#ifndef UNREACHABLE
+#define UNREACHABLE() {				\
+    __builtin_unreachable();			\
+  }
+#endif
+
+
 
 template <typename T, typename std::enable_if<std::is_integral<T>::value,T>::type* = nullptr>
 bool isPow2(T x) {

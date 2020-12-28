@@ -1,8 +1,10 @@
 #ifndef __state_hh__
 #define __state_hh__
 
+#include <fstream>
 #include "mips_encoding.hh"
 #include "sparse_mem.hh"
+
 
 const static int MARGS = 20;
 static const int HWINDOW = (1<<16);
@@ -61,6 +63,6 @@ struct state_t {
   }
 };
 
-
+std::ostream &operator<<(std::ostream &out, const state_t &s);
 
 #endif
