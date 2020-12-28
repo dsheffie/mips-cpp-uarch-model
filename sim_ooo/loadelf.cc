@@ -22,7 +22,7 @@
 #endif
 
 #include "helper.hh"
-#include "profileMips.hh"
+#include "state.hh"
 
 
 static const uint8_t magicArr[4] = {0x7f, 'E', 'L', 'F'};

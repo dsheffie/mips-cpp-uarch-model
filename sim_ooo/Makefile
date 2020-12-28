@@ -1,6 +1,6 @@
 UNAME_S = $(shell uname -s)
 
-OBJ = githash.o save_state.o main.o loadelf.o helper.o profileMips.o gthread.o sparse_mem.o ooo_core.o mips_op.o sim_cache.o perceptron.o loop_predictor.o branch_predictor.o disassemble.o
+OBJ = githash.o save_state.o main.o loadelf.o helper.o interpret.o gthread.o sparse_mem.o ooo_core.o mips_op.o sim_cache.o perceptron.o loop_predictor.o branch_predictor.o disassemble.o
 
 ifeq ($(UNAME_S),Linux)
 	CXX = g++ -march=native -flto

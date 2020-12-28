@@ -11,7 +11,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "profileMips.hh"
+#include "interpret.hh"
 #include "disassemble.hh"
 #include "sim_cache.hh"
 #include "helper.hh"

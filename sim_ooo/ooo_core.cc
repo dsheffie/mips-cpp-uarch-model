@@ -21,7 +21,7 @@
 #include "loadelf.hh"
 #include "helper.hh"
 #include "disassemble.hh"
-#include "profileMips.hh"
+#include "interpret.hh"
 #include "globals.hh"
 #include "gthread.hh"
 #include "mips_op.hh"

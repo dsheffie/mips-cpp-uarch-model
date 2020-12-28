@@ -24,7 +24,7 @@
 #include "save_state.hh"
 #include "helper.hh"
 #include "disassemble.hh"
-#include "profileMips.hh"
+#include "interpret.hh"
 #include "globals.hh"
 #include "mips_op.hh"
 #include "machine_state.hh"
