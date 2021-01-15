@@ -19,7 +19,7 @@
 #include "perceptron.hh"
 
 
-enum class mips_op_type { unknown, alu, fp, jmp, load, store, system };
+enum class oper_type { unknown, alu, fp, jmp, load, store, system };
 
 enum class exception_type {none, load, branch};
 
@@ -46,28 +46,28 @@ inline bool is_monitor(uint32_t inst) {
 }
 
 
-inline std::ostream &operator<<(std::ostream &out, mips_op_type ot) {
+inline std::ostream &operator<<(std::ostream &out, oper_type ot) {
   switch(ot)
     {
-    case mips_op_type::unknown:
+    case oper_type::unknown:
       out << "unknown";
       break;
-    case mips_op_type::alu:
+    case oper_type::alu:
       out << "alu";
       break;
-    case mips_op_type::fp:
+    case oper_type::fp:
       out << "fp";
       break;
-    case mips_op_type::jmp:
+    case oper_type::jmp:
       out << "jmp";
       break;
-    case mips_op_type::load:
+    case oper_type::load:
       out << "load";
       break;
-    case mips_op_type::store:
+    case oper_type::store:
       out << "store";
       break;
-    case mips_op_type::system:
+    case oper_type::system:
       out << "system";
       break;
     }
@@ -220,7 +220,7 @@ protected:
 public:
   sim_op m = nullptr;
   bool retired = false;
-  mips_op_type op_class = mips_op_type::unknown;
+  oper_type op_class = oper_type::unknown;
   mips_op(sim_op m) : m(m), retired(false) {}
   virtual ~mips_op() {}
   virtual bool allocate(sim_state &machine_state);
@@ -253,7 +253,7 @@ public:
   int count_rd_ports() const {
     return (get_src0()!=-1) + (get_src1()!=-1) + (get_src2()!=-1) + (get_src3()!=-1);
   }
-  mips_op_type get_op_class() const {
+  oper_type get_op_class() const {
     return op_class;
   }
 };
@@ -265,7 +265,7 @@ protected:
   uint32_t effective_address = ~0;
 public:
   mips_store(sim_op op) : mips_op(op), i_(op->inst) {
-    this->op_class = mips_op_type::store;
+    this->op_class = oper_type::store;
     int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
     imm = static_cast<int32_t>(himm);
     op->is_store = true;
@@ -283,7 +283,7 @@ protected:
   bool stall_for_load(sim_state &machine_state) const;
 public:
   mips_load(sim_op op) : mips_op(op), i_(op->inst), lt(load_type::bogus) {
-    this->op_class = mips_op_type::load;
+    this->op_class = oper_type::load;
     int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
     imm = static_cast<int32_t>(himm);
     op->could_cause_exception = true;

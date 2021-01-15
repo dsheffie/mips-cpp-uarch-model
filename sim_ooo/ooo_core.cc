@@ -868,7 +868,7 @@ extern "C" {
     int64_t alloc_counter = 0;
     while(not(machine_state.terminate_sim)) {
       int alloc_amt = 0;
-      std::map<mips_op_type, int> alloc_histo;
+      std::map<oper_type, int> alloc_histo;
       alu_alloc.clear();
       fpu_alloc.clear();
       load_alloc.clear();
@@ -899,9 +899,9 @@ extern "C" {
 
 	switch(u->op->get_op_class())
 	  {
-	  case mips_op_type::unknown:
+	  case oper_type::unknown:
 	    die();
-	  case mips_op_type::alu: {
+	  case oper_type::alu: {
 	    int64_t p = alu_alloc.find_first_unset_rr();
 	    int64_t rs_id = mod(static_cast<int>(p),sim_param::num_alu_ports);
 	    if(p!=-1 and not(machine_state.alu_rs.at(rs_id).full())) {
@@ -912,7 +912,7 @@ extern "C" {
 	    }
 	  }
 	    break;
-	  case mips_op_type::fp: {
+	  case oper_type::fp: {
 	    int64_t p = fpu_alloc.find_first_unset_rr();
 	    int64_t rs_id = mod(static_cast<int>(p),sim_param::num_fpu_ports);
 	    if(p!=-1 and not(machine_state.fpu_rs.at(rs_id).full())) {
@@ -923,7 +923,7 @@ extern "C" {
 	    }
 	  }
 	    break;
-	  case mips_op_type::jmp:
+	  case oper_type::jmp:
 	    if(jmp_avail and not(machine_state.jmp_rs.full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.jmp_rs);
@@ -931,7 +931,7 @@ extern "C" {
 	      jmp_avail = false;
 	    }
 	    break;
-	  case mips_op_type::load: {
+	  case oper_type::load: {
 	    int64_t p = load_alloc.find_first_unset_rr();
 	    int64_t rs_id = mod(static_cast<int>(p),sim_param::num_load_ports);
 	    if(p!=-1 and not(machine_state.load_rs.at(rs_id).full())) {
@@ -942,7 +942,7 @@ extern "C" {
 	    }
 	    break;
 	  }
-	  case mips_op_type::store: {
+	  case oper_type::store: {
 	    int64_t p = store_alloc.find_first_unset_rr();
 	    int64_t rs_id = mod(static_cast<int>(p),sim_param::num_store_ports);
 	    if(p!=-1 and not(machine_state.store_rs.at(rs_id).full())) {
@@ -954,7 +954,7 @@ extern "C" {
 	    }
 	    break;
 	  }
-	  case mips_op_type::system:
+	  case oper_type::system:
 	    if(system_avail and not(machine_state.system_rs.full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.system_rs);
