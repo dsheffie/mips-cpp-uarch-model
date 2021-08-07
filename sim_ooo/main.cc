@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
     ("clricnt", po::value<bool>(&clear_checkpoint_icnt)->default_value(true), "clear icnt after loading checkpoint")
     ("syscallskip,s", po::value<bool>(&use_syscall_skip)->default_value(false), "skip syscalls")
     ("log,l", po::value<std::string>(&logfile), "log to file")
-    ("mem_model", po::value<bool>(&use_mem_model)->default_value(true), "use memory model")
+    ("mem_model", po::value<bool>(&use_mem_model)->default_value(false), "use memory model")
     ("use_l2", po::value<bool>(&use_l2)->default_value(true), "use l2 cache model")
     ("use_l3", po::value<bool>(&use_l3)->default_value(true), "use l3 cache model")
     ("interp,i", po::value<bool>(&global::use_interp_check)->default_value(false), "use interpreter check")
