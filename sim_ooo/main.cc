@@ -213,12 +213,22 @@ int main(int argc, char *argv[]) {
   signal(SIGINT, catchUnixSignal);
   
   if(use_mem_model) {
-    l1d = new setAssocCache(sim_param::l1d_linesize,
-			    sim_param::l1d_assoc,
-			    sim_param::l1d_sets,
-			    "l1d",
-			    sim_param::l1d_latency,
-			    nullptr);
+    if(sim_param::l1d_assoc == 1) {
+      l1d = new directMappedCache(sim_param::l1d_linesize,
+				  sim_param::l1d_assoc,
+				  sim_param::l1d_sets,
+				  "l1d",
+				  sim_param::l1d_latency,
+				  nullptr);
+    }
+    else {
+      l1d = new setAssocCache(sim_param::l1d_linesize,
+			      sim_param::l1d_assoc,
+			      sim_param::l1d_sets,
+			      "l1d",
+			      sim_param::l1d_latency,
+			      nullptr);
+    }
 
     if(warmstart) {
       s->l1d = l1d;
