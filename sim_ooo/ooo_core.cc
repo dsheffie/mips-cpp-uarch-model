@@ -1075,22 +1075,22 @@ extern "C" {
 
 	int avail_int_ports = 1024, avail_fp_ports = 1024;
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
-	  OOO_SCHED(alu_rs.at(i),sim_param::num_alu_sched_per_cycle,avail_int_ports);
+	  INORDER_SCHED(alu_rs.at(i));
 	}
 	for(int i = 0; i < machine_state.num_load_rs; i++) {
-	  OOO_SCHED(load_rs.at(i),sim_param::num_load_sched_per_cycle,avail_int_ports);
+	  INORDER_SCHED(load_rs.at(i));
 	}
 	/* not really out-of-order as stores are processed
 	 * at retirement */
 	for(int i = 0; i < machine_state.num_store_rs; i++) {
-	  OOO_SCHED(store_rs.at(i),sim_param::num_store_sched_per_cycle,avail_int_ports);
+	  INORDER_SCHED(store_rs.at(i));
 	}
 	
 	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
-	  OOO_SCHED(fpu_rs.at(i),sim_param::num_fpu_sched_per_cycle,avail_fp_ports);
+	 INORDER_SCHED(fpu_rs.at(i));
 	}
 
-	OOO_SCHED(jmp_rs,1,avail_int_ports);
+	INORDER_SCHED(jmp_rs);
 	INORDER_SCHED(system_rs);
 #undef OOO_SCHED
 #undef INORDER_SCHED
