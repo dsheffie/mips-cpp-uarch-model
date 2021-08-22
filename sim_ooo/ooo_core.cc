@@ -901,6 +901,7 @@ extern "C" {
 	  {
 	  case oper_type::unknown:
 	    die();
+	  case oper_type::jmp:
 	  case oper_type::alu: {
 	    int64_t p = alu_alloc.find_first_unset_rr();
 	    int64_t rs_id = mod(static_cast<int>(p),sim_param::num_alu_ports);
@@ -923,14 +924,14 @@ extern "C" {
 	    }
 	  }
 	    break;
-	  case oper_type::jmp:
-	    if(jmp_avail and not(machine_state.jmp_rs.full())) {
-	      rs_available = true;
-	      rs_queue = &(machine_state.jmp_rs);
-	      alloc_histo[u->op->get_op_class()]++;
-	      jmp_avail = false;
-	    }
-	    break;
+	  // case oper_type::jmp:
+	  //   if(jmp_avail and not(machine_state.jmp_rs.full())) {
+	  //     rs_available = true;
+	  //     rs_queue = &(machine_state.jmp_rs);
+	  //     alloc_histo[u->op->get_op_class()]++;
+	  //     jmp_avail = false;
+	  //   }
+	  //   break;
 	  case oper_type::load: {
 	    int64_t p = load_alloc.find_first_unset_rr();
 	    int64_t rs_id = mod(static_cast<int>(p),sim_param::num_load_ports);
