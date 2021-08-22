@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
 	    << KNRM << "\n";
 
   std::string filename, sysArgs, logfile;
-  bool use_l2 = true, use_l3 = true;
+  bool use_l2 = false, use_l3 = false;
   uint64_t maxicnt = ~(0UL), skipicnt = 0;
   bool use_checkpoint = false, use_oracle = false, hash=false;
   bool use_syscall_skip = false, use_mem_model = false;
@@ -213,42 +213,18 @@ int main(int argc, char *argv[]) {
   signal(SIGINT, catchUnixSignal);
   
   if(use_mem_model) {
-    if(not(use_l2)) {
-      use_l3 = false;
-    }
-    if(use_l3) {
-      l3d = new setAssocCache(sim_param::l3d_linesize,
-			      sim_param::l3d_assoc,
-			      sim_param::l3d_sets,
-			      "l3d",
-			      sim_param::l3d_latency,
-			      nullptr);
-    }
-    if(use_l2) {
-      l2d = new setAssocCache(sim_param::l2d_linesize,
-			      sim_param::l2d_assoc,
-			      sim_param::l2d_sets,
-			      "l2d",
-			      sim_param::l2d_latency, l3d);
-    }
-    
     l1d = new setAssocCache(sim_param::l1d_linesize,
 			    sim_param::l1d_assoc,
 			    sim_param::l1d_sets,
 			    "l1d",
-			    sim_param::l1d_latency, l2d);
+			    sim_param::l1d_latency,
+			    nullptr);
 
     if(warmstart) {
       s->l1d = l1d;
     }
 
     *global::sim_log << "l1d capacity = " << l1d->capacity() << "\n";
-    if(l2d) {
-      *global::sim_log << "l2d capacity = " << l2d->capacity() << "\n";
-    }
-    if(l3d) {
-      *global::sim_log << "l3d capacity = " << l3d->capacity() << "\n";
-    }
   }
 
   initialize_ooo_core(machine_state, l1d, use_oracle,

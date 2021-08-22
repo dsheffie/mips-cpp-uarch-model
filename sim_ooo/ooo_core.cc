@@ -932,6 +932,7 @@ extern "C" {
 	  //     jmp_avail = false;
 	  //   }
 	  //   break;
+	  case oper_type::store:
 	  case oper_type::load: {
 	    int64_t p = load_alloc.find_first_unset_rr();
 	    int64_t rs_id = mod(static_cast<int>(p),sim_param::num_load_ports);
@@ -943,18 +944,18 @@ extern "C" {
 	    }
 	    break;
 	  }
-	  case oper_type::store: {
-	    int64_t p = store_alloc.find_first_unset_rr();
-	    int64_t rs_id = mod(static_cast<int>(p),sim_param::num_store_ports);
-	    if(p!=-1 and not(machine_state.store_rs.at(rs_id).full())) {
-	      rs_available = true;
-	      rs_queue = &(machine_state.store_rs.at(rs_id));
-	      store_alloc.set_bit(p);
-	      alloc_histo[u->op->get_op_class()]++;
-	      store_avail = false;
-	    }
-	    break;
-	  }
+	  // case oper_type::store: {
+	  //   int64_t p = store_alloc.find_first_unset_rr();
+	  //   int64_t rs_id = mod(static_cast<int>(p),sim_param::num_store_ports);
+	  //   if(p!=-1 and not(machine_state.store_rs.at(rs_id).full())) {
+	  //     rs_available = true;
+	  //     rs_queue = &(machine_state.store_rs.at(rs_id));
+	  //     store_alloc.set_bit(p);
+	  //     alloc_histo[u->op->get_op_class()]++;
+	  //     store_avail = false;
+	  //   }
+	  //   break;
+	  // }
 	  case oper_type::system:
 	    if(system_avail and not(machine_state.system_rs.full())) {
 	      rs_available = true;

@@ -2072,7 +2072,7 @@ public:
     return true;
   }
   void execute(sim_state &machine_state) override {
-    int latency = 4;
+    int latency = 6;
     uint32_t *lo = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->lo_prf_idx]);
     uint32_t *hi = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->hi_prf_idx]);
     
