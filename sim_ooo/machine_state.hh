@@ -116,7 +116,7 @@ public:
   branch_predictor *branch_pred = nullptr;
   loop_predictor *loop_pred = nullptr;
   /* use smaller data-type */
-  sim_bitvec_template<uint8_t> bhr;
+  sim_bitvec_template<uint8_t> bhr, spec_bhr;
   std::vector<sim_bitvec> bht;
 
   std::array<int,max_op_lat> wr_ports;

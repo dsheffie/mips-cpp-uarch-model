@@ -574,7 +574,7 @@ void retire(sim_state &machine_state) {
       machine_state.cpr0_freevec.copy(machine_state.cpr0_freevec_retire);
       machine_state.cpr1_freevec.copy(machine_state.cpr1_freevec_retire);
       machine_state.fcr1_freevec.copy(machine_state.fcr1_freevec_retire);
-      
+      machine_state.spec_bhr.copy(machine_state.bhr);
       
       //std::cerr << "gpr freevec used = "
       //<< machine_state.gpr_freevec.popcount()
@@ -1277,6 +1277,7 @@ void sim_state::initialize() {
   }
   
   bhr.clear_and_resize(sim_param::bhr_length);
+  spec_bhr.clear_and_resize(sim_param::bhr_length);
 
   bht.resize(sim_param::num_bht_entries);
   for(int i = 0; i < sim_param::num_bht_entries; i++) {
