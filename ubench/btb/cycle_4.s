@@ -7,15 +7,15 @@
 goto_test4:
 move	$2,$4
 .L0:
-j .L1
-nop
-
-.L1:
 j .L3
 nop
 
-.L2:
+.L1:
 j .L0
+nop
+
+.L2:
+j .L1
 nop
 
 .L3:

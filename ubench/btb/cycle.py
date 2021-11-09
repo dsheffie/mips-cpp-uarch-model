@@ -2,8 +2,7 @@
 import random
 import sys
 
-if __name__ == "__main__":
-    n = 2**int(sys.argv[1])
+def gen(n):
     v = [x for x in range(0, n)]
     random.shuffle(v)
     arr = []
@@ -38,3 +37,10 @@ if __name__ == "__main__":
         out.write('.done:\nj $31\n')
         out.write('ori $2,$2,' +str(n & ((2**16)-1))+'\n')                
 
+
+if __name__ == "__main__":
+    n = 2**int(sys.argv[1])
+    i = 4
+    while i <= n:
+        gen(i)
+        i = i * 2
