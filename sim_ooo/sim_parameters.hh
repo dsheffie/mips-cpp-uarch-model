@@ -38,10 +38,10 @@
   SIM_PARAM(bhr_length,32,1,true)					\
   SIM_PARAM(bht_length,8,1,true)					\
   SIM_PARAM(num_bht_entries,16,1,true)					\
-  SIM_PARAM(l1d_latency,5,1,false)					\
+  SIM_PARAM(l1d_latency,3,1,false)					\
   SIM_PARAM(l1d_assoc,1,1,true)						\
   SIM_PARAM(l1d_sets,1024,1024,true)					\
-  SIM_PARAM(l1d_linesize,8,8,true)					\
+  SIM_PARAM(l1d_linesize,16,16,true)					\
   SIM_PARAM(l2d_latency,10,1,false)					\
   SIM_PARAM(l2d_assoc,16,1,true)					\
   SIM_PARAM(l2d_sets,256,1,true)					\

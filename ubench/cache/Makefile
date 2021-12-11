@@ -1,7 +1,7 @@
 OBJ = mem_micro.o traverse.o
 CXX = mips-sde-elf-g++
 EXE = mem_micro
-OPT = -O2
+OPT = -O2 -mno-branch-likely
 CXXFLAGS = -std=c++11 -g $(OPT)
 DEP = $(OBJ:.o=.d)
 

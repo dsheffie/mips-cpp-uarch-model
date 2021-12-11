@@ -798,8 +798,14 @@ extern "C" {
 	if(l1d) {
 	  uint64_t hits = l1d->getHits()-last_hits;
 	  uint64_t misses = l1d->getMisses()-last_misses;
-	  double w_hit_rate = static_cast<double>(hits) / (hits+misses);
-	  double hit_rate = static_cast<double>(l1d->getHits()) / (l1d->getHits()+l1d->getMisses());
+	  uint64_t accesses = hits+misses;
+	  double w_hit_rate = accesses==0 ? 0 :
+	    static_cast<double>(hits) / accesses;
+	  
+	  accesses = l1d->getHits()+l1d->getMisses();
+	  double hit_rate = accesses==0 ? 0 :
+	    static_cast<double>(l1d->getHits()) / accesses;
+	  
 	  *global::sim_log << ", a dcu " << hit_rate
 				<< ", w dcu " << w_hit_rate ;
 	  last_hits = l1d->getHits();

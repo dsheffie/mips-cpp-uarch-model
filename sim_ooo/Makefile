@@ -26,7 +26,7 @@ LIBS =  $(EXTRA_LD) -lpthread
 
 
 DEP = $(OBJ:.o=.d)
-OPT = -O3 -g -std=c++11
+OPT = -O3 -g -std=c++11 -flto
 EXE = sim_ooo
 
 .PHONY : all clean

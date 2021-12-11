@@ -37,8 +37,8 @@ int main(int argc, char *argv[]) {
   
   std::ofstream out("cpu.csv");
   std::vector<uint64_t> keys(max_keys);
-  
-  for(uint64_t n_keys = 1UL<<8; n_keys <= max_keys; n_keys *= 2) {
+  const static size_t min_limit = 1<<16;
+  for(uint64_t n_keys = 1UL<<4; n_keys <= max_keys; n_keys *= 2) {
     
     for(uint64_t i = 0; i < n_keys; i++) {
       keys[i] = i;
@@ -62,10 +62,10 @@ int main(int argc, char *argv[]) {
       }
     }
     
-    size_t iters = n_keys*16;
-    if(iters < (1UL<<20)) {
-      iters = (1UL<<20);
-    }
+    size_t iters = n_keys*4;
+    if(iters < min_limit)
+      iters = min_limit;
+    std::cout << "starting run with " << n_keys << " for " << iters << "\n";
     auto c_start = rdtsc();
     traverse<false>(h, iters);
     auto c_stop = rdtsc();
