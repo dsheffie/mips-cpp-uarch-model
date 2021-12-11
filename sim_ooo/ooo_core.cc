@@ -773,8 +773,9 @@ extern "C" {
 		  << "\n";
 	machine_state.terminate_sim = true;
       }
-      if((global::curr_cycle & (sim_param::heartbeat-1)) == 0) {
-	uint64_t curr_icnt = (machine_state.icnt-machine_state.skipicnt);
+      uint64_t curr_icnt = (machine_state.icnt-machine_state.skipicnt);
+      if( ((curr_icnt & (sim_param::heartbeat-1)) == 0) && (curr_icnt != 0)) {
+
 	double ipc = static_cast<double>(curr_icnt) / global::curr_cycle;
 	double wipc = static_cast<double>(curr_icnt-prev_icnt) / sim_param::heartbeat;
 
@@ -788,12 +789,16 @@ extern "C" {
 	double w_pr = 1000.0 * (static_cast<double>(w_mispredicts) / (curr_icnt-prev_icnt));
 
 	
-	*global::sim_log << "c " << global::curr_cycle 
-			      << ", i " << curr_icnt
-			      << ", a ipc "<< ipc
-			      << ", w ipc " << wipc
-			      << ", a mpki " << pr
-			      << ", w mpki " << w_pr;
+	*global::sim_log << "c " << global::curr_cycle
+			 << " pc "
+			 << std::hex
+			 << machine_state.last_retire_pc
+			 << std::dec
+			 << ", i " << curr_icnt
+			 << ", a ipc "<< ipc
+			 << ", w ipc " << wipc
+			 << ", a mpki " << pr
+			 << ", w mpki " << w_pr;
 	
 	if(l1d) {
 	  uint64_t hits = l1d->getHits()-last_hits;
