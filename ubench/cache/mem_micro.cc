@@ -28,7 +28,7 @@ void shuffle(std::vector<T> &vec, size_t len) {
 }
   
 int main(int argc, char *argv[]) {
-  static const uint64_t max_keys = 1UL<<23;
+  static const uint32_t max_keys = 1U<<10;
   static const bool xor_pointers = false;
   
   node *nodes = nullptr;
@@ -36,11 +36,11 @@ int main(int argc, char *argv[]) {
   nodes = new node[max_keys];
   
   std::ofstream out("cpu.csv");
-  std::vector<uint64_t> keys(max_keys);
+  std::vector<uint32_t> keys(max_keys);
   const static size_t min_limit = 1<<16;
-  for(uint64_t n_keys = 1UL<<4; n_keys <= max_keys; n_keys *= 2) {
+  for(uint32_t n_keys = 1<<4; n_keys <= max_keys; n_keys *= 2) {
     
-    for(uint64_t i = 0; i < n_keys; i++) {
+    for(uint32_t i = 0; i < n_keys; i++) {
       keys[i] = i;
     }
     
@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
     node *h = &nodes[keys[0]];
     node *c = h;  
     h->next = h;
-    for(uint64_t i = 1; i < n_keys; i++) {
+    for(uint32_t i = 1; i < n_keys; i++) {
       node *n = &nodes[keys[i]];
       node *t = c->next;
       c->next = n;
@@ -57,12 +57,12 @@ int main(int argc, char *argv[]) {
     }
     
     if(xor_pointers) {
-      for(uint64_t i = 0; i < n_keys; i++) {
+      for(uint32_t i = 0; i < n_keys; i++) {
 	nodes[i].next = xor_ptr<true>(nodes[i].next);
       }
     }
     
-    size_t iters = n_keys*4;
+    size_t iters = n_keys*UNROLL_AMT;
     if(iters < min_limit)
       iters = min_limit;
     std::cout << "starting run with " << n_keys << " for " << iters << "\n";

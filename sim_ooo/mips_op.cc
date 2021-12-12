@@ -1583,7 +1583,12 @@ public:
     
     if(stall_for_load(machine_state))
       return false;
-
+    
+    if(machine_state.l1d and machine_state.l1d->any_inflight()) {
+      //std::cout << "stalling due to inflight memory op\n";
+      return false;
+    }
+    
     return true;
   }
   void execute(sim_state &machine_state) override {

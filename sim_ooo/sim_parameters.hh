@@ -50,7 +50,7 @@
   SIM_PARAM(l3d_assoc,32,1,true)					\
   SIM_PARAM(l3d_sets,4096,1,true)					\
   SIM_PARAM(l3d_linesize,64,64,true)					\
-  SIM_PARAM(mem_latency,100,1,false)					\
+  SIM_PARAM(mem_latency,4,1,false)					\
   SIM_PARAM(ready_to_dispatch_latency,0,0,false)			\
   SIM_PARAM(l1d_misses_inflight,1,1,false)				\
   SIM_PARAM(branch_predictor,6,0,false)					\

@@ -226,6 +226,7 @@ bool directMappedCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint
   uint32_t w,t;
   uint32_t b = index(addr, w, t);
   bool h = false;
+  lat = 1;
   if(tags[w]==t && valid[w]) {
     hits++;
     rw_hits[(opType::WRITE==o) ? 1 : 0]++;
@@ -236,6 +237,9 @@ bool directMappedCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint
     rw_misses[(opType::WRITE==o) ? 1 : 0]++;
     valid[w] = true;
     tags[w] = t;
+  }
+  if(not(h)) {
+    lat += sim_param::mem_latency;
   }
   return h;
 }
@@ -618,7 +622,7 @@ void simCache::tick() {
     sim_op o = *it;
      if(o->aux_cycle == get_curr_cycle()) {
       size_t was = inflight.size();
-      o->complete_cycle = o->aux_cycle + 1;
+      o->complete_cycle = o->aux_cycle + 2;
       it = inflight.erase(it);
     }
     else {
@@ -637,10 +641,11 @@ void simCache::nuke_inflight() {
 uint32_t simCache::read(sim_op op, uint32_t addr, uint32_t num_bytes) {
   uint32_t lat = 0;
   bool hit = access(addr,num_bytes,opType::READ,lat);
-  if(not(hit) and false) {
-    assert(op);
-    std::cerr << "read: " << std::hex << op->pc << std::dec << " missed\n";
-  }
+  //if(not(hit)) {
+  //assert(op);
+  //std::cerr << "read: " << std::hex << op->pc << std::dec << " missed\n";
+  //}
+  //std::cout << "lat = " << lat << "\n";
   op->aux_cycle = lat + get_curr_cycle();
   assert(not(inflight.full()));
   inflight.push(op);

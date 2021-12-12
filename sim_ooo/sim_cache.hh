@@ -291,6 +291,9 @@ public:
   bool miss_handlers_available() const {
     return not(inflight.full());
   }
+  bool any_inflight() const {
+    return not(inflight.empty());
+  }
   std::string getStats(std::string &fName);
   void getStats();
   double computeAMAT() const;
