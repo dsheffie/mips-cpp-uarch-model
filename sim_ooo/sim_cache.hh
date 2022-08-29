@@ -252,6 +252,8 @@ protected:
   std::array<size_t,2> rw_misses;
 
   sim_list<mips_meta_op*> inflight;
+  sim_list<mips_meta_op*> missq;
+  
 public:
   friend std::ostream &operator<<(std::ostream &out, const simCache &cache);
   simCache(size_t bytes_per_line, size_t assoc, size_t num_sets, 
@@ -323,6 +325,7 @@ class directMappedCache : public simCache {
 private:
   std::vector<uint32_t> tags;
   boost::dynamic_bitset<> valid;
+  boost::dynamic_bitset<> dirty;
 public:
   directMappedCache(size_t bytes_per_line, size_t assoc, size_t num_sets,
 		    std::string name, int latency, simCache *next_level) : 
@@ -330,6 +333,7 @@ public:
     assert(assoc == 1);
     tags.resize(num_sets);
     valid.resize(num_sets, false);
+    dirty.resize(num_sets, false);
   }
   ~directMappedCache();
   bool access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) override;

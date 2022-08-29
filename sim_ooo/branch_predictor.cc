@@ -62,11 +62,24 @@ namespace {
       delete pht;
     }
     uint32_t predict(uint64_t &idx) const override {
-      idx = ((machine_state.fetch_pc>>2) ^ machine_state.bhr.hash());
+      uint32_t addr = machine_state.fetch_pc;
+      idx = ((addr>>2) ^ machine_state.bhr.hash());
       idx &= (1UL << sim_param::lg_pht_entries) - 1;
+      //if(addr == 0x21e74) {
+      //std::cout << "pred : "
+      //<<std::hex << addr << std::dec
+      //<< " " << machine_state.bhr
+      //<< " maps to idx " << idx << "\n";
+      //}
+      
       return pht->get_value(idx);
     }
     void update(uint32_t addr, uint64_t idx, bool taken) override {
+      // if(addr == 0x21e74) {
+      // 	std::cout << "update : "
+      // 		  <<std::hex << addr << std::dec
+      // 		  << " maps to idx " << idx << "\n";
+      // }
       pht->update(idx, taken);
     }
   };

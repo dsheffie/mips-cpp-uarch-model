@@ -7,10 +7,10 @@
   SIM_PARAM(rob_size,32,1,true)			\
   SIM_PARAM(fetchq_size,8,1,true)			\
   SIM_PARAM(decodeq_size,8,1,true)			\
-  SIM_PARAM(fetch_bw,1,1,false)			\
-  SIM_PARAM(decode_bw,1,1,false)			\
-  SIM_PARAM(alloc_bw,1,1,false)			\
-  SIM_PARAM(retire_bw,1,1,false)			\
+  SIM_PARAM(fetch_bw,2,1,false)			\
+  SIM_PARAM(decode_bw,2,1,false)			\
+  SIM_PARAM(alloc_bw,2,1,false)			\
+  SIM_PARAM(retire_bw,2,1,false)			\
   SIM_PARAM(num_gpr_prf,64,64,true)			\
   SIM_PARAM(num_cpr0_prf,64,32,true)		\
   SIM_PARAM(num_cpr1_prf,64,32,true)		\

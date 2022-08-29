@@ -842,6 +842,8 @@ public:
     machine_state.n_jumps++;
     
     /* strongly taken */
+    
+    //update btb on indirect jumps
     branch_target_map[m->pc] = m->correct_pc;
     branch_prediction_map[m->pc] = 3;
 
@@ -1132,12 +1134,13 @@ public:
     
     machine_state.branch_pred->update(m->pc, m->pht_idx, take_br);
     
-    machine_state.bht.at(bht_idx).shift_left(1);
-    machine_state.bhr.shift_left(1);
+    machine_state.bht.at(bht_idx).shift_left(1);      
     if(take_br) {
-      machine_state.bhr.set_bit(0);
       machine_state.bht.at(bht_idx).set_bit(0);
     }
+    machine_state.bhr.shift_left(1);
+    machine_state.bhr.set_bit(take_br);
+
     
     branch_target_map[m->pc] = branch_target;
     if(branch_prediction_map.find(m->pc)==branch_prediction_map.end()) {
@@ -1235,12 +1238,7 @@ public:
 	break;
       }
 
-    if(machine_state.l1d) {
-      machine_state.l1d->read(m, effective_address & (~3U), 4);
-    }
-    else {
-      m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
-    }
+    machine_state.l1d->read(m, effective_address & (~3U), 4);
   }
   int64_t get_latency() const override {
     return sim_param::l1d_latency;
@@ -1395,12 +1393,7 @@ public:
   void execute(sim_state &machine_state) override {
     effective_address = machine_state.gpr_prf[m->src1_prf] + imm;
     store_data = machine_state.gpr_prf[m->src0_prf];
-    if(machine_state.l1d) {
-      machine_state.l1d->write(m,effective_address & (~3U), 4);
-    }
-    else {
-      m->complete_cycle = get_curr_cycle() + 1;/*sim_param::l1d_latency;*/
-    }
+    machine_state.l1d->write(m,effective_address & (~3U), 4);
   }
   int64_t get_latency() const override {
     return sim_param::l1d_latency;
@@ -1584,7 +1577,7 @@ public:
     if(stall_for_load(machine_state))
       return false;
     
-    if(machine_state.l1d and machine_state.l1d->any_inflight()) {
+    if(machine_state.l1d->any_inflight()) {
       //std::cout << "stalling due to inflight memory op\n";
       return false;
     }
@@ -1611,13 +1604,7 @@ public:
 	die();
 	break;
       }
-
-    if(machine_state.l1d) {
-      machine_state.l1d->read(m, effective_address, b);
-    }
-    else {
-      m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
-    }
+    machine_state.l1d->read(m, effective_address, b);
   }
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
@@ -1748,12 +1735,7 @@ public:
 	store_data[0] = *reinterpret_cast<uint32_t*>(&machine_state.cpr1_prf[m->src0_prf]);
 	break;
       }
-    if(machine_state.l1d) {
-      machine_state.l1d->write(m,effective_address, b);
-    }
-    else {
-      m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
-    }
+    machine_state.l1d->write(m,effective_address, b);
   }
   int64_t get_latency() const override {
     return sim_param::l1d_latency;
@@ -3820,15 +3802,11 @@ public:
 	break;
       case 51:
 	/* nuke caches */
-	if(machine_state.l1d) {
-	  machine_state.l1d->flush();
-	}
+	machine_state.l1d->flush();
 	break;
       case 52:
 	/* flush cacheline */
-	if(machine_state.l1d) {
-	  machine_state.l1d->flush_line((uint32_t)src_regs[0]);
-	}
+	machine_state.l1d->flush_line((uint32_t)src_regs[0]);
 	break;
       case 53: {
 	machine_state.gpr_prf[m->prf_idx] = machine_state.icnt;

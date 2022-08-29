@@ -1089,6 +1089,7 @@ extern "C" {
 	int avail_int_ports = 1024, avail_fp_ports = 1024;
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
 	  INORDER_SCHED(alu_rs.at(i));
+	  //OOO_SCHED(alu_rs.at(i),sim_param::num_alu_sched_per_cycle,avail_int_ports);
 	}
 	for(int i = 0; i < machine_state.num_load_rs; i++) {
 	  INORDER_SCHED(load_rs.at(i));

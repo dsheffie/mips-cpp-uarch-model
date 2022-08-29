@@ -57,6 +57,7 @@ simCache::simCache(size_t bytes_per_line, size_t assoc, size_t num_sets,
   ln2_offset_bits = ln2_num_sets + ln2_bytes_per_line;
   ln2_tag_bits = 8*sizeof(uint32_t) - ln2_offset_bits;
   inflight.resize(sim_param::rob_size);
+  missq.resize(sim_param::rob_size);
 }
 
 simCache::~simCache() {}
@@ -225,22 +226,30 @@ directMappedCache::~directMappedCache(){}
 bool directMappedCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) {
   uint32_t w,t;
   uint32_t b = index(addr, w, t);
-  bool h = false;
+  bool h = false, dirty_miss = false;
   lat = 1;
   if(tags[w]==t && valid[w]) {
     hits++;
+    if(opType::WRITE==o) {
+      dirty[w] = true;
+    }
     rw_hits[(opType::WRITE==o) ? 1 : 0]++;
     h = true;
   }
   else {
     misses++;
     rw_misses[(opType::WRITE==o) ? 1 : 0]++;
-    valid[w] = true;
+    dirty_miss = dirty[w] and valid[w];
+    //read miss, bring in line clean. otherwise, dirty
+    dirty[w] = (o==opType::WRITE);
+    valid[w] = true;    
     tags[w] = t;
   }
+  
   if(not(h)) {
-    lat += sim_param::mem_latency;
+    lat += (dirty_miss ? (2*sim_param::mem_latency+2) : (sim_param::mem_latency+1));
   }
+  
   return h;
 }
 
@@ -641,6 +650,14 @@ void simCache::nuke_inflight() {
 uint32_t simCache::read(sim_op op, uint32_t addr, uint32_t num_bytes) {
   uint32_t lat = 0;
   bool hit = access(addr,num_bytes,opType::READ,lat);
+  //RTL cache pipeline:
+  //cycle 1: read cache 
+  //cycle 2: check if hit,
+  //         if true, return data
+  //         else check if dirty
+  //              if dirty, generate writeback
+  //              else immediatly reload
+  //
   //if(not(hit)) {
   //assert(op);
   //std::cerr << "read: " << std::hex << op->pc << std::dec << " missed\n";
