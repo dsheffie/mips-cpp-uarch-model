@@ -2984,15 +2984,15 @@ protected:
 	{
 	case fp_op_type::add:
 	  dest = src0+src1;
-	  latency = 2;
+	  latency = 5;
 	  break;
 	case fp_op_type::sub:
 	  dest = src0-src1;
-	  latency = 2;
+	  latency = 5;
 	  break;
 	case fp_op_type::mul:
 	  dest = src0*src1;
-	  latency = 3;
+	  latency = 5;
 	  break;
 	case fp_op_type::div:
 	  dest = src0/src1;
@@ -3094,12 +3094,11 @@ public:
       {
       case fp_op_type::add:
       case fp_op_type::sub:
-	return 2;
       case fp_op_type::mul:
-	return 3;
+	return 4;
       case fp_op_type::div:
       case fp_op_type::sqrt:
-	return 32;
+	return fmt == FMT_D ? 80 : 40;
       case fp_op_type::abs:
       case fp_op_type::mov:
       case fp_op_type::neg:
@@ -3271,7 +3270,7 @@ public:
     return (m->inst >> 21) & 31; /* fr */
   }
   int64_t get_latency() const override {
-    return 3;
+    return 4;
   }
   bool allocate(sim_state &machine_state) override {
     bool allocated = false;
