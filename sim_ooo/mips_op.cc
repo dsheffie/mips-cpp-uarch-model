@@ -4312,6 +4312,19 @@ void mips_op::rollback(sim_state &machine_state) {
 }
 
 void mips_op::log_retire(sim_state &machine_state) const {
+
+  if((machine_state.icnt >= global::pipestart) and
+     (machine_state.icnt < global::pipeend)) {
+
+    machine_state.sim_records.append(getAsmString(m->inst, m->pc),
+				     m->pc,
+				     static_cast<uint64_t>(m->fetch_cycle),
+				     static_cast<uint64_t>(m->alloc_cycle),
+				     static_cast<uint64_t>(m->complete_cycle),
+				     static_cast<uint64_t>(m->retire_cycle),
+				     false
+				     );
+  }
   //*global::sim_log  << *this << "\n";
   //std::cout << machine_state.rob.size() << "\n";
 

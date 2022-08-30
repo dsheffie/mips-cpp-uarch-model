@@ -11,6 +11,8 @@ namespace global {
   extern std::ostream *sim_log;
   extern bool use_interp_check;
   extern uint64_t curr_cycle;
+  extern uint64_t pipestart;
+  extern uint64_t pipeend;
 };
 
 inline uint64_t get_curr_cycle() {

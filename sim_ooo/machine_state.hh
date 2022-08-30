@@ -1,4 +1,4 @@
- #ifndef __machinestatehh__
+#ifndef __machinestatehh__
 #define __machinestatehh__
 
 #include "globals.hh"
@@ -12,6 +12,7 @@
 #include "loop_predictor.hh"
 #include "counter2b.hh"
 #include "perceptron.hh"
+#include "pipeline_record.hh"
 
 #include <array>
 
@@ -142,10 +143,10 @@ public:
   state_t *oracle_state = nullptr;
 
   simCache *l1d = nullptr;
-
-  
   bool log_execution = false;
 
+  pipeline_logger sim_records;
+  
   void initialize_rat_mappings();
   void initialize();
   void copy_state(const state_t *s);

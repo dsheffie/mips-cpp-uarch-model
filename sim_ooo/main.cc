@@ -41,6 +41,8 @@ bool global::enClockFuncts = false;
 std::ostream *global::sim_log = &(std::cout);
 bool global::use_interp_check = true;
 uint64_t global::curr_cycle = 0;
+uint64_t global::pipestart = 0;
+uint64_t global::pipeend = 0;
 
 static simCache* l1d = nullptr, *l2d = nullptr, *l3d = nullptr;
 
@@ -95,7 +97,7 @@ int main(int argc, char *argv[]) {
     	    << "git hash=" << githash
 	    << KNRM << "\n";
 
-  std::string filename, sysArgs, logfile;
+  std::string filename, sysArgs, logfile, pipelog;
   bool use_l2 = false, use_l3 = false;
   uint64_t maxicnt = ~(0UL), skipicnt = 0;
   bool use_checkpoint = false, use_oracle = false, hash=false;
@@ -125,6 +127,9 @@ int main(int argc, char *argv[]) {
     ("interp,i", po::value<bool>(&global::use_interp_check)->default_value(false), "use interpreter check")
     ("warmstart", po::value<bool>(&warmstart)->default_value(true), "use warmstart with interpreter")
     ("scale", po::value<int>(&uarch_scale)->default_value(1), "scale uarch parameters")
+    ("pipestart", po::value<uint64_t>(&global::pipestart)->default_value(~(0UL)), "start recording at instruction")
+    ("pipeend", po::value<uint64_t>(&global::pipeend)->default_value(~(0UL)), "stop recording at instruction")
+    ("pipelog", po::value<std::string>(&pipelog)->default_value(""), "pipe log file name")
 #define SIM_PARAM(A,B,C,D) (#A,po::value<int>(&sim_param::A)->default_value(B), #A)
     SIM_PARAM_LIST;
 #undef SIM_PARAM
@@ -256,6 +261,10 @@ int main(int argc, char *argv[]) {
     *global::sim_log << std::hex << "crc32 = "
 		     << machine_state.mem->crc32()
 		     << std::dec << "\n";
+  }
+
+  if(not(pipelog.empty())) {
+    machine_state.sim_records.save(pipelog);
   }
   
   destroy_ooo_core(machine_state);
