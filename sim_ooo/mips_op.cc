@@ -4315,7 +4315,8 @@ void mips_op::log_retire(sim_state &machine_state) const {
   if((machine_state.icnt >= global::pipestart) and
      (machine_state.icnt < global::pipeend)) {
 
-    machine_state.sim_records.append(getAsmString(m->inst, m->pc),
+    machine_state.sim_records.append(machine_state.icnt,
+				     getAsmString(m->inst, m->pc),
 				     m->pc,
 				     static_cast<uint64_t>(m->fetch_cycle),
 				     static_cast<uint64_t>(m->alloc_cycle),
