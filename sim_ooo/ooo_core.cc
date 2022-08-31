@@ -1393,15 +1393,25 @@ void run_ooo_core(sim_state &machine_state) {
   
   *global::sim_log << machine_state.fetched_insns
 		   << " fetched insns\n";
-  *global::sim_log << nonsquash_fract << "% of fetched insns retire\n";
+  //*global::sim_log << nonsquash_fract << "% of fetched insns retire\n";
   
-  *global::sim_log << ipc << " instructions/cycle\n";
-  *global::sim_log << machine_state.n_branches << " branches\n";
-  *global::sim_log << machine_state.mispredicted_branches 
-	    << " mispredicted branches\n";
+  *global::sim_log << "n_mispredicts = "
+		   << machine_state.mispredicted_branches
+		   << ", cycles = "
+		   << get_curr_cycle()
+		   << ", insns = "
+		   << retired_insns
+		   << ", n_checks = 0\n";
+  
+  *global::sim_log << "total ipc = " << ipc << "\n";
+  //*global::sim_log << machine_state.n_branches << " branches\n";
+  //*global::sim_log << machine_state.mispredicted_branches 
+  //<< " mispredicted branches\n";
   
   double mpki = (machine_state.mispredicted_branches/static_cast<double>(total_insns))*1000.0;
-  *global::sim_log << mpki << " MPKI\n";
+  //*global::sim_log << mpki << " MPKI\n";
+
+  //n_mispredicts = (\d+), cycles = (\d+), insns = (\d+), n_checks = \d+'
   
   *global::sim_log << machine_state.n_jumps << " jumps\n";
   *global::sim_log << machine_state.mispredicted_jumps 
