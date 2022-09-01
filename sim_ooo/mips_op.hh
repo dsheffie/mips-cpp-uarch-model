@@ -19,7 +19,7 @@
 #include "perceptron.hh"
 
 
-enum class oper_type { unknown, alu, fp, jmp, load, store, system };
+enum class oper_type { unknown, alu, foldable, fp, jmp, load, store, system };
 
 enum class exception_type {none, load, branch};
 
@@ -54,6 +54,9 @@ inline std::ostream &operator<<(std::ostream &out, oper_type ot) {
       break;
     case oper_type::alu:
       out << "alu";
+      break;
+    case oper_type::foldable:
+      out << "foldable";
       break;
     case oper_type::fp:
       out << "fp";

@@ -910,6 +910,10 @@ extern "C" {
 
 	switch(u->op->get_op_class())
 	  {
+	    /* nops are foldable */
+	  case oper_type::foldable:
+	    rs_available = true;
+	    break;
 	  case oper_type::unknown:
 	    die();
 	  case oper_type::jmp:

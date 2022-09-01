@@ -361,18 +361,20 @@ public:
 class nop : public mips_op {
 public:
   nop(sim_op op) : mips_op(op) {
-    this->op_class = oper_type::alu;
+    this->op_class = oper_type::foldable;
+    m->is_complete = true;
   }
   bool allocate(sim_state &machine_state) override {
+    m->complete_cycle = get_curr_cycle();
     return true;
   }
   void execute(sim_state &machine_state) override {
-    m->complete_cycle = get_curr_cycle() + get_latency();
+    assert(false);
+    //m->complete_cycle = get_curr_cycle() + get_latency();
   }
   void complete(sim_state &machine_state) override {
-    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
-      m->is_complete = true;
-    }
+    //if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+    //}
   }
   bool retire(sim_state &machine_state) override {
     m->retire_cycle = get_curr_cycle();
@@ -2059,7 +2061,7 @@ public:
     return true;
   }
   void execute(sim_state &machine_state) override {
-    int latency = 6;
+    int latency = 2;
     uint32_t *lo = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->lo_prf_idx]);
     uint32_t *hi = reinterpret_cast<uint32_t*>(&machine_state.gpr_prf[m->hi_prf_idx]);
     
@@ -2105,7 +2107,7 @@ public:
 	  *reinterpret_cast<int32_t*>(lo) = machine_state.gpr_prf[m->src0_prf] / machine_state.gpr_prf[m->src1_prf];
 	  *reinterpret_cast<int32_t*>(hi) = machine_state.gpr_prf[m->src0_prf] % machine_state.gpr_prf[m->src1_prf];
 	}
-	latency = 32;
+	latency = 1;
 	break;
       }
 
@@ -2116,7 +2118,7 @@ public:
 	  *hi = (uint32_t)machine_state.gpr_prf[m->src0_prf] %
 	    (uint32_t)machine_state.gpr_prf[m->src1_prf];
 	}
-	latency = 32;
+	latency = 1;
 	break;
       }
 	
