@@ -15,8 +15,8 @@
   SIM_PARAM(num_cpr0_prf,64,32,true)		\
   SIM_PARAM(num_cpr1_prf,64,32,true)		\
   SIM_PARAM(num_fcr1_prf,16,8,true)			\
-  SIM_PARAM(num_fpu_ports,2,1,false)				\
-  SIM_PARAM(num_alu_ports,2,1,false)					\
+  SIM_PARAM(num_fpu_ports,1,1,false)				\
+  SIM_PARAM(num_alu_ports,1,1,false)					\
   SIM_PARAM(num_load_ports,1,1,false)					\
   SIM_PARAM(num_store_ports,1,1,false)					\
   SIM_PARAM(num_fpu_sched_per_cycle,1,1,false)				\
