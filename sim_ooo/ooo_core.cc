@@ -908,6 +908,10 @@ extern "C" {
 	  break;
 	}
 
+	if(u->op->get_op_class() == oper_type::unknown) {
+	  std::cerr << *(u->op) << " is .. unknown\n";
+	}
+	
 	switch(u->op->get_op_class())
 	  {
 	    /* nops are foldable */
@@ -915,7 +919,9 @@ extern "C" {
 	    rs_available = true;
 	    break;
 	  case oper_type::unknown:
+	    std::cerr << *(u->op) << "\n";
 	    die();
+	    break;
 	  case oper_type::jmp:
 	  case oper_type::alu: {
 	    int64_t p = alu_alloc.find_first_unset_rr();

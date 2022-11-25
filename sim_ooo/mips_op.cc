@@ -67,9 +67,10 @@ bool mips_load::stall_for_load(sim_state &machine_state) const {
 
 class mtc0 : public mips_op {
 public:
-  mtc0(sim_op op) : mips_op(op) {
-    this->op_class = oper_type::alu;
-  }
+  mtc0(sim_op op) : mips_op(op) {}
+  oper_type get_op_class() const override {
+    return oper_type::alu;
+  }    
   int get_dest() const override {
     return (m->inst >> 11) & 31;
   }
@@ -134,9 +135,10 @@ public:
 
 class mtc1 : public mips_op {
 public:
-  mtc1(sim_op op) : mips_op(op) {
-    this->op_class = oper_type::alu;
-  }
+  mtc1(sim_op op) : mips_op(op) {}
+  oper_type get_op_class() const override {
+    return oper_type::alu;
+  }  
   int get_dest() const override {
     return (m->inst >> 11) & 31;
   }
@@ -198,9 +200,10 @@ public:
 
 class mfc1 : public mips_op {
 public:
-  mfc1(sim_op op) : mips_op(op) {
-    this->op_class = oper_type::alu;
-  }
+  mfc1(sim_op op) : mips_op(op) {}
+  oper_type get_op_class() const override {
+    return oper_type::alu;
+  }  
   int get_dest() const override {
     return(m->inst>>16) & 31;
   }
@@ -274,9 +277,10 @@ public:
 protected:
   lo_hi_type lht;
 public:
-  lo_hi_move(sim_op op, lo_hi_type lht) : mips_op(op), lht(lht) {
-    this->op_class = oper_type::alu;
-  }
+  lo_hi_move(sim_op op, lo_hi_type lht) : mips_op(op), lht(lht) {}
+  oper_type get_op_class() const override {
+    return oper_type::alu;
+  }    
   int get_dest() const override {
     switch(lht)
       {
@@ -361,9 +365,11 @@ public:
 class nop : public mips_op {
 public:
   nop(sim_op op) : mips_op(op) {
-    this->op_class = oper_type::foldable;
     m->is_complete = true;
   }
+  oper_type get_op_class() const override {
+    return oper_type::foldable;
+  }    
   bool allocate(sim_state &machine_state) override {
     m->complete_cycle = get_curr_cycle();
     return true;
@@ -400,9 +406,10 @@ protected:
   bool take_trap;
 public:
   rtype_alu_op(sim_op op, r_type rt) :
-    mips_op(op), r(op->inst), rt(rt), take_trap(false) {
-    this->op_class = oper_type::alu;
-  }
+    mips_op(op), r(op->inst), rt(rt), take_trap(false) {}
+  oper_type get_op_class() const override {
+    return oper_type::alu;
+  }    
   int get_dest() const override {
     return (rt != r_type::teq) ? r.rr.rd : -1;
   }
@@ -594,8 +601,10 @@ protected:
 public:
   itype_alu_op(sim_op op) :
     mips_op(op), i_(op->inst) {
-    this->op_class = oper_type::alu;
   }
+  oper_type get_op_class() const override {
+    return oper_type::alu;
+  }    
   int get_dest() const override {
     return i_.ii.rt;
   }
@@ -719,11 +728,13 @@ protected:
 public:
   jump_op(sim_op op, jump_type jt) :
     mips_op(op), i_(op->inst), jt(jt) {
-    this->op_class = oper_type::jmp;
     op->has_delay_slot = true;
     op->is_branch_or_jump = true;
     op->could_cause_exception = true;
   }
+  oper_type get_op_class() const override {
+    return oper_type::jmp;
+  }      
   int get_dest() const override {
     switch(jt)
       {
@@ -956,7 +967,6 @@ protected:
 public:
   branch_op(sim_op op, branch_type bt) :
     mips_op(op), bt(bt), i_(op->inst), take_br(false) {
-    this->op_class = oper_type::jmp;
     int16_t himm = (int16_t)(m->inst & ((1<<16) - 1));
     int32_t imm = ((int32_t)himm) << 2;
     uint32_t npc = m->pc+4;
@@ -964,6 +974,9 @@ public:
     op->is_branch_or_jump = true;
     op->could_cause_exception = true;
   }
+  oper_type get_op_class() const override {
+    return oper_type::jmp;
+  }      
   int get_src0() const override {
     if(is_fp_branch()) {
       return CP1_CR25;
@@ -1831,8 +1844,9 @@ public:
 
 class mul_op : public mips_op {
 public:
-  mul_op(sim_op op) : mips_op(op) {
-    this->op_class = oper_type::alu;
+  mul_op(sim_op op) : mips_op(op) {}
+  oper_type get_op_class() const override {
+    return oper_type::alu;
   }
   int get_dest() const override {
     return (m->inst >> 11) & 31;
@@ -1906,9 +1920,10 @@ public:
 
 class clz_op : public mips_op {
 public:
-  clz_op(sim_op op) : mips_op(op) {
-    this->op_class = oper_type::alu;
-  }
+  clz_op(sim_op op) : mips_op(op) {}
+  oper_type get_op_class() const override {
+    return oper_type::alu;
+  }    
   int get_dest() const override {
     return (m->inst >> 11) & 31;
   }
@@ -1978,9 +1993,10 @@ public:
 protected:
   mult_div_types mdt;
 public:
-  mult_div_op(sim_op op, mult_div_types mdt) : mips_op(op), mdt(mdt) {
-    this->op_class = oper_type::alu;
-  }
+  mult_div_op(sim_op op, mult_div_types mdt) : mips_op(op), mdt(mdt) {}
+  oper_type get_op_class() const override {
+    return oper_type::alu;
+  }  
    int get_src0() const override {
     /* rs */
     return (m->inst >> 21) & 31;
@@ -2193,9 +2209,10 @@ public:
 protected:
   se_type st;
 public:
-  se_op(sim_op op, se_type st) : mips_op(op), st(st) {
-    this->op_class = oper_type::system;
-  }
+  se_op(sim_op op, se_type st) : mips_op(op), st(st) {}
+  oper_type get_op_class() const override {
+    return oper_type::alu;
+  }  
   int get_src0() const override {
     return (m->inst >> 16) & 31;
   }
@@ -2261,9 +2278,10 @@ public:
 
 class ext_op : public mips_op {
 public:
-  ext_op(sim_op op) : mips_op(op) {
-    this->op_class = oper_type::alu;
-  }
+  ext_op(sim_op op) : mips_op(op) {}
+  oper_type get_op_class() const override {
+    return oper_type::alu;
+  }      
   int get_src0() const override {
     return (m->inst >> 21) & 31;
   }
@@ -2321,9 +2339,10 @@ public:
 
 class ins_op : public mips_op {
 public:
-  ins_op(sim_op op) : mips_op(op) {
-    this->op_class = oper_type::alu;
-  }
+  ins_op(sim_op op) : mips_op(op) {}
+  oper_type get_op_class() const override {
+    return oper_type::alu;
+  }      
   int get_src0() const override {
     return (m->inst >> 21) & 31; /* rs */
   }
@@ -2393,9 +2412,10 @@ public:
 
 class movci_op : public mips_op {
 public:
-  movci_op(sim_op op) : mips_op(op) {
-    this->op_class = oper_type::alu;
-  }
+  movci_op(sim_op op) : mips_op(op) {}
+  oper_type get_op_class() const override {
+    return oper_type::alu;
+  }    
   int get_dest() const override {
     return (m->inst >> 11) & 31; 
   }
@@ -2501,9 +2521,10 @@ protected:
     }
   }
 public:
-  fmovc_op(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {
-    this->op_class = oper_type::fp; 
-  }
+  fmovc_op(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {}
+  oper_type get_op_class() const override {
+    return oper_type::fp;
+  }    
   int get_dest() const override {
     return (m->inst >> 6) & 31; /* fd */
   }
@@ -2628,9 +2649,10 @@ protected:
   virtual void execute_double(sim_state &machine_state) = 0; 
   virtual void execute_float(sim_state &machine_state) = 0; 
 public:
-  fmov_op(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {
-    this->op_class = oper_type::fp; 
-  }
+  fmov_op(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {}
+  oper_type get_op_class() const override {
+    return oper_type::fp;
+  }    
   int get_dest() const override {
     return (m->inst >> 6) & 31; /* fd */
   }
@@ -2839,9 +2861,10 @@ protected:
       setCC(machine_state.fcr1_prf[m->src4_prf], v, (m->inst >> 8) & 7);
   }
 public:
-  fp_cmp(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {
-    this->op_class = oper_type::fp; 
-  }
+  fp_cmp(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {}
+  oper_type get_op_class() const override {
+    return oper_type::fp;
+  }    
   int get_src0() const override {
     return (m->inst >> 11) & 31; /* fs */
   }
@@ -3053,9 +3076,10 @@ protected:
   
 public:
   fp_arith_op(sim_op op, fp_op_type fot) :
-    mips_op(op), fmt((op->inst >> 21) & 31), fot(fot) {
-    this->op_class = oper_type::fp;
-  }
+    mips_op(op), fmt((op->inst >> 21) & 31), fot(fot) {}
+  oper_type get_op_class() const override {
+    return oper_type::fp;
+  }      
   int get_src0() const override {
     return (m->inst >> 11)&31; /* fs */
   }
@@ -3256,9 +3280,10 @@ protected:
   }
 public:
   fp_fma(bool msub, op_type fmt, sim_op op) :
-    msub(msub), fmt(fmt), mips_op(op){
-    this->op_class = oper_type::fp; 
-  }
+    msub(msub), fmt(fmt), mips_op(op){}
+  oper_type get_op_class() const override {
+    return oper_type::fp;
+  }      
   int get_dest() const override {
     return (m->inst >> 6) & 31; /* fd */
   }
@@ -3394,9 +3419,11 @@ protected:
       }
   }
 public:
-  cvts_truncw_op(sim_op op, op_type ot) : mips_op(op), fmt((op->inst >> 21) & 31), ot(ot) {
-    this->op_class = oper_type::fp;
-  }
+  cvts_truncw_op(sim_op op, op_type ot) : mips_op(op), fmt((op->inst >> 21) & 31),
+					  ot(ot) {}
+  oper_type get_op_class() const override {
+    return oper_type::fp;
+  }      
   int get_src0() const override {
     return (m->inst >> 11) & 31;
   }
@@ -3472,9 +3499,10 @@ class cvtd_op : public mips_op {
 protected:
   uint32_t fmt;
 public:
-  cvtd_op(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {
-    this->op_class = oper_type::fp;
-  }
+  cvtd_op(sim_op op) : mips_op(op), fmt((op->inst >> 21) & 31) {}
+  oper_type get_op_class() const override {
+    return oper_type::fp;
+  }      
   int get_src0() const override {
     return (m->inst >> 11) & 31;
   }
@@ -3571,9 +3599,10 @@ public:
 
 class break_op : public mips_op {
 public:
-  break_op(sim_op op) : mips_op(op) {
-    this->op_class = oper_type::system;
-  }
+  break_op(sim_op op) : mips_op(op) {}
+  oper_type get_op_class() const override {
+    return oper_type::system;
+  }      
   bool allocate(sim_state &machine_state) override {
     return true;
   }
@@ -3606,9 +3635,10 @@ public:
 
 class sync_op : public mips_op {
 public:
-  sync_op(sim_op op) : mips_op(op) {
-    this->op_class = oper_type::system;
-  }
+  sync_op(sim_op op) : mips_op(op) {}
+  oper_type get_op_class() const override {
+    return oper_type::system;
+  }    
   bool allocate(sim_state &machine_state) override {
     machine_state.alloc_blocked = true;
     return true;
@@ -3645,9 +3675,11 @@ protected:
   
 public:
   monitor_op(sim_op op) : mips_op(op) {
-    this->op_class = oper_type::system;
     op->could_cause_exception = true;
   }
+  oper_type get_op_class() const override {
+    return oper_type::system;
+  }    
   int get_dest() const override {
     return 2;
   }

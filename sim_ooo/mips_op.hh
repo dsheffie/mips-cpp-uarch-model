@@ -223,7 +223,6 @@ protected:
 public:
   sim_op m = nullptr;
   bool retired = false;
-  oper_type op_class = oper_type::unknown;
   mips_op(sim_op m) : m(m), retired(false) {}
   virtual ~mips_op() {}
   virtual bool allocate(sim_state &machine_state);
@@ -256,8 +255,8 @@ public:
   int count_rd_ports() const {
     return (get_src0()!=-1) + (get_src1()!=-1) + (get_src2()!=-1) + (get_src3()!=-1);
   }
-  oper_type get_op_class() const {
-    return op_class;
+  virtual oper_type get_op_class() const {
+    return oper_type::unknown;
   }
 };
 
@@ -268,10 +267,12 @@ protected:
   uint32_t effective_address = ~0;
 public:
   mips_store(sim_op op) : mips_op(op), i_(op->inst) {
-    this->op_class = oper_type::store;
     int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
     imm = static_cast<int32_t>(himm);
     op->is_store = true;
+  }
+  oper_type get_op_class() const override{
+    return oper_type::store;
   }
 };
 
@@ -286,11 +287,13 @@ protected:
   bool stall_for_load(sim_state &machine_state) const;
 public:
   mips_load(sim_op op) : mips_op(op), i_(op->inst), lt(load_type::bogus) {
-    this->op_class = oper_type::load;
     int16_t himm = static_cast<int16_t>(m->inst & ((1<<16) - 1));
     imm = static_cast<int32_t>(himm);
     op->could_cause_exception = true;
   }
+  oper_type get_op_class() const override{
+    return oper_type::load;
+  }  
   uint32_t getEA() const {
     return effective_address;
   }
