@@ -69,6 +69,11 @@ namespace sim_param {
 #undef SIM_PARAM_LIST
 #endif
 
+template <typename T, typename std::enable_if<std::is_integral<T>::value,T>::type* = nullptr>
+static constexpr T log2(T n) {
+  return ( (n<2) ? 1 : 1+log2(n/2));
+}
+
 #endif
 
 

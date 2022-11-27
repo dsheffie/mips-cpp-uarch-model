@@ -86,10 +86,15 @@ template <bool enable_oracle>
 void fetch(sim_state &machine_state) {
   auto &fetch_queue = machine_state.fetch_queue;
   auto &return_stack = machine_state.return_stack;
+  static const auto lg2_cl = log2(sim_param::l1d_linesize);
+  
   sparse_mem &mem = *(machine_state.mem);
   
   while(not(machine_state.terminate_sim)) {
     int fetch_amt = 0, taken_branches = 0;
+    uint32_t first_line = (machine_state.delay_slot_npc ? machine_state.delay_slot_npc : machine_state.fetch_pc ) >> lg2_cl;
+    
+    
     for(; not(fetch_queue.full()) and (fetch_amt < sim_param::fetch_bw) and not(machine_state.nuke) and not(machine_state.fetch_blocked); ) {
       
       if(machine_state.delay_slot_npc) {
@@ -114,6 +119,11 @@ void fetch(sim_state &machine_state) {
 	if(taken_branches == sim_param::taken_branches_per_cycle)
 	  break;
 	continue;
+      }
+
+      //instruction on different cacheline
+      if((machine_state.fetch_pc >> lg2_cl) != first_line) {
+	break;
       }
       
       uint32_t inst = bswap(mem.get32(machine_state.fetch_pc));
