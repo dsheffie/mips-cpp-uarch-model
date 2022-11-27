@@ -12,20 +12,16 @@ static const uint32_t K1SIZE = 0x80000000;
 class simCache;
 
 struct history_t {
-  uint32_t fetch_pc = 0;
-  uint32_t next_pc = 0;
-  bool was_branch_or_jump = false;
-  bool was_likely_branch = false;
-  bool took_branch_or_jump = false;
-  uint64_t icnt;
+  uint32_t fetch_pc = 0, next_pc = 0;
+  bool was_branch_or_jump = false, was_likely_branch = false, took_branch_or_jump = false;
+  uint64_t icnt = 0;
 };
 
 
 struct state_t {
   sparse_mem &mem;
   uint32_t pc;
-  int32_t lo;
-  int32_t hi;
+  int32_t lo, hi;
   uint64_t icnt;
   uint8_t brk;
   uint8_t syscall;
@@ -36,7 +32,7 @@ struct state_t {
   uint32_t fcr1[5];
   int num_open_fd = 0;
   bool silent = false;
-  simCache *l1d = nullptr;
+  simCache *l1d = nullptr, *l1i = nullptr;
   history_t hbuf[HWINDOW];
   state_t(sparse_mem &mem) : mem(mem), pc(0), lo(0), hi(0),
 			     icnt(0), brk(0),

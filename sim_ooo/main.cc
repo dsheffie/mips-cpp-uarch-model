@@ -45,6 +45,7 @@ uint64_t global::pipestart = 0;
 uint64_t global::pipeend = 0;
 
 static simCache* l1d = nullptr, *l2d = nullptr, *l3d = nullptr;
+static simCache* l1i = nullptr, *l2i = nullptr, *l3i = nullptr;
 
 state_t *s = nullptr;
 
@@ -79,6 +80,7 @@ int buildArgcArgv(const char *filename, const char *sysArgs, char ***argv);
 
 void initialize_ooo_core(sim_state & machine_state,
 			 simCache *l1d,
+			 simCache *l1i,
 			 bool use_oracle,
 			 bool use_syscall_skip,
 			 uint64_t skipicnt, uint64_t maxicnt,
@@ -226,6 +228,13 @@ int main(int argc, char *argv[]) {
 				  "l1d",
 				  sim_param::l1d_latency,
 				  nullptr);
+      l1i = new directMappedCache(sim_param::l1d_linesize,
+				  sim_param::l1d_assoc,
+				  sim_param::l1d_sets,
+				  "l1i",
+				  sim_param::l1d_latency,
+				  nullptr);
+      
     }
     else {
       l1d = new setAssocCache(sim_param::l1d_linesize,
@@ -234,16 +243,23 @@ int main(int argc, char *argv[]) {
 			      "l1d",
 			      sim_param::l1d_latency,
 			      nullptr);
+      l1i = new setAssocCache(sim_param::l1d_linesize,
+			      sim_param::l1d_assoc,
+			      sim_param::l1d_sets,
+			      "l1i",
+			      sim_param::l1d_latency,
+			      nullptr);      
     }
 
     if(warmstart) {
       s->l1d = l1d;
+      s->l1i = l1i;
     }
 
     *global::sim_log << "l1d capacity = " << l1d->capacity() << "\n";
   }
 
-  initialize_ooo_core(machine_state, l1d, use_oracle,
+  initialize_ooo_core(machine_state, l1d, l1i, use_oracle,
 		      use_syscall_skip, skipicnt, maxicnt, s, sm);
   
   if(setjmp(jenv)>0) {
@@ -275,6 +291,9 @@ int main(int argc, char *argv[]) {
   if(l1d) {
     *global::sim_log << *l1d;
   }
+  if(l1i) {
+    *global::sim_log << *l1i;
+  }
   
   if(l3d) {
     delete l3d;
@@ -285,7 +304,19 @@ int main(int argc, char *argv[]) {
   if(l1d) {
     delete l1d;
   }
+
+  if(l3d) {
+    delete l3d;
+  }
+  if(l2d) {
+    delete l2d;
+  }
+  if(l1i) {
+    delete l1i;
+  }
   
+
+   
   if(global::sysArgv) {
     for(int i = 0; i < global::sysArgc; i++) {
       delete [] global::sysArgv[i];

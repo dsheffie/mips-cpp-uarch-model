@@ -89,13 +89,28 @@ void fetch(sim_state &machine_state) {
   static const auto lg2_cl = log2(sim_param::l1d_linesize);
   
   sparse_mem &mem = *(machine_state.mem);
+  int fetch_penality = 0;
   
   while(not(machine_state.terminate_sim)) {
-    int fetch_amt = 0, taken_branches = 0;
-    uint32_t first_line = (machine_state.delay_slot_npc ? machine_state.delay_slot_npc : machine_state.fetch_pc ) >> lg2_cl;
+    uint32_t fetch_amt = 0, taken_branches = 0, first_pc = 0, first_line = 0;
+    bool missed_l1i = false;
+    first_pc = (machine_state.delay_slot_npc ? machine_state.delay_slot_npc : machine_state.fetch_pc );
+    first_line = first_pc >> lg2_cl;
+
     
+    if(fetch_penality) {
+      --fetch_penality;
+    }
     
-    for(; not(fetch_queue.full()) and (fetch_amt < sim_param::fetch_bw) and not(machine_state.nuke) and not(machine_state.fetch_blocked); ) {
+    for(; not(fetch_queue.full()) and (fetch_amt < sim_param::fetch_bw) and not(machine_state.nuke) and not(machine_state.fetch_blocked)
+	  and not(missed_l1i) and (fetch_penality == 0); ) {
+      uint32_t fetch_pc = machine_state.delay_slot_npc ? machine_state.delay_slot_npc : machine_state.fetch_pc;
+      
+      if(not(machine_state.l1i->read(fetch_pc, 4))) {
+	//std::cout << "icache miss for " << std::hex << fetch_pc << std::dec << "\n";
+	missed_l1i = true;
+	fetch_penality = 3;
+      }
       
       if(machine_state.delay_slot_npc) {
 	uint32_t inst = bswap(mem.get32(machine_state.delay_slot_npc));
@@ -116,21 +131,21 @@ void fetch(sim_state &machine_state) {
 	machine_state.fetched_insns++;
 	machine_state.delay_slot_npc = 0;
 
-	if(taken_branches == sim_param::taken_branches_per_cycle)
+	if(taken_branches == sim_param::taken_branches_per_cycle) {
 	  break;
+	}
 	continue;
       }
 
       //instruction on different cacheline
-      if((machine_state.fetch_pc >> lg2_cl) != first_line) {
+      uint32_t curr_line = fetch_pc >> lg2_cl;
+      if(curr_line != first_line) {
 	break;
       }
       
-      uint32_t inst = bswap(mem.get32(machine_state.fetch_pc));
-      uint32_t npc = machine_state.fetch_pc + 4;
-      bool predict_taken = false;
-      bool oracle_taken = false, oracle_nullify = false;
-      uint32_t oracle_npc = 0;
+      uint32_t inst = bswap(mem.get32(machine_state.fetch_pc)), npc = machine_state.fetch_pc + 4, oracle_npc = 0;
+      bool predict_taken = false, oracle_taken = false, oracle_nullify = false;
+
 
       if(enable_oracle) {
 	if(not(machine_state.oracle_state->brk)) {
@@ -685,6 +700,7 @@ void retire(sim_state &machine_state) {
 
 void initialize_ooo_core(sim_state &machine_state,
 			 simCache *l1d,
+			 simCache *l1i,			 
 			 bool use_oracle,
 			 bool use_syscall_skip,
 			 uint64_t skipicnt, 
@@ -693,6 +709,7 @@ void initialize_ooo_core(sim_state &machine_state,
 			 const sparse_mem *sm) {
 
   machine_state.l1d = l1d;
+  machine_state.l1i = l1i;
   
   if(use_syscall_skip) {
     while(s->syscall==0 and not(s->brk)) {

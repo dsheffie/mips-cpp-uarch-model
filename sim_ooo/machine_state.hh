@@ -142,7 +142,7 @@ public:
   sparse_mem *oracle_mem = nullptr;
   state_t *oracle_state = nullptr;
 
-  simCache *l1d = nullptr;
+  simCache *l1d = nullptr, *l1i = nullptr;
   bool log_execution = false;
 
   pipeline_logger sim_records;

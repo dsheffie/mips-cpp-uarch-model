@@ -272,13 +272,13 @@ public:
   virtual void tick();
 
   /* warm-start uarch simulator with these methods */
-  void read(uint32_t addr, uint32_t num_bytes) {
+  bool read(uint32_t addr, uint32_t num_bytes) {
     uint32_t lat = 0;
-    access(addr,num_bytes,opType::READ,lat);
+    return access(addr,num_bytes,opType::READ,lat);
   }
-  void write(uint32_t addr, uint32_t num_bytes) {
+  bool write(uint32_t addr, uint32_t num_bytes) {
     uint32_t lat = 0;
-    access(addr,num_bytes,opType::WRITE,lat);
+    return access(addr,num_bytes,opType::WRITE,lat);
   }
 
   const size_t &getHits() const {
