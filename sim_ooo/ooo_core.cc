@@ -801,7 +801,7 @@ extern "C" {
 	machine_state.terminate_sim = true;
       }
       uint64_t curr_icnt = (machine_state.icnt-machine_state.skipicnt);
-      if( ((curr_icnt & (sim_param::heartbeat-1)) == 0) && (curr_icnt != 0)) {
+      if( ((curr_icnt & (sim_param::heartbeat-1)) == 0) && (curr_icnt-prev_icnt)) {
 
 	double ipc = static_cast<double>(curr_icnt) / global::curr_cycle;
 	double wipc = static_cast<double>(curr_icnt-prev_icnt) / sim_param::heartbeat;
@@ -815,7 +815,7 @@ extern "C" {
 	double pr = 1000.0 * (static_cast<double>(mispredicts) / curr_icnt);
 	double w_pr = 1000.0 * (static_cast<double>(w_mispredicts) / (curr_icnt-prev_icnt));
 
-	
+
 	*global::sim_log << "c " << global::curr_cycle
 			 << " pc "
 			 << std::hex
