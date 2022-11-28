@@ -62,17 +62,11 @@ stop_gthread_asm:
 switch_gthread_asm:
 	mov x10, sp
 	stp x10, x19, [x0, #(8*0)]	
-//	str x19, [x0, #(8*1)]
 	stp x20, x21, [x0, #(8*2)]
-//	str x21, [x0, #(8*3)]
 	stp x22, x23, [x0, #(8*4)]	
-//	str x23, [x0, #(8*5)]
 	stp x24, x25, [x0, #(8*6)]
-//	str x25, [x0, #(8*7)]
 	stp x26, x27, [x0, #(8*8)]
-//	str x27, [x0, #(8*9)]	
 	stp x28, x29, [x0, #(8*10)]
-//	str x29, [x0, #(8*11)]
 	str x30, [x0, #(8*12)]
 	
 	ldp x10, x19, [x1, #(8*0)]	
