@@ -65,23 +65,6 @@ static inline bool is_nonlikely_branch(uint32_t inst) {
   return false;
 }
 
-
-class rollback_rob_entry : public sim_queue<sim_op>::funcobj {
-protected:
-  sim_state &machine_state;
-public:
-  rollback_rob_entry(sim_state &machine_state) :
-    machine_state(machine_state) {}
-  virtual bool operator()(sim_op e){
-    if(e) {
-      e->op->rollback(machine_state);
-      delete e;
-      return true;
-    }
-    return false;
-  }
-};
-
 template <bool enable_oracle>
 void fetch(sim_state &machine_state) {
   auto &fetch_queue = machine_state.fetch_queue;
