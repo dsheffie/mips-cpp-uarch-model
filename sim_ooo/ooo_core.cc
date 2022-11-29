@@ -86,7 +86,7 @@ template <bool enable_oracle>
 void fetch(sim_state &machine_state) {
   auto &fetch_queue = machine_state.fetch_queue;
   auto &return_stack = machine_state.return_stack;
-  static const auto lg2_cl = log2(sim_param::l1d_linesize);
+  static const auto lg2_cl = sim_param::log2(sim_param::l1d_linesize);
   
   sparse_mem &mem = *(machine_state.mem);
   int fetch_penality = 0;

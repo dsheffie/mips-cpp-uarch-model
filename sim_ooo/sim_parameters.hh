@@ -63,16 +63,18 @@ namespace sim_param {
 #define SIM_PARAM(A,B,C,D) extern int A;
   SIM_PARAM_LIST;
 #undef SIM_PARAM
+
+  template <typename T, typename std::enable_if<std::is_integral<T>::value,T>::type* = nullptr>
+  static constexpr T log2(T n) {
+    return ( (n<2) ? 1 : 1+log2(n/2));
+  }  
 }
 
 #ifndef SAVE_SIM_PARAM_LIST
 #undef SIM_PARAM_LIST
 #endif
 
-template <typename T, typename std::enable_if<std::is_integral<T>::value,T>::type* = nullptr>
-static constexpr T log2(T n) {
-  return ( (n<2) ? 1 : 1+log2(n/2));
-}
+
 
 #endif
 
