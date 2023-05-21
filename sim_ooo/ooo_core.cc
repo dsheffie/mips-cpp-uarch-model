@@ -286,6 +286,7 @@ template<bool enable_oracle>
 void retire(sim_state &machine_state) {
   state_t *s = machine_state.ref_state;
   auto &rob = machine_state.rob;
+  auto &bob = machine_state.bob;
   int stuck_cnt = 0, empty_cnt = 0;
   uint64_t num_retired_insns = 0;
   while(not(machine_state.terminate_sim)) {
@@ -301,7 +302,9 @@ void retire(sim_state &machine_state) {
       }
     }
       
-    while(not(rob.empty()) and (retire_amt < sim_param::retire_bw) and (machine_state.icnt < machine_state.maxicnt)) {
+    while(not(rob.empty())
+	  and (retire_amt < sim_param::retire_bw)
+	  and (machine_state.icnt < machine_state.maxicnt)) {
       u = rob.peek();
       empty_cnt = 0;
       if(not(u->is_complete)) {
@@ -319,7 +322,8 @@ void retire(sim_state &machine_state) {
 	break;
       }
 
-	
+
+      
       if(u->exception==exception_type::branch) {
 	machine_state.nukes++;
 	machine_state.branch_nukes++;
@@ -435,6 +439,9 @@ void retire(sim_state &machine_state) {
       machine_state.last_retire_pc = u->pc;
 	
       stop_sim = u->op->stop_sim();
+      if(not(bob.empty()) and (bob.peek() == u)) {
+	bob.pop();
+      }
       delete u;
       u = nullptr;
       retire_amt++;
@@ -448,7 +455,8 @@ void retire(sim_state &machine_state) {
 
     if(u!=nullptr and exception) {
       assert(u->could_cause_exception);
-	
+      bob.clear();
+      
       if((retire_amt - sim_param::retire_bw) < 2) {
 	gthread_yield();
 	retire_amt = 0;
@@ -619,6 +627,7 @@ void retire(sim_state &machine_state) {
 	}
       }
       rob.clear();
+      bob.clear();
 	
       for(size_t i = 0; i < machine_state.fetch_queue.capacity(); i++) {
 	auto f = machine_state.fetch_queue.at(i);
@@ -882,6 +891,7 @@ extern "C" {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto &decode_queue = machine_state.decode_queue;
     auto &rob = machine_state.rob;
+    auto &bob = machine_state.bob;
     auto &alu_alloc = machine_state.alu_alloc;
     auto &fpu_alloc = machine_state.fpu_alloc;
     auto &load_alloc = machine_state.load_alloc;
@@ -905,7 +915,7 @@ extern "C" {
 
 	bool jmp_avail = true, store_avail = true, system_avail = true;
 	sim_state::rs_type *rs_queue = nullptr;
-	bool rs_available = false;
+	bool rs_available = false, need_bob = false, bob_avail = false;
 
 	if(u->op == nullptr) {
 	  std::cout << "u->op == nullptr @ " << get_curr_cycle() << ",pc = "
@@ -933,10 +943,14 @@ extern "C" {
 	    die();
 	    break;
 	  case oper_type::jmp:
+	    need_bob = true;
+	    if(!bob.full()) {
+	      bob_avail = true;
+	    }
 	  case oper_type::alu: {
 	    int64_t p = alu_alloc.find_first_unset_rr();
 	    int64_t rs_id = mod(static_cast<int>(p),sim_param::num_alu_ports);
-	    if(p!=-1 and not(machine_state.alu_rs.at(rs_id).full())) {
+	    if((need_bob ? bob_avail : true) and (p!=-1) and not(machine_state.alu_rs.at(rs_id).full())) {
 	      rs_available = true;
 	      rs_queue = &(machine_state.alu_rs.at(rs_id));
 	      alu_alloc.set_bit(p);
@@ -1029,6 +1043,9 @@ extern "C" {
 	decode_queue.pop();
 	u->alloc_cycle = global::curr_cycle;
 	u->rob_idx = rob.push(u);
+	if(need_bob and bob_avail) {
+	  bob.push(u);
+	}
 	alloc_amt++;
       }
       machine_state.total_allocated_insns += alloc_amt;
@@ -1108,8 +1125,8 @@ extern "C" {
 
 	int avail_int_ports = 1024, avail_fp_ports = 1024;
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
-	  INORDER_SCHED(alu_rs.at(i));
-	  //OOO_SCHED(alu_rs.at(i),sim_param::num_alu_sched_per_cycle,avail_int_ports);
+	  //INORDER_SCHED(alu_rs.at(i));
+	  OOO_SCHED(alu_rs.at(i),sim_param::num_alu_sched_per_cycle,avail_int_ports);
 	}
 	for(int i = 0; i < machine_state.num_load_rs; i++) {
 	  INORDER_SCHED(load_rs.at(i));
@@ -1276,7 +1293,8 @@ void sim_state::initialize() {
   fetch_queue.resize(sim_param::fetchq_size);
   decode_queue.resize(sim_param::decodeq_size);
   rob.resize(sim_param::rob_size);
-
+  bob.resize(sim_param::bob_size);
+  
   num_alu_rs = sim_param::num_alu_ports;
   num_fpu_rs = sim_param::num_fpu_ports;
   num_load_rs = sim_param::num_load_ports;

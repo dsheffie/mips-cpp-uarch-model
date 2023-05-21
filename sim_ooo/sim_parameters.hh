@@ -1,10 +1,11 @@
 #ifndef sim_parameters_hh
 #define sim_parameters_hh
 
-#define SIM_PARAM_LIST				\
-  SIM_PARAM(heartbeat,(1<<24),1,true)		\
-  SIM_PARAM(flash_restart,1,0,true)		\
-  SIM_PARAM(rob_size,32,1,true)			\
+#define SIM_PARAM_LIST					\
+  SIM_PARAM(heartbeat,(1<<24),1,true)			\
+  SIM_PARAM(flash_restart,1,0,true)			\
+  SIM_PARAM(rob_size,32,1,true)				\
+  SIM_PARAM(bob_size,4,1,true)				\
   SIM_PARAM(fetchq_size,8,1,true)			\
   SIM_PARAM(decodeq_size,8,1,true)			\
   SIM_PARAM(fetch_bw,2,1,false)			\

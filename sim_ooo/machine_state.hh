@@ -93,6 +93,7 @@ public:
   sim_queue<mips_meta_op*> fetch_queue;
   sim_queue<mips_meta_op*> decode_queue;
   sim_queue<mips_meta_op*> rob;
+  sim_queue<mips_meta_op*> bob;
 
   sim_bitvec alu_alloc;
   sim_bitvec fpu_alloc;
