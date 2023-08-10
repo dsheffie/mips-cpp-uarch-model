@@ -32,22 +32,6 @@ uint32_t sparse_mem::crc32() const {
   //std::cout << present_bitvec.popcount()
   //<< " non-zero pages\n";
   for(size_t i = 0; i < npages; i++) {
-#ifdef __amd64__
-    if(present_bitvec[i]==false) {
-      for(size_t n=0;n<4096;n++) {
-	c = _mm_crc32_u8(c, 0);
-      }
-    }
-    else {
-      //uint8_t x = 0;
-      for(size_t n=0;n<4096;n++) {
-	c = _mm_crc32_u8(c, mem[i][n]);
-	//x ^= mem[i][n];
-      }
-      //std::cout << "page " << i << " is non-zero, x = "
-      //<< std::hex << static_cast<uint32_t>(x) << std::dec << "\n";
-    }
-#else
     static const uint32_t POLY = 0x82f63b78;
     for(size_t n=0;n<4096;n++) {
       uint8_t b = present_bitvec[i] ? mem[i][n] : 0;
@@ -56,7 +40,6 @@ uint32_t sparse_mem::crc32() const {
 	c = c & 1 ? (c>>1) ^ POLY : c>>1;
       }
     }
-#endif
   }
   return c ^ (~0x0);
 }

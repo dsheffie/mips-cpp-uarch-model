@@ -188,12 +188,10 @@ int main(int argc, char *argv[]) {
   sim_param::num_fpu_ports *= uarch_scale;
   sim_param::num_alu_ports *= uarch_scale;
   sim_param::num_load_ports *= uarch_scale;
-  sim_param::num_store_ports *= uarch_scale;
   sim_param::num_alu_sched_entries *= uarch_scale;
   sim_param::num_fpu_sched_entries *= uarch_scale;
   sim_param::num_jmp_sched_entries *= uarch_scale;
   sim_param::num_load_sched_entries *= uarch_scale;
-  sim_param::num_store_sched_entries *= uarch_scale;
 
   /* Build argc and argv */
   global::sysArgc = buildArgcArgv(filename.c_str(),sysArgs.c_str(),&global::sysArgv);

@@ -103,14 +103,11 @@ public:
   int num_alu_rs = -1;
   int num_fpu_rs = -1;
   int num_load_rs = -1;
-  int num_store_rs = -1;
   
   typedef sim_list<mips_meta_op*> rs_type;
   std::vector<rs_type> alu_rs;
   std::vector<rs_type> fpu_rs;
-  rs_type jmp_rs;
   std::vector<rs_type> load_rs;
-  std::vector<rs_type> store_rs;
   rs_type system_rs;
   
   sparse_mem *mem = nullptr;

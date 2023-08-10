@@ -224,6 +224,7 @@ int32_t highAssocCache::findLRU(uint32_t w) {
 directMappedCache::~directMappedCache(){}
 
 bool directMappedCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint32_t &lat) {
+  return true;
   uint32_t w,t;
   uint32_t b = index(addr, w, t);
   bool h = false, dirty_miss = false;
