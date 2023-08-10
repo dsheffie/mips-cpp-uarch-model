@@ -173,24 +173,8 @@ int main(int argc, char *argv[]) {
   SIM_PARAM_LIST;
 #undef SIM_PARAM
 
-  sim_param::rob_size *= uarch_scale;
-  sim_param::fetchq_size *= uarch_scale;
-  sim_param::decodeq_size *= uarch_scale;
-  sim_param::fetch_bw *= uarch_scale;
-  sim_param::decode_bw *= uarch_scale;
-  sim_param::alloc_bw *= uarch_scale;
-  sim_param::retire_bw *= uarch_scale;
-  
-  sim_param::num_gpr_prf *= uarch_scale;
-  sim_param::num_cpr0_prf *= uarch_scale;
-  sim_param::num_cpr1_prf *= uarch_scale;
-  sim_param::num_fcr1_prf *= uarch_scale;
-  sim_param::num_fpu_ports *= uarch_scale;
-  sim_param::num_alu_ports *= uarch_scale;
-  sim_param::num_load_ports *= uarch_scale;
   sim_param::num_alu_sched_entries *= uarch_scale;
   sim_param::num_fpu_sched_entries *= uarch_scale;
-  sim_param::num_jmp_sched_entries *= uarch_scale;
   sim_param::num_load_sched_entries *= uarch_scale;
 
   /* Build argc and argv */

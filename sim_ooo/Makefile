@@ -47,5 +47,9 @@ githash.cc : ../.git/HEAD ../.git/index
 
 -include $(DEP)
 
+
+gen_html : gen_html.cc pipeline_record.hh
+	$(CXX) -MMD $(CXXFLAGS) gen_html.cc $(LIBS) -o gen_html
+
 clean:
 	rm -rf $(EXE) $(OBJ) $(DEP)

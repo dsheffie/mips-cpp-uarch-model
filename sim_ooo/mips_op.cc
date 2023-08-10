@@ -4354,6 +4354,7 @@ void mips_op::log_retire(sim_state &machine_state) const {
 				     m->pc,
 				     static_cast<uint64_t>(m->fetch_cycle),
 				     static_cast<uint64_t>(m->alloc_cycle),
+				     static_cast<uint64_t>(m->dispatch_cycle),
 				     static_cast<uint64_t>(m->complete_cycle),
 				     static_cast<uint64_t>(m->retire_cycle),
 				     false

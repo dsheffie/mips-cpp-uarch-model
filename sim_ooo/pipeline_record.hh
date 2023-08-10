@@ -23,7 +23,7 @@ public:
   uint64_t uuid;
   std::string disasm;
   uint64_t pc;
-  uint64_t fetch_cycle, alloc_cycle, complete_cycle, retire_cycle;
+  uint64_t fetch_cycle, alloc_cycle, sched_cycle, complete_cycle, retire_cycle;
   bool faulted;
   friend class boost::serialization::access;
   template<class Archive>
@@ -43,19 +43,21 @@ public:
 		  uint64_t pc,
 		  uint64_t fetch_cycle,
 		  uint64_t alloc_cycle,
+		  uint64_t sched_cycle,
 		  uint64_t complete_cycle,
 		  uint64_t retire_cycle,
 		  bool faulted) :
     uuid(uuid), disasm(disasm), pc(pc), fetch_cycle(fetch_cycle), alloc_cycle(alloc_cycle),
-    complete_cycle(complete_cycle), retire_cycle(retire_cycle),
+    sched_cycle(sched_cycle), complete_cycle(complete_cycle), retire_cycle(retire_cycle),
     faulted(faulted) {}
   pipeline_record() :
-    uuid(~0UL), disasm(""), pc(0), fetch_cycle(0), alloc_cycle(0),
+    uuid(~0UL), disasm(""), pc(0), fetch_cycle(0), alloc_cycle(0), sched_cycle(0),
     complete_cycle(0), retire_cycle(0), faulted(false) {}
 
   friend std::ostream &operator<<(std::ostream &out, const pipeline_record &r) {
     out << r.disasm << "," << std::hex <<  r.pc << std::dec
 	<< "," << r.fetch_cycle << "," << r.alloc_cycle
+	<< "," << r.sched_cycle
 	<< "," << r.complete_cycle << "," << r.retire_cycle
 	<< "," << r.faulted;
     return out;
@@ -107,10 +109,11 @@ public:
 	      uint64_t pc,
 	      uint64_t fetch_cycle,
 	      uint64_t alloc_cycle,
+	      uint64_t sched_cycle,
 	      uint64_t complete_cycle,
 	      uint64_t retire_cycle,
 	      bool faulted) {
-    records.emplace_back(uuid, disasm, pc, fetch_cycle, alloc_cycle, complete_cycle,
+    records.emplace_back(uuid, disasm, pc, fetch_cycle, alloc_cycle, sched_cycle, complete_cycle,
 			 retire_cycle, faulted);
   }
 };

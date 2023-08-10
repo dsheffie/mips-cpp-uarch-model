@@ -1,35 +1,34 @@
 #ifndef sim_parameters_hh
 #define sim_parameters_hh
 
-#define SIM_PARAM_LIST					\
-  SIM_PARAM(heartbeat,(1<<24),1,true)			\
-  SIM_PARAM(flash_restart,1,0,true)			\
-  SIM_PARAM(rob_size,2048,1,true)				\
-  SIM_PARAM(bob_size,32,1,true)				\
-  SIM_PARAM(fetchq_size,256,1,true)			\
-  SIM_PARAM(decodeq_size,256,1,true)			\
-  SIM_PARAM(fetch_bw,64,1,false)			\
-  SIM_PARAM(decode_bw,64,1,false)			\
-  SIM_PARAM(alloc_bw,64,1,false)			\
-  SIM_PARAM(retire_bw,64,1,false)			\
-  SIM_PARAM(num_gpr_prf,2048,64,true)			\
-  SIM_PARAM(num_cpr0_prf,1024,32,true)		\
-  SIM_PARAM(num_cpr1_prf,1024,32,true)		\
-  SIM_PARAM(num_fcr1_prf,1024,8,true)			\
-  SIM_PARAM(num_fpu_ports,8,1,false)				\
-  SIM_PARAM(num_alu_ports,8,1,false)					\
-  SIM_PARAM(num_load_ports,8,1,false)					\
-  SIM_PARAM(num_fpu_sched_per_cycle,8,1,false)				\
-  SIM_PARAM(num_alu_sched_per_cycle,8,1,false)				\
-  SIM_PARAM(num_load_sched_per_cycle,8,1,false)				\
-  SIM_PARAM(num_alu_sched_entries,256,1,false)				\
-  SIM_PARAM(num_fpu_sched_entries,256,1,false)				\
-  SIM_PARAM(num_jmp_sched_entries,256,1,false)				\
-  SIM_PARAM(num_load_sched_entries,256,1,false)				\
+#define SIM_PARAM_LIST							\
+  SIM_PARAM(heartbeat,(1<<24),1,true)					\
+  SIM_PARAM(flash_restart,1,0,true)					\
+  SIM_PARAM(rob_size,16384,1,true)					\
+  SIM_PARAM(bob_size,32,1,true)						\
+  SIM_PARAM(fetchq_size,256,1,true)					\
+  SIM_PARAM(decodeq_size,256,1,true)					\
+  SIM_PARAM(fetch_bw,64,1,false)					\
+  SIM_PARAM(decode_bw,64,1,false)					\
+  SIM_PARAM(alloc_bw,64,1,false)					\
+  SIM_PARAM(retire_bw,64,1,false)					\
+  SIM_PARAM(num_gpr_prf,16384,64,true)					\
+  SIM_PARAM(num_cpr0_prf,1024,32,true)					\
+  SIM_PARAM(num_cpr1_prf,1024,32,true)					\
+  SIM_PARAM(num_fcr1_prf,16384,8,true)					\
+  SIM_PARAM(num_fpu_ports,1,1,false)					\
+  SIM_PARAM(num_alu_ports,1,1,false)					\
+  SIM_PARAM(num_load_ports,1,1,false)					\
+  SIM_PARAM(num_fpu_sched_per_cycle,64,1,false)				\
+  SIM_PARAM(num_alu_sched_per_cycle,64,1,false)				\
+  SIM_PARAM(num_load_sched_per_cycle,64,1,false)			\
+  SIM_PARAM(num_alu_sched_entries,4,1,false)				\
+  SIM_PARAM(num_fpu_sched_entries,4,1,false)				\
+  SIM_PARAM(num_load_sched_entries,4,1,false)				\
   SIM_PARAM(num_system_sched_entries,1,1,false)				\
   SIM_PARAM(load_tbl_size,256,1,false)					\
   SIM_PARAM(store_tbl_size,256,1,false)					\
-  SIM_PARAM(taken_branches_per_cycle,4,1,false)				\
+  SIM_PARAM(taken_branches_per_cycle,8,1,false)				\
   SIM_PARAM(num_loop_entries,0,0,true)					\
   SIM_PARAM(lg_pht_entries,16,0,false)					\
   SIM_PARAM(gselect_addr_bits,8,0,false)				\

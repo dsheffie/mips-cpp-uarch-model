@@ -1042,7 +1042,8 @@ extern "C" {
       if(not(machine_state.nuke)) {
 	machine_state.wr_ports[get_curr_cycle()% sim_state::max_op_lat] = 0;
 	//alu loop (OoO scheduler)
-#define OOO_SCHED(RS,NUM,PORTS) {					\
+	
+#define OOO_SCHED(RS,NUM) {						\
 	  int ns = 0, rd_ports = 0;					\
 	  const uint64_t cs = get_curr_cycle();				\
 	  for(auto it = RS.begin(); it != RS.end(); it++) {		\
@@ -1053,23 +1054,17 @@ extern "C" {
 	      u->ready_cycle = cs;					\
 	    }								\
 	  }								\
-	  for(auto it = RS.begin(); it != RS.end() and (ns <= NUM) and (PORTS>=0); /*nil*/ ) { \
+	  for(auto it = RS.begin(); it != RS.end() and (ns <= NUM); /*nil*/ ) { \
 	    sim_op u = *it;						\
 	    if(u->op->ready(machine_state) and	(cs >= (sim_param::ready_to_dispatch_latency+u->ready_cycle)) ) { \
 	      int num_ports = u->op->count_rd_ports();			\
 	      int wb_at_cycle = (get_curr_cycle() + u->op->get_latency()) % sim_state::max_op_lat; \
-	      if((PORTS-num_ports) >= 0 /*and machine_state.wr_ports[wb_at_cycle] < 4*/) { \
-		it = RS.erase(it);					\
-		u->op->execute(machine_state);				\
-		u->dispatch_cycle = cs;					\
-		exec_cnt++;						\
-		ns++;							\
-		PORTS-=num_ports;					\
-		machine_state.wr_ports[wb_at_cycle]++;			\
-	      }								\
-	      else {							\
-		it++;							\
-	      }								\
+	      it = RS.erase(it);					\
+	      u->op->execute(machine_state);				\
+	      u->dispatch_cycle = cs;					\
+	      exec_cnt++;						\
+	      ns++;							\
+	      machine_state.wr_ports[wb_at_cycle]++;			\
 	    }								\
 	    else {							\
 	      it++;							\
@@ -1096,20 +1091,14 @@ extern "C" {
 	    }								\
 	  }								\
 	}
-
-	int avail_int_ports = 1<<16, avail_fp_ports = 1<<16;
-	int avail_load_ports = 1<<16;
-	int avail_jmp_ports = 1<<16;
 	for(int i = 0; i < machine_state.num_alu_rs; i++) {
-	  //INORDER_SCHED(alu_rs.at(i));
-	  OOO_SCHED(alu_rs.at(i),sim_param::num_alu_sched_per_cycle,avail_int_ports);
+	  OOO_SCHED(alu_rs.at(i),sim_param::num_alu_sched_per_cycle);
 	}
 	for(int i = 0; i < machine_state.num_load_rs; i++) {
-	  OOO_SCHED(load_rs.at(i), sim_param::num_load_sched_per_cycle,avail_load_ports);
-	}
-	
+	  OOO_SCHED(load_rs.at(i), sim_param::num_load_sched_per_cycle);
+	}	
 	for(int i = 0; i < machine_state.num_fpu_rs; i++) {
-	  OOO_SCHED(fpu_rs.at(i),sim_param::num_fpu_sched_per_cycle,avail_fp_ports);
+	  OOO_SCHED(fpu_rs.at(i),sim_param::num_fpu_sched_per_cycle);
 	}
 	
 	INORDER_SCHED(system_rs);
@@ -1449,4 +1438,4 @@ void run_ooo_core(sim_state &machine_state) {
   *global::sim_log << "simulation took " << now << " seconds\n";
   
 }  
-
+  
