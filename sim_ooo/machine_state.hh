@@ -12,6 +12,7 @@
 #include "loop_predictor.hh"
 #include "counter2b.hh"
 #include "perceptron.hh"
+#include "pipeline_record.hh"
 
 #include <array>
 
@@ -145,7 +146,8 @@ public:
 
   
   bool log_execution = false;
-
+  pipeline_logger *sim_records = nullptr;
+  
   void initialize_rat_mappings();
   void initialize();
   void copy_state(const state_t *s);
