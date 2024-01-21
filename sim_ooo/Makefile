@@ -2,10 +2,11 @@ UNAME_S = $(shell uname -s)
 
 OBJ = githash.o saveState.o main.o loadelf.o helper.o interpret.o gthread.o sparse_mem.o ooo_core.o mips_op.o sim_cache.o perceptron.o loop_predictor.o branch_predictor.o disassemble.o
 
+
 ifeq ($(UNAME_S),Linux)
-	CXX = g++ -march=native -flto
+	CXX = clang++-12 -march=native -flto
 	OBJ += gthread_asm.o
-	EXTRA_LD = -lunwind -lboost_program_options -ltcmalloc_minimal -lcapstone
+	EXTRA_LD = -lunwind -lboost_program_options -lboost_serialization -ltcmalloc_minimal -lcapstone
 endif
 
 ifeq ($(UNAME_S),FreeBSD)
@@ -15,9 +16,9 @@ ifeq ($(UNAME_S),FreeBSD)
 endif
 
 ifeq ($(UNAME_S),Darwin)
-	CXX = clang++ -march=native -I/opt/local/include
+	CXX = clang++ -I/opt/local/include -flto
 	OBJ += gthread_asm_darwin.o
-	EXTRA_LD = -L/opt/local/lib -lboost_program_options-mt -ltcmalloc_minimal
+	EXTRA_LD = -L/opt/local/lib -lboost_program_options-mt -lboost_serialization-mt -lcapstone #-ltcmalloc_minimal
 endif
 
 CXXFLAGS = -std=c++11 -g $(OPT) $(LLVM_CXXFLAGS)
@@ -25,7 +26,7 @@ LIBS =  $(EXTRA_LD) -lpthread
 
 
 DEP = $(OBJ:.o=.d)
-OPT = -O3 -g -std=c++11
+OPT = -O3 -g -std=c++11 -flto
 EXE = sim_ooo
 
 .PHONY : all clean
