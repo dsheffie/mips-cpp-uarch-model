@@ -12,7 +12,9 @@
 #include "sim_bitvec.hh"
 #include "sim_list.hh"
 #include "sim_stack.hh"
-#include "mips.hh"
+
+//#include "mips.hh"
+
 #include "branch_predictor.hh"
 #include "loop_predictor.hh"
 #include "counter2b.hh"
@@ -28,13 +30,13 @@ class sim_state;
 class simCache;
 
 union itype {
-  itype_t ii;
+  riscv::itype_t ii;
   uint32_t raw;
   itype(uint32_t x) : raw(x) {}
 };
 
 union rtype {
-  rtype_t rr;
+  riscv::rtype_t rr;
   uint32_t raw;
   rtype(uint32_t x) : raw(x) {}
 };

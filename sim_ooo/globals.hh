@@ -13,6 +13,11 @@ namespace global {
   extern uint64_t curr_cycle;
   extern uint64_t pipestart;
   extern uint64_t pipeend;
+
+  extern bool syscall_emu;
+  extern uint64_t tohost_addr;
+  extern uint64_t fromhost_addr;
+  
 };
 
 inline uint64_t get_curr_cycle() {

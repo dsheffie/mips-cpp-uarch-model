@@ -82,7 +82,6 @@ public:
   }
 };
 
-template <bool enable_oracle>
 void fetch(sim_state &machine_state) {
   auto &fetch_queue = machine_state.fetch_queue;
   auto &return_stack = machine_state.return_stack;
@@ -119,66 +118,7 @@ void fetch(sim_state &machine_state) {
       uint32_t inst = bswap(mem.get32(machine_state.fetch_pc));
       uint32_t npc = machine_state.fetch_pc + 4;
       bool predict_taken = false;
-      bool oracle_taken = false, oracle_nullify = false;
-      uint32_t oracle_npc = 0;
 
-      if(enable_oracle) {
-	if(not(machine_state.oracle_state->brk)) {
-	  
-	  if(machine_state.fetched_insns == machine_state.oracle_state->icnt) {
-	    execMips(machine_state.oracle_state);
-	  }
-
-	  auto &hh = machine_state.oracle_state->hbuf[machine_state.fetched_insns%HWINDOW];
-#if 0
-	  std::cout << std::hex
-		    << "oracle pc = " << hh.fetch_pc
-	    	    << " oracle npc = " << hh.next_pc
-		    << " fetch pc = " << machine_state.fetch_pc
-		    << " was_branch_or_jump = "
-		    << hh.was_branch_or_jump
-		    << ", was_likely_branch = "
-		    << hh.was_likely_branch
-		    << ", took_branch_or_jump = "
-		    << hh.took_branch_or_jump
-		    << std::dec
-		    << " uarch sim fetched "
-		    << machine_state.fetched_insns
-		    << " oracle fetched "
-		    << hh.icnt
-		    << "\n";
-#endif	  
-	  if(hh.icnt != machine_state.fetched_insns or
-	     hh.fetch_pc != machine_state.fetch_pc) {
-	    std::cerr << "hh.fetch_pc = "
-		      << std::hex
-		      << hh.fetch_pc
-		      << ",machine_state.fetch_pc = "
-		      << machine_state.fetch_pc
-		      << std::dec
-		      << " hh.icnt = "
-		      << hh.icnt
-		      << ",machine_state.fetched_insns = "
-		      << machine_state.fetched_insns
-		      << "\n";
-	    die();
-	  }
-
-	  bool jump = is_jal(inst) or is_jr(inst) or is_j(inst);
-	  if(jump) {
-	    assert(hh.was_branch_or_jump and hh.took_branch_or_jump);
-	  }
-	  
-	  if(hh.was_branch_or_jump and hh.took_branch_or_jump) {
-	    oracle_taken = true;
-	    oracle_npc = hh.next_pc;
-	  }
-	  else if(hh.was_likely_branch and not(hh.took_branch_or_jump)) {
-	    oracle_nullify = true;
-	  }
-	}
-      }
-	
       auto it = branch_prediction_map.find(machine_state.fetch_pc);
       bool used_return_addr_stack = false;
       
@@ -193,17 +133,8 @@ void fetch(sim_state &machine_state) {
       }
 
       
-      if(enable_oracle) {
-	if(oracle_taken) {
-	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	  npc = oracle_npc;
-	  predict_taken = true;
-	  //std::cerr << "PREDICT TAKEN with npc of " << std::hex << npc << std::dec << "\n";
-	}
-	else if(oracle_nullify) {
-	  //std::cerr << "PREDICT NULLIFY\n";
-	  npc = machine_state.fetch_pc + 8;
-	}
+      if(false) {
+
       }
       else {
 	f->prediction = machine_state.branch_pred->predict(f->pht_idx);
@@ -242,11 +173,6 @@ void fetch(sim_state &machine_state) {
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	    npc = branch_target_map.at(machine_state.fetch_pc);
 	  }
-	}
-	else if(is_likely_branch(inst)) {
-	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	  npc = get_branch_target(machine_state.fetch_pc, inst);
-	  predict_taken = true;
 	}
 	else if(is_nonlikely_branch(inst)) {
 	  uint32_t target = get_branch_target(machine_state.fetch_pc, inst);
@@ -361,33 +287,6 @@ void retire(sim_state &machine_state) {
 	  }
 	}
 	
-	for(int i = 0; i < 32; i++) {
-	  if(s->cpr1[i] != machine_state.arch_cpr1[i]) {
-	    std::cerr << "uarch cpr1 " << i << " : " 
-		      << std::hex << machine_state.arch_cpr1[i] << std::dec << "\n"; 
-	    std::cerr << "func cpr1 " << i << " : " 
-		      << std::hex << s->cpr1[i] << std::dec << "\n";
-	    error = true;
-	  }
-	}
-
-	for(int i = 0; i < 5; i++) {
-	  if(s->fcr1[i] != machine_state.arch_fcr1[i]) {
-	    std::cerr << "uarch fcr1 " << i << " : " 
-		      << std::hex << machine_state.arch_fcr1[i]
-		      << std::dec << "\n"; 
-	    std::cerr << "func fcr1 " << i << " : " 
-		      << std::hex << s->fcr1[i]
-		      << std::dec << "\n";
-
-	    error = true;
-	  }
-	}
-	  
-	  	  
-	if(u->is_store and false) {
-	  error |= (machine_state.mem->equal(s->mem)==false);
-	}
 	if(error) {
 	  std::cerr << "bad insn : " << std::hex << u->pc << ":" << std::dec
 		    << getAsmString(u->inst, u->pc)
@@ -396,7 +295,6 @@ void retire(sim_state &machine_state) {
 	  std::cerr << "known good at pc " << std::hex << machine_state.last_compare_pc
 		    << std::dec << " after " << machine_state.last_compare_icnt
 		    << " isnsns\n";
-	  std::cerr << "execMips call site = " << s->call_site << "\n";
 	  machine_state.terminate_sim = true;
 	  break;
 	}
@@ -404,8 +302,7 @@ void retire(sim_state &machine_state) {
 	  machine_state.last_compare_pc = u->pc;
 	  machine_state.last_compare_icnt = machine_state.icnt;
 	}
-	s->call_site = __LINE__;
-	execMips(s);
+	execRiscv(s);
       }
 
       u->op->retire(machine_state);
@@ -495,8 +392,7 @@ void retire(sim_state &machine_state) {
 	    //std::cout << std::hex << uu->pc << ":" << std::hex
 	    //<< getAsmString(uu->inst, uu->pc) << "\n";
 	    if(global::use_interp_check and (s->pc == u->pc)) {
-	      s->call_site = __LINE__;
-	      execMips(s);
+	      execRiscv(s);
 	    }
 	    rob.pop();
 	    rob.pop();
@@ -517,8 +413,7 @@ void retire(sim_state &machine_state) {
 	  machine_state.last_retire_cycle = get_curr_cycle();
 	  machine_state.last_retire_pc = u->pc;
 	  if(global::use_interp_check and (s->pc == u->pc)) {
-	    s->call_site = __LINE__;
-	    execMips(s);
+	    execRiscv(s);
 	  }
 	  rob.pop();
 	  retire_amt++;
@@ -684,27 +579,15 @@ void initialize_ooo_core(sim_state &machine_state,
 
   machine_state.l1d = l1d;
   
-  if(use_syscall_skip) {
-    while(s->syscall==0 and not(s->brk)) {
-      execMips(s);
-    }
-    s->pc+=4;
-  }
-  else if(skipicnt != 0) {
+  if(skipicnt != 0) {
     while((s->icnt < skipicnt) and not(s->brk)) {
-      execMips(s);
+      execRiscv(s);
     }
   }
   
   //s->debug = 1;
   machine_state.ref_state = s;
 
-  if(use_oracle) {
-    machine_state.oracle_mem = new sparse_mem(*sm);
-    machine_state.oracle_state = new state_t(*machine_state.oracle_mem);
-    machine_state.oracle_state->silent = true;
-    machine_state.oracle_state->copy(s);
-  }
   machine_state.mem = new sparse_mem(*sm);
   machine_state.initialize();
   machine_state.maxicnt = maxicnt;
@@ -827,12 +710,7 @@ extern "C" {
   }
   void fetch(void *arg) {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
-    if(machine_state.oracle_mem) {
-      fetch<true>(machine_state);
-    }
-    else {
-      fetch<false>(machine_state);
-    }
+    fetch(machine_state);
   }
   void decode(void *arg) {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
@@ -1144,20 +1022,7 @@ void sim_state::copy_state(const state_t *s) {
     gpr_prf[gpr_rat[i]] = s->gpr[i];
     arch_grf[i] = s->gpr[i];
   }
-  gpr_prf[gpr_rat[32]] = s->lo;
-  gpr_prf[gpr_rat[33]] = s->hi;
 
-  for(int i = 0; i < 32; i++) {
-    cpr0_prf[cpr0_rat[i]] = s->cpr0[i];
-  }
-  for(int i = 0; i < 32; i++) {
-    cpr1_prf[cpr1_rat[i]] = s->cpr1[i];
-    arch_cpr1[i] = s->cpr1[i];    
-  }
-  for(int i = 0; i < 5; i++) {
-    fcr1_prf[fcr1_rat[i]] = s->fcr1[i];
-    arch_fcr1[i] = s->fcr1[i];
-  }
   icnt = s->icnt;
 }
 

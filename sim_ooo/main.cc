@@ -20,7 +20,7 @@
 
 
 #include "sim_cache.hh"
-#include "loadelf.hh"
+#include "elf.hh"
 #include "saveState.hh"
 #include "helper.hh"
 #include "disassemble.hh"
@@ -42,6 +42,8 @@ bool global::use_interp_check = true;
 uint64_t global::curr_cycle = 0;
 uint64_t global::pipestart = 0;
 uint64_t global::pipeend = 0;
+uint64_t global::tohost_addr = 0;
+uint64_t global::fromhost_addr = 0;
 
 static simCache* l1d = nullptr, *l2d = nullptr, *l3d = nullptr;
 
@@ -196,21 +198,18 @@ int main(int argc, char *argv[]) {
   global::sysArgc = buildArgcArgv(filename.c_str(),sysArgs.c_str(),&global::sysArgv);
   initCapstone();
   
-  sparse_mem *sm = new sparse_mem(1UL<<32);
-  s = new state_t(*sm);
-  initState(s);
+  s = new state_t();
+  riscv::initState(s);
 
   std::ofstream sim_log;
   if(logfile.size() != 0) {
     sim_log.open(logfile);
     global::sim_log = &sim_log;
   }
-
   
-  
+#if 0
   if(not(use_checkpoint)) {
     load_elf(filename.c_str(), s);
-    mkMonitorVectors(s);
   }
   else {
     loadState(*s, filename, use_oracle or clear_checkpoint_icnt);
@@ -270,10 +269,6 @@ int main(int argc, char *argv[]) {
     run_ooo_core(machine_state);
   }
   
-  //*global::sim_log << "sparse mem bytes allocated = "
-  //		   << machine_state.mem->bytes_allocated()
-  //		   << "\n";
-  
   if(hash) {
     *global::sim_log << std::hex << "crc32 = "
 		     << machine_state.mem->crc32()
@@ -286,7 +281,6 @@ int main(int argc, char *argv[]) {
   destroy_ooo_core(machine_state);
 
   delete s;
-  delete sm;
 
   if(l1d) {
     *global::sim_log << *l1d;
@@ -343,4 +337,6 @@ int buildArgcArgv(const char *filename, const char *sysArgs, char ***argv) {
     free(sa);
   }
   return (int)args.size();
+#endif
+  return 0;
 }
