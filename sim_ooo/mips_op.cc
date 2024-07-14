@@ -103,8 +103,10 @@ int64_t riscv_op::get_latency() const {
 }
 
 class nop_op : public riscv_op {
+protected:
+  bool bad_spec;
 public:
-  nop_op(sim_op op) : riscv_op(op) {
+  nop_op(sim_op op, bool bad_spec=false) : riscv_op(op), bad_spec(bad_spec) {
     this->op_class = oper_type::alu;
   }
   bool allocate(sim_state &machine_state) override {
@@ -113,7 +115,21 @@ public:
   bool ready(sim_state &machine_state) const override  {
     return true;
   }
+   void complete(sim_state &machine_state) override {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+    }
+   }
   void execute(sim_state &machine_state) override {}
+  bool retire(sim_state &machine_state) override {
+    assert(not(bad_spec));
+    m->retire_cycle = get_curr_cycle();
+    log_retire(machine_state);
+    return true;
+  }
+  void rollback(sim_state &machine_state) override {
+    log_rollback(machine_state);
+  }
 };
 
 class gpr_dst_op : public riscv_op {
@@ -240,9 +256,15 @@ public:
     }
   }
   void execute(sim_state &machine_state) override {
-    uint32_t pc_mask = (~((1U<<28)-1));
-    uint32_t jaddr = (m->inst & ((1<<26)-1)) << 2;
-    m->correct_pc = machine_state.gpr_prf[m->src0_prf];
+    int32_t tgt = di.jj.imm11_0;
+    tgt |= ((m->inst>>31)&1) ? 0xfffff000 : 0x0;
+    int64_t tgt64 = tgt;
+    tgt64 = (tgt64<<32)>>32;
+    
+    tgt64 += machine_state.gpr_prf[m->src0_prf];
+    tgt64 &= ~(1UL);
+    m->correct_pc = tgt64;
+    
     if(m->fetch_npc != m->correct_pc) {
       m->exception = exception_type::branch;
     }
@@ -339,17 +361,16 @@ riscv_op* decode_insn(sim_op m_op) {
   uint32_t rd = (m_op->inst>>7) & 31;
   switch(opcode)
     {
-    case 0x13: /* nop */
+    case 0x0:
+      return new nop_op(m_op, true);
+    case 0x13: 
       return new itype_op(m_op);
     case 0x17: /* auipc */
-      if(rd==0) {
-	return new nop_op(m_op);
-      }
       return new auipc_op(m_op);
     case 0x67: /* jalr */
       return new jalr_op(m_op);
     case 0x73: { /* system */
-      
+      return new nop_op(m_op, false);      
       break;
     }
     default:
