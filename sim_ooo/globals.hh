@@ -14,7 +14,7 @@ namespace global {
   extern uint64_t pipestart;
   extern uint64_t pipeend;
 
-  extern bool syscall_emu;
+  static const bool syscall_emu = false;
   extern uint64_t tohost_addr;
   extern uint64_t fromhost_addr;
   

@@ -51,26 +51,6 @@ state_t *s = nullptr;
 
 static sim_state machine_state;
 
-static jmp_buf jenv;
-
-static void catchUnixSignal(int sig) {
-  switch(sig)
-    {
-    case SIGFPE:
-      std::cerr << KRED << "\ncaught SIGFPE!\n" << KNRM;
-      exit(-1);
-      break;
-    case SIGINT:
-      std::cerr << KRED << "\ncaught SIGINT!\n" << KNRM;
-      machine_state.terminate_sim = true;
-      longjmp(jenv, 1);
-      break;
-    default:
-      break;
-    }
-
-}
-
 /* linkage */
 #define SIM_PARAM(A,B,C,D) int sim_param::A = C;
 SIM_PARAM_LIST;
@@ -80,11 +60,9 @@ int buildArgcArgv(const char *filename, const char *sysArgs, char ***argv);
 
 void initialize_ooo_core(sim_state & machine_state,
 			 simCache *l1d,
-			 bool use_oracle,
-			 bool use_syscall_skip,
-			 uint64_t skipicnt, uint64_t maxicnt,
-			 state_t *s,
-			 const uint8_t *m);
+			 uint64_t skipicnt,
+			 uint64_t maxicnt,
+			 state_t *s);
 
 void run_ooo_core(sim_state &machine_state);
 void destroy_ooo_core(sim_state &machine_state);
@@ -93,7 +71,7 @@ int main(int argc, char *argv[]) {
   namespace po = boost::program_options;
   
   std::cerr << KGRN
-	    << "MIPS UARCH SIM: built "
+	    << "RV64 UARCH SIM: built "
 	    << __DATE__ << " " << __TIME__
     	    << ",pid="<< getpid() << "\n"
     	    << "git hash=" << githash
@@ -196,26 +174,19 @@ int main(int argc, char *argv[]) {
   sim_param::num_store_sched_entries *= uarch_scale;
 
   /* Build argc and argv */
-  global::sysArgc = buildArgcArgv(filename.c_str(),sysArgs.c_str(),&global::sysArgv);
   initCapstone();
   
   s = new state_t();
   riscv::initState(s);
-
+  s->mem = new uint8_t[1UL<<32];
+  
   std::ofstream sim_log;
   if(logfile.size() != 0) {
     sim_log.open(logfile);
     global::sim_log = &sim_log;
   }
   
-#if 0
-  if(not(use_checkpoint)) {
-    load_elf(filename.c_str(), s);
-  }
-  else {
-    loadState(*s, filename, use_oracle or clear_checkpoint_icnt);
-  }
-  signal(SIGINT, catchUnixSignal);
+  loadState(*s, filename);
 
   if(not(pipelog.empty())) {
     machine_state.sim_records = new pipeline_logger(pipelog);
@@ -247,9 +218,9 @@ int main(int argc, char *argv[]) {
 			    "l1d",
 			    sim_param::l1d_latency, l2d);
 
-    if(warmstart) {
-      s->l1d = l1d;
-    }
+    //if(warmstart) {
+    //s->l1d = l1d;
+    //}
 
     *global::sim_log << "l1d capacity = " << l1d->capacity() << "\n";
     if(l2d) {
@@ -260,20 +231,15 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  initialize_ooo_core(machine_state, l1d, use_oracle,
-		      use_syscall_skip, skipicnt, maxicnt, s, m);
+  initialize_ooo_core(machine_state,
+		      l1d,
+		      skipicnt,
+		      maxicnt,
+		      s);
   
-  if(setjmp(jenv)>0) {
-    std::cerr << "return from longjmp\n";
-  }
+ 
   if(not(machine_state.terminate_sim)) {
     run_ooo_core(machine_state);
-  }
-  
-  if(hash) {
-    *global::sim_log << std::hex << "crc32 = "
-		     << machine_state.mem->crc32()
-		     << std::dec << "\n";
   }
 
   if(machine_state.sim_records) {
@@ -281,6 +247,7 @@ int main(int argc, char *argv[]) {
   }
   destroy_ooo_core(machine_state);
 
+  delete [] s->mem;
   delete s;
 
   if(l1d) {
@@ -296,7 +263,6 @@ int main(int argc, char *argv[]) {
   if(l1d) {
     delete l1d;
   }
-  
   if(global::sysArgv) {
     for(int i = 0; i < global::sysArgc; i++) {
       delete [] global::sysArgv[i];
@@ -308,36 +274,4 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-int buildArgcArgv(const char *filename, const char *sysArgs, char ***argv) {
-  int cnt = 0;
-  std::vector<std::string> args;
-  char **largs = 0;
-  args.push_back(std::string(filename));
 
-  char *ptr = nullptr, *sa = nullptr;
-  if(sysArgs) {
-    sa = strdup(sysArgs);
-    ptr = strtok(sa, " ");
-  }
-
-  while(ptr && (cnt<MARGS)) {
-    args.push_back(std::string(ptr));
-    ptr = strtok(nullptr, " ");
-    cnt++;
-  }
-  largs = new char*[args.size()];
-  for(size_t i = 0; i < args.size(); i++) {
-    std::string s = args[i];
-    size_t l = strlen(s.c_str());
-    largs[i] = new char[l+1];
-    memset(largs[i],0,sizeof(char)*(l+1));
-    memcpy(largs[i],s.c_str(),sizeof(char)*l);
-  }
-  *argv = largs;
-  if(sysArgs) {
-    free(sa);
-  }
-  return (int)args.size();
-#endif
-  return 0;
-}

@@ -31,14 +31,14 @@ static void dump_calls() {
     cnt++;
   }
 }
-
-void initState(state_t *s) {
-  memset(s, 0, sizeof(state_t));
-  s->misa = 0x8000000000141101L;
-  s->priv = priv_machine;
-  s->mstatus = ((uint64_t)2 << MSTATUS_UXL_SHIFT) |((uint64_t)2 << MSTATUS_SXL_SHIFT);
-
-}
+namespace riscv {
+  void initState(state_t *s) {
+    memset(s, 0, sizeof(state_t));
+    s->misa = 0x8000000000141101L;
+    s->priv = priv_machine;
+    s->mstatus = ((uint64_t)2 << MSTATUS_UXL_SHIFT) |((uint64_t)2 << MSTATUS_SXL_SHIFT);
+  }
+};
 
 bool state_t::memory_map_check(uint64_t pa, bool store, int64_t x) {
   if(pa >= VIRTIO_BASE_ADDR and (pa < (VIRTIO_BASE_ADDR + VIRTIO_SIZE))) {
@@ -144,10 +144,8 @@ void state_t::store64(uint64_t pa, int64_t x) {
   *reinterpret_cast<int64_t*>(mem + pa) = x;
 }
 
-extern uint64_t csr_time;
-
 int64_t state_t::get_time() const {
-  return csr_time;
+  return icnt;
 }
 
 static std::unordered_map<uint64_t, std::pair<uint64_t, uint64_t>> tlb;
@@ -377,7 +375,7 @@ static int64_t read_csr(int csr_id, state_t *s, bool &undef) {
     case 0xc00:
       return s->icnt;
     case 0xc01:
-      return csr_time;
+      return s->get_time();
     case 0xc03:
       return 0;      
     case 0xf14:

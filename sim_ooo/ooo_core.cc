@@ -518,12 +518,9 @@ void retire(sim_state &machine_state) {
 
 void initialize_ooo_core(sim_state &machine_state,
 			 simCache *l1d,
-			 bool use_oracle,
-			 bool use_syscall_skip,
 			 uint64_t skipicnt, 
 			 uint64_t maxicnt,
-			 state_t *s,
-			 const uint8_t *m) {
+			 state_t *s) {
 
   machine_state.l1d = l1d;
   
@@ -532,18 +529,15 @@ void initialize_ooo_core(sim_state &machine_state,
       execRiscv(s);
     }
   }
-  
-  //s->debug = 1;
   machine_state.ref_state = s;
 
   machine_state.mem = new uint8_t[1UL<<32];
-  memcpy(machine_state.mem, m, 1UL<<32);
+  memcpy(machine_state.mem, s->mem, 1UL<<32);
   machine_state.initialize();
   machine_state.maxicnt = maxicnt;
   machine_state.skipicnt = s->icnt;
   machine_state.copy_state(s);
 
-  //u_arch_mem->mark_pages_as_no_write();
 }
 
 
@@ -566,13 +560,8 @@ void destroy_ooo_core(sim_state &machine_state) {
       delete r;
     }
   }
-  if(machine_state.oracle_mem) {
-    delete machine_state.oracle_mem;
-  }
-  if(machine_state.oracle_state) {
-    delete machine_state.oracle_state;
-  }
-  delete machine_state.mem;
+
+  delete [] machine_state.mem;
   delete machine_state.branch_pred;
   if(machine_state.loop_pred != nullptr) {
     delete machine_state.loop_pred;

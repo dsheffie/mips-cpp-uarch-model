@@ -101,3 +101,15 @@ void mips_op::log_rollback(sim_state &machine_state) const {}
 int64_t mips_op::get_latency() const {
   return 1;
 }
+
+
+mips_op* decode_insn(sim_op m_op) {
+  uint32_t opcode = (m_op->inst)&127;
+  switch(opcode)
+    {
+    default:
+      break;
+    }
+  std::cout << "implement opcode " << std::hex << opcode << std::dec << "\n";
+  return nullptr;
+}
