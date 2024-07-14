@@ -103,6 +103,7 @@ int64_t riscv_op::get_latency() const {
 }
 
 class nop_op : public riscv_op {
+public:
   nop_op(sim_op op) : riscv_op(op) {
     this->op_class = oper_type::alu;
   }
@@ -195,6 +196,111 @@ public:
 
 };
 
+
+class jalr_op : public riscv_op {
+public:
+  jalr_op(sim_op op) : riscv_op(op) {
+    this->op_class = oper_type::jmp;
+  };
+  int get_src0() const override {
+    return di.jj.rs1;
+  }
+  int get_dest() const override {
+    return di.jj.rd;    
+  }
+  bool allocate(sim_state &machine_state) override {
+    if(get_src0() != -1) {
+      m->src0_prf = machine_state.gpr_rat[get_src0()];
+    }
+    if(get_dest() > 0) {
+      m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
+      int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
+      if(prf_id == -1) {
+	return false;
+      }
+      machine_state.gpr_freevec.set_bit(prf_id);
+      machine_state.gpr_rat[get_dest()] = prf_id;
+      m->prf_idx = prf_id;
+      machine_state.gpr_valid.clear_bit(prf_id);
+    }
+    return true;
+  }
+  bool ready(sim_state &machine_state) const override  {
+    if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
+      return false;
+    }
+    return true;
+  }
+ void complete(sim_state &machine_state) override {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      if(m->prf_idx != -1) {
+	machine_state.gpr_valid.set_bit(m->prf_idx);
+      }
+    }
+  }
+  void execute(sim_state &machine_state) override {
+    uint32_t pc_mask = (~((1U<<28)-1));
+    uint32_t jaddr = (m->inst & ((1<<26)-1)) << 2;
+    m->correct_pc = machine_state.gpr_prf[m->src0_prf];
+    if(m->fetch_npc != m->correct_pc) {
+      m->exception = exception_type::branch;
+    }
+    if(get_dest() != -1) {
+      machine_state.gpr_prf[m->prf_idx] = m->pc + 4;
+    }
+    m->complete_cycle = get_curr_cycle() + get_latency();
+  }
+  bool retire(sim_state &machine_state) override {
+    if(m->prev_prf_idx != -1) {
+      machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+      machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+      machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+      machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+      machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+      machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+      machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
+    }
+    retired = true;
+    machine_state.icnt++;
+    machine_state.n_jumps++;
+    
+    machine_state.branch_pred->update(m->pc, m->pht_idx, true);
+
+
+    uint32_t bht_idx = (m->pc>>2) & (machine_state.bht.size()-1);
+    machine_state.bht.at(bht_idx).shift_left(1);
+    machine_state.bht.at(bht_idx).set_bit(0);
+    
+    machine_state.bhr.shift_left(1);
+    machine_state.bhr.set_bit(0);
+
+    if(m->exception==exception_type::branch) {
+      machine_state.mispredicted_jumps++;
+      machine_state.alloc_blocked = true;
+    }
+    m->retire_cycle = get_curr_cycle();
+    log_retire(machine_state);
+    return true;
+  }
+  void rollback(sim_state &machine_state) override {
+    if(get_dest() != -1) {
+      if(m->prev_prf_idx != -1) {
+	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+      }
+      if(m->prf_idx != -1) {
+	machine_state.gpr_freevec.clear_bit(m->prf_idx);
+	machine_state.gpr_valid.clear_bit(m->prf_idx);
+      }
+    }
+    //if( ((jt == jump_type::jal) or (jt == jump_type::jr)) and
+    //(m->return_stack_idx != -1)) {
+    //machine_state.return_stack.set_tos_idx(m->return_stack_idx);
+    //}
+    log_rollback(machine_state);
+  }
+};
+
 class auipc_op : public gpr_dst_op {
 public:
   auipc_op(sim_op op) : gpr_dst_op(op) {
@@ -230,13 +336,22 @@ public:
 
 riscv_op* decode_insn(sim_op m_op) {
   uint32_t opcode = (m_op->inst)&127;
-  uint32_t rd = (m_op-=>inst>>7) & 31;
+  uint32_t rd = (m_op->inst>>7) & 31;
   switch(opcode)
     {
     case 0x13: /* nop */
       return new itype_op(m_op);
     case 0x17: /* auipc */
-      return new rd==0 ? nop_op(m_op) : auipc_op(m_op);
+      if(rd==0) {
+	return new nop_op(m_op);
+      }
+      return new auipc_op(m_op);
+    case 0x67: /* jalr */
+      return new jalr_op(m_op);
+    case 0x73: { /* system */
+      
+      break;
+    }
     default:
       break;
     }
