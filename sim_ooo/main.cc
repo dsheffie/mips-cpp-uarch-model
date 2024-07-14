@@ -83,7 +83,8 @@ void initialize_ooo_core(sim_state & machine_state,
 			 bool use_oracle,
 			 bool use_syscall_skip,
 			 uint64_t skipicnt, uint64_t maxicnt,
-			 state_t *s, const sparse_mem *sm);
+			 state_t *s,
+			 const uint8_t *m);
 
 void run_ooo_core(sim_state &machine_state);
 void destroy_ooo_core(sim_state &machine_state);
@@ -260,7 +261,7 @@ int main(int argc, char *argv[]) {
   }
 
   initialize_ooo_core(machine_state, l1d, use_oracle,
-		      use_syscall_skip, skipicnt, maxicnt, s, sm);
+		      use_syscall_skip, skipicnt, maxicnt, s, m);
   
   if(setjmp(jenv)>0) {
     std::cerr << "return from longjmp\n";

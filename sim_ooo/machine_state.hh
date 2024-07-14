@@ -65,29 +65,18 @@ public:
   uint32_t arch_fcr1[num_fcr1_regs] = {0};
   uint32_t arch_fcr1_last_pc[num_fcr1_regs] = {0};
   
-  int32_t *gpr_prf = nullptr;
-  uint32_t *cpr0_prf = nullptr;
-  uint32_t *cpr1_prf = nullptr;
-  uint32_t *fcr1_prf = nullptr;
+  int64_t *gpr_prf = nullptr;
+
 
   mips_meta_op **load_tbl = nullptr;
   mips_meta_op **store_tbl = nullptr;
   
   sim_bitvec gpr_freevec;
-  sim_bitvec cpr0_freevec;
-  sim_bitvec cpr1_freevec;
-  sim_bitvec fcr1_freevec;
   sim_bitvec gpr_freevec_retire;
-  sim_bitvec cpr0_freevec_retire;
-  sim_bitvec cpr1_freevec_retire;
-  sim_bitvec fcr1_freevec_retire;
   sim_bitvec load_tbl_freevec;
   sim_bitvec store_tbl_freevec;
   
   sim_bitvec gpr_valid;
-  sim_bitvec cpr0_valid;
-  sim_bitvec cpr1_valid;
-  sim_bitvec fcr1_valid;
 
   sim_queue<mips_meta_op*> fetch_queue;
   sim_queue<mips_meta_op*> decode_queue;
@@ -111,7 +100,7 @@ public:
   std::vector<rs_type> store_rs;
   rs_type system_rs;
   
-  sparse_mem *mem = nullptr;
+  uint8_t *mem = nullptr;
 
   branch_predictor *branch_pred = nullptr;
   loop_predictor *loop_pred = nullptr;
@@ -153,9 +142,6 @@ public:
 
   ~sim_state() {
     if(gpr_prf) delete [] gpr_prf;
-    if(cpr0_prf) delete [] cpr0_prf;
-    if(cpr1_prf) delete [] cpr1_prf;
-    if(fcr1_prf) delete [] fcr1_prf;
     if(load_tbl) delete [] load_tbl;
     if(store_tbl) delete [] store_tbl;
   }

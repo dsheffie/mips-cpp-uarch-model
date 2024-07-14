@@ -85,104 +85,75 @@ public:
 void fetch(sim_state &machine_state) {
   auto &fetch_queue = machine_state.fetch_queue;
   auto &return_stack = machine_state.return_stack;
-  sparse_mem &mem = *(machine_state.mem);
+  uint8_t *mem = machine_state.mem;
   
   while(not(machine_state.terminate_sim)) {
     int fetch_amt = 0, taken_branches = 0;
     for(; not(fetch_queue.full()) and (fetch_amt < sim_param::fetch_bw) and not(machine_state.nuke) and not(machine_state.fetch_blocked); ) {
       
-      if(machine_state.delay_slot_npc) {
-	uint32_t inst = bswap(mem.get32(machine_state.delay_slot_npc));
-
-	if(is_monitor(inst)) {
-	  machine_state.fetch_blocked = true;
-	}
-	
-	auto f = new mips_meta_op(machine_state.fetched_insns,
-				  machine_state.delay_slot_npc,
-				  inst,
-				  machine_state.delay_slot_npc+4,
-				  global::curr_cycle,
-				  false,
-				  false);
-	fetch_queue.push(f);
-	fetch_amt++;
-	machine_state.fetched_insns++;
-	machine_state.delay_slot_npc = 0;
-
-	if(taken_branches == sim_param::taken_branches_per_cycle)
-	  break;
-	continue;
-      }
       
-      uint32_t inst = bswap(mem.get32(machine_state.fetch_pc));
+      uint32_t inst = *reinterpret_cast<uint32_t*>(mem + machine_state.fetch_pc);
       uint32_t npc = machine_state.fetch_pc + 4;
       bool predict_taken = false;
 
-      auto it = branch_prediction_map.find(machine_state.fetch_pc);
       bool used_return_addr_stack = false;
       
       mips_meta_op *f = new mips_meta_op(machine_state.fetched_insns,
 					 machine_state.fetch_pc,
 					 inst,
 					 global::curr_cycle);
-      bool backwards_br = (get_branch_target(machine_state.fetch_pc, inst) < machine_state.fetch_pc);
-
-      if(is_monitor(inst)) {
-	machine_state.fetch_blocked = true;
-      }
-
+      //bool backwards_br = (get_branch_target(machine_state.fetch_pc, inst) < machine_state.fetch_pc);
       
-      if(false) {
+      // if(false) {
 
-      }
-      else {
-	f->prediction = machine_state.branch_pred->predict(f->pht_idx);
+      // }
+      // else {
+      // 	f->prediction = machine_state.branch_pred->predict(f->pht_idx);
 	
-	if(is_jr(inst)) {
-	  f->return_stack_idx = return_stack.get_tos_idx();
-	  npc = return_stack.pop();
-	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	  used_return_addr_stack = true;
-	}
-	else if(is_jal(inst)) {
-	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	  npc = get_jump_target(machine_state.fetch_pc, inst);
-	  predict_taken = true;
-	  f->return_stack_idx = return_stack.get_tos_idx();
-	  return_stack.push(machine_state.fetch_pc + 8);
-	  fetch_amt++;
-	}
-	else if(is_j(inst)) {
-	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	  npc = get_jump_target(machine_state.fetch_pc, inst);
-	  predict_taken = true;
-	}
-	else if(it != branch_prediction_map.end()) {
-	  predict_taken = (f->prediction > 1);
+      // 	if(is_jr(inst)) {
+      // 	  f->return_stack_idx = return_stack.get_tos_idx();
+      // 	  npc = return_stack.pop();
+      // 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+      // 	  used_return_addr_stack = true;
+      // 	}
+      // 	else if(is_jal(inst)) {
+      // 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+      // 	  npc = get_jump_target(machine_state.fetch_pc, inst);
+      // 	  predict_taken = true;
+      // 	  f->return_stack_idx = return_stack.get_tos_idx();
+      // 	  return_stack.push(machine_state.fetch_pc + 8);
+      // 	  fetch_amt++;
+      // 	}
+      // 	else if(is_j(inst)) {
+      // 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+      // 	  npc = get_jump_target(machine_state.fetch_pc, inst);
+      // 	  predict_taken = true;
+      // 	}
+      // 	else if(it != branch_prediction_map.end()) {
+      // 	  predict_taken = (f->prediction > 1);
 
-	  /* check if backwards branch with valid loop predictor entry */	  
-	  if(backwards_br and (machine_state.loop_pred !=nullptr) ) {
-	    if(machine_state.loop_pred->valid_loop_branch(machine_state.fetch_pc)) {
-	      predict_taken = machine_state.loop_pred->predict(machine_state.fetch_pc, f->prediction);
-	    }
-	  }
+      // 	  /* check if backwards branch with valid loop predictor entry */	  
+      // 	  if(backwards_br and (machine_state.loop_pred !=nullptr) ) {
+      // 	    if(machine_state.loop_pred->valid_loop_branch(machine_state.fetch_pc)) {
+      // 	      predict_taken = machine_state.loop_pred->predict(machine_state.fetch_pc, f->prediction);
+      // 	    }
+      // 	  }
 
 	  
-	  if(predict_taken) {
-	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	    npc = branch_target_map.at(machine_state.fetch_pc);
-	  }
-	}
-	else if(is_nonlikely_branch(inst)) {
-	  uint32_t target = get_branch_target(machine_state.fetch_pc, inst);
-	  if(target < machine_state.fetch_pc) {
-	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-	    npc = get_branch_target(machine_state.fetch_pc, inst);
-	    predict_taken = true;
-	  }
-	}
-      }
+      // 	  if(predict_taken) {
+      // 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+      // 	    npc = branch_target_map.at(machine_state.fetch_pc);
+      // 	  }
+      // 	}
+      // 	else if(is_nonlikely_branch(inst)) {
+      // 	  uint32_t target = get_branch_target(machine_state.fetch_pc, inst);
+      // 	  if(target < machine_state.fetch_pc) {
+      // 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
+      // 	    npc = get_branch_target(machine_state.fetch_pc, inst);
+      // 	    predict_taken = true;
+      // 	  }
+      // 	}
+      // }
       f->fetch_npc = npc;
       f->predict_taken = predict_taken;
       f->pop_return_stack = used_return_addr_stack;
@@ -458,17 +429,9 @@ void retire(sim_state &machine_state) {
       
       memcpy(&machine_state.gpr_rat, &machine_state.gpr_rat_retire,
 	     sizeof(int32_t)*sim_state::num_gpr_regs);
-      memcpy(&machine_state.cpr0_rat, &machine_state.cpr0_rat_retire,
-	     sizeof(int32_t)*sim_state::num_cpr0_regs);
-      memcpy(&machine_state.cpr1_rat, &machine_state.cpr1_rat_retire,
-	     sizeof(int32_t)*sim_state::num_cpr1_regs);
-      memcpy(&machine_state.fcr1_rat, &machine_state.fcr1_rat_retire,
-	     sizeof(int32_t)*sim_state::num_fcr1_regs);
+
       
       machine_state.gpr_freevec.copy(machine_state.gpr_freevec_retire);
-      machine_state.cpr0_freevec.copy(machine_state.cpr0_freevec_retire);
-      machine_state.cpr1_freevec.copy(machine_state.cpr1_freevec_retire);
-      machine_state.fcr1_freevec.copy(machine_state.fcr1_freevec_retire);
       machine_state.spec_bhr.copy(machine_state.bhr);
       
       //std::cerr << "gpr freevec used = "
@@ -476,28 +439,13 @@ void retire(sim_state &machine_state) {
       //<< "\n";
       //std::cerr << "cpr1 freevec used = "
       //<< machine_state.cpr1_freevec.popcount()
-      //<< "\n";
-
-      assert(machine_state.gpr_freevec.popcount()==sim_state::num_gpr_regs);
-      assert(machine_state.cpr1_freevec.popcount()==sim_state::num_cpr1_regs);
       
       machine_state.gpr_valid.clear();
-      machine_state.cpr0_valid.clear();
-      machine_state.cpr1_valid.clear();
-      machine_state.fcr1_valid.clear();
 
       for(int i = 0; i < sim_state::num_gpr_regs; i++) {
 	machine_state.gpr_valid.set_bit(machine_state.gpr_rat[i]);
       }
-      for(int i = 0; i < sim_state::num_cpr0_regs; i++) {
-	machine_state.cpr0_valid.set_bit(machine_state.cpr0_rat[i]);
-      }
-      for(int i = 0; i < sim_state::num_cpr1_regs; i++) {
-	machine_state.cpr1_valid.set_bit(machine_state.cpr1_rat[i]);
-      }
-      for(int i = 0; i < sim_state::num_fcr1_regs; i++) {
-	machine_state.fcr1_valid.set_bit(machine_state.fcr1_rat[i]);
-      }
+
       
       if(sim_param::flash_restart==0) {
 	int64_t sleep_cycles = (c + sim_param::retire_bw - 1) / sim_param::retire_bw;
@@ -575,7 +523,7 @@ void initialize_ooo_core(sim_state &machine_state,
 			 uint64_t skipicnt, 
 			 uint64_t maxicnt,
 			 state_t *s,
-			 const sparse_mem *sm) {
+			 const uint8_t *m) {
 
   machine_state.l1d = l1d;
   
@@ -588,7 +536,8 @@ void initialize_ooo_core(sim_state &machine_state,
   //s->debug = 1;
   machine_state.ref_state = s;
 
-  machine_state.mem = new sparse_mem(*sm);
+  machine_state.mem = new uint8_t[1UL<<32];
+  memcpy(machine_state.mem, m, 1UL<<32);
   machine_state.initialize();
   machine_state.maxicnt = maxicnt;
   machine_state.skipicnt = s->icnt;
@@ -1034,16 +983,6 @@ void sim_state::initialize_rat_mappings() {
     gpr_freevec.set_bit(i);
     gpr_freevec_retire.set_bit(i);
     gpr_valid.set_bit(i);
-    cpr0_rat[i] = i;
-    cpr0_rat_retire[i] = i;
-    cpr0_freevec.set_bit(i);
-    cpr0_freevec_retire.set_bit(i);
-    cpr0_valid.set_bit(i);
-    cpr1_rat[i] = i;
-    cpr1_rat_retire[i] = i;
-    cpr1_freevec.set_bit(i);
-    cpr1_freevec_retire.set_bit(i);
-    cpr1_valid.set_bit(i);
   }
   /* lo and hi regs */
   for(int i = 32; i < 34; i++) {
@@ -1053,38 +992,17 @@ void sim_state::initialize_rat_mappings() {
     gpr_freevec_retire.set_bit(i);
     gpr_valid.set_bit(i);
   }
-  for(int i = 0; i < 5; i++) {
-    fcr1_rat[i] = i;
-    fcr1_rat_retire[i] = i;
-    fcr1_freevec.set_bit(i);
-    fcr1_freevec_retire.set_bit(i);
-    fcr1_valid.set_bit(i);
-  }
 }
 
 void sim_state::initialize() {
   num_gpr_prf_ = sim_param::num_gpr_prf;
-  num_cpr0_prf_ = sim_param::num_cpr0_prf;
-  num_cpr1_prf_ = sim_param::num_cpr1_prf;
-  num_fcr1_prf_ = sim_param::num_fcr1_prf;
   
-  gpr_prf = new int32_t[num_gpr_prf_];
-  memset(gpr_prf, 0, sizeof(int32_t)*num_gpr_prf_);
-  cpr0_prf = new uint32_t[num_cpr0_prf_];
-  memset(cpr0_prf, 0, sizeof(uint32_t)*num_cpr0_prf_);  
-  cpr1_prf = new uint32_t[num_cpr1_prf_];
-  memset(cpr1_prf, 0, sizeof(uint32_t)*num_cpr1_prf_);
-  fcr1_prf = new uint32_t[num_fcr1_prf_];
-  memset(fcr1_prf, 0, sizeof(uint32_t)*num_fcr1_prf_);
+  gpr_prf = new int64_t[num_gpr_prf_];
+  memset(gpr_prf, 0, sizeof(int64_t)*num_gpr_prf_);
+
   
   gpr_freevec.clear_and_resize(sim_param::num_gpr_prf);
-  cpr0_freevec.clear_and_resize(sim_param::num_cpr0_prf);
-  cpr1_freevec.clear_and_resize(sim_param::num_cpr1_prf);
-  fcr1_freevec.clear_and_resize(sim_param::num_fcr1_prf);
   gpr_freevec_retire.clear_and_resize(sim_param::num_gpr_prf);
-  cpr0_freevec_retire.clear_and_resize(sim_param::num_cpr0_prf);
-  cpr1_freevec_retire.clear_and_resize(sim_param::num_cpr1_prf);
-  fcr1_freevec_retire.clear_and_resize(sim_param::num_fcr1_prf);
   
   load_tbl_freevec.clear_and_resize(sim_param::load_tbl_size);
   load_tbl = new mips_meta_op*[sim_param::load_tbl_size];
@@ -1100,9 +1018,6 @@ void sim_state::initialize() {
   }
   
   gpr_valid.clear_and_resize(sim_param::num_gpr_prf);
-  cpr0_valid.clear_and_resize(sim_param::num_cpr0_prf);
-  cpr1_valid.clear_and_resize(sim_param::num_cpr1_prf);
-  fcr1_valid.clear_and_resize(sim_param::num_fcr1_prf);
   
   fetch_queue.resize(sim_param::fetchq_size);
   decode_queue.resize(sim_param::decodeq_size);
