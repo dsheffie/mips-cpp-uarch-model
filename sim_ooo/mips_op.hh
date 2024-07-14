@@ -33,7 +33,7 @@ class simCache;
 
 
 
-class mips_op;
+class riscv_op;
 
 class mips_meta_op {
 public:
@@ -76,7 +76,7 @@ public:
   int32_t hi_prf_idx = -1, lo_prf_idx = -1;
   int32_t prev_hi_prf_idx = -1, prev_lo_prf_idx = -1;
   
-  mips_op* op = nullptr;
+  riscv_op* op = nullptr;
   bool push_return_stack = false;
   int64_t return_stack_idx = -1;
 
@@ -170,13 +170,14 @@ public:
 
 typedef mips_meta_op* sim_op;
 
-class mips_op {
+class riscv_op {
 public:
   sim_op m = nullptr;
   bool retired = false;
+  riscv::riscv_t di;
   oper_type op_class = oper_type::unknown;
-  mips_op(sim_op m) : m(m), retired(false) {}
-  virtual ~mips_op() {}
+  riscv_op(sim_op m) : m(m), retired(false), di(m->inst) {}
+  virtual ~riscv_op() {}
   virtual bool allocate(sim_state &machine_state);
   virtual void execute(sim_state &machine_state);
   virtual void complete(sim_state &machine_state);
@@ -212,9 +213,9 @@ public:
   }
 };
 
-std::ostream &operator<<(std::ostream &out, const mips_op &op);
+std::ostream &operator<<(std::ostream &out, const riscv_op &op);
 
-mips_op* decode_insn(sim_op m_op);
+riscv_op* decode_insn(sim_op m_op);
 
 
 #endif

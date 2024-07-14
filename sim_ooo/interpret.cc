@@ -525,7 +525,7 @@ void execRiscv(state_t *s) {
   
   //if(s->pc == 0xffffffff80ba287cL) {
   //printf("linux panic, last call %lx\n", s->last_call);
-  //dump_calls();
+  //dump_calls();ri
   //s->brk = 1;
   //}
 
