@@ -450,6 +450,128 @@ public:
   }
 };
 
+
+class branch_op : public riscv_op {
+public:
+  branch_op(sim_op op) : riscv_op(op) {
+    this->op_class = oper_type::jmp;
+    op->could_cause_exception = true;
+  };
+  int get_src0() const override {
+    return di.b.rs1;
+  }
+  int get_src1() const override {
+    return di.b.rs2;
+  }
+  bool allocate(sim_state &machine_state) override {
+    if(get_src0() != -1) {
+      m->src0_prf = machine_state.gpr_rat[get_src0()];
+    }
+    if(get_src1() != -1) {
+      m->src1_prf = machine_state.gpr_rat[get_src1()];
+    }
+    return true;
+  }
+  bool ready(sim_state &machine_state) const override  {
+    if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
+      return false;
+    }
+    if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+      return false;
+    }    
+    return true;
+  }
+ void complete(sim_state &machine_state) override {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      if(m->prf_idx != -1) {
+	machine_state.gpr_valid.set_bit(m->prf_idx);
+      }
+    }
+  }
+  void execute(sim_state &machine_state) override {
+    int32_t disp32 =
+	(di.b.imm4_1 << 1)  |
+	(di.b.imm10_5 << 5) |	
+        (di.b.imm11 << 11)  |
+      (di.b.imm12 << 12);
+    disp32 |= di.b.imm12 ? 0xffffe000 : 0x0;
+    int64_t disp = disp32;
+    disp = (disp << 32) >> 32;
+    bool takeBranch = false;
+    uint64_t u_rs1 = *reinterpret_cast<uint64_t*>(&machine_state.gpr_prf[m->src0_prf]);
+    uint64_t u_rs2 = *reinterpret_cast<uint64_t*>(&machine_state.gpr_prf[m->src1_prf]);
+    switch(di.b.sel)
+      {
+      case 0: /* beq */
+	takeBranch = machine_state.gpr_prf[m->src0_prf] == machine_state.gpr_prf[m->src1_prf];
+	break;
+      case 1: /* bne */
+	takeBranch = machine_state.gpr_prf[m->src0_prf] != machine_state.gpr_prf[m->src1_prf];
+	break;
+      case 4: /* blt */
+	takeBranch = machine_state.gpr_prf[m->src0_prf] < machine_state.gpr_prf[m->src1_prf];
+	break;
+      case 5: /* bge */
+	takeBranch = machine_state.gpr_prf[m->src0_prf] >= machine_state.gpr_prf[m->src1_prf];	  
+	break;
+      case 6: /* bltu */
+	takeBranch = u_rs1 < u_rs2;
+	break;
+      case 7: /* bgeu */
+	takeBranch = u_rs1 >= u_rs2;
+	break;
+      default:
+	std::cout << "implement case " << di.b.sel << "\n";
+	assert(0);
+      }
+    //assert(not(takeBranch));
+    m->correct_pc = takeBranch ? disp + m->pc : m->pc + 4;
+    
+    if(m->fetch_npc != m->correct_pc) {
+      m->exception = exception_type::branch;
+    }
+    m->complete_cycle = get_curr_cycle() + get_latency();
+  }
+  bool retire(sim_state &machine_state) override {
+    retired = true;
+    machine_state.icnt++;
+    machine_state.n_jumps++;
+    
+    machine_state.branch_pred->update(m->pc, m->pht_idx, true);
+    uint32_t bht_idx = (m->pc>>2) & (machine_state.bht.size()-1);
+    machine_state.bht.at(bht_idx).shift_left(1);
+    machine_state.bht.at(bht_idx).set_bit(0);
+    
+    machine_state.bhr.shift_left(1);
+    machine_state.bhr.set_bit(0);
+
+    if(m->exception==exception_type::branch) {
+      machine_state.mispredicted_jumps++;
+      machine_state.alloc_blocked = true;
+    }
+    m->retire_cycle = get_curr_cycle();
+    log_retire(machine_state);
+    return true;
+  }
+  void rollback(sim_state &machine_state) override {
+    if(get_dest() != -1) {
+      if(m->prev_prf_idx != -1) {
+	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+      }
+      if(m->prf_idx != -1) {
+	machine_state.gpr_freevec.clear_bit(m->prf_idx);
+	machine_state.gpr_valid.clear_bit(m->prf_idx);
+      }
+    }
+    //if( ((jt == jump_type::jal) or (jt == jump_type::jr)) and
+    //(m->return_stack_idx != -1)) {
+    //machine_state.return_stack.set_tos_idx(m->return_stack_idx);
+    //}
+    log_rollback(machine_state);
+  }
+};
+
 class auipc_op : public gpr_dst_op {
 public:
   auipc_op(sim_op op) : gpr_dst_op(op) {
@@ -498,6 +620,8 @@ riscv_op* decode_insn(sim_op m_op) {
     case 0x50:
       return new nop_op(m_op, true);
       break;
+    case 0x63: /* branches */
+      return new branch_op(m_op);
     case 0x67: /* jalr */
       return new jalr_op(m_op);
     case 0x6f: /* jal */
