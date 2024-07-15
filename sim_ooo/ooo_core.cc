@@ -222,7 +222,7 @@ void retire(sim_state &machine_state) {
 	break;
       }
 
-      if(u->has_delay_slot) {
+      if(false) {
 	while(rob.peek_next_pop() == nullptr) {
 	  stuck_cnt++;
 	  gthread_yield();
@@ -319,7 +319,7 @@ void retire(sim_state &machine_state) {
       bool delay_slot_exception = false;
       
       if(u->exception==exception_type::branch) {
-	if(u->has_delay_slot) {
+	if(false) {
 	  /* wait for branch delay instr to allocate */
 	  machine_state.alloc_blocked = false;
 	  while(rob.peek_next_pop() == nullptr) {
@@ -471,7 +471,6 @@ void retire(sim_state &machine_state) {
       //machine_state.return_stack.clear();
       machine_state.decode_queue.clear();
       machine_state.fetch_queue.clear();
-      machine_state.delay_slot_npc = 0;
       machine_state.alloc_blocked = false;
       machine_state.fetch_blocked = false;
       for(int i = 0; i < machine_state.num_alu_rs; i++) {

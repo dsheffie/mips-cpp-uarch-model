@@ -61,8 +61,6 @@ public:
   bool load_exception = false;
   bool is_branch_or_jump = false;
   bool is_jal = false, is_jr = false;
-  bool has_delay_slot = false;
-  bool likely_squash = false;
   uint64_t correct_pc = 0;
   bool is_store = false, is_fp_store = false;
 
@@ -108,8 +106,6 @@ public:
     is_branch_or_jump = false;
     is_jal = false;
     is_jr = false;
-    has_delay_slot = false;
-    likely_squash = false;
     correct_pc = 0;
     is_store = false;
     is_fp_store = false;

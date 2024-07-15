@@ -26,7 +26,6 @@ public:
   bool nuke = false;
   bool alloc_blocked = false;
   bool fetch_blocked = false;
-  uint32_t delay_slot_npc = 0;
   uint32_t fetch_pc = 0;
 
   uint64_t last_retire_cycle = 0;
