@@ -83,7 +83,8 @@ void riscv_op::log_retire(sim_state &machine_state) const {
 				      static_cast<uint64_t>(m->retire_cycle),
 				      false
 				      );
-  }  
+  }
+  std::cout << "RETIRED INSTRUCTION for PC " << std::hex << m->pc << std::dec << "\n";
   //*global::sim_log  << *this << "\n";
   //std::cout << machine_state.rob.size() << "\n";
 
@@ -202,6 +203,7 @@ public:
   }
   void execute(sim_state &machine_state) override {
     assert(false);
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
   bool ready(sim_state &machine_state) const override  {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
@@ -353,6 +355,7 @@ public:
     imm = (imm << 32) >> 32;
     int64_t y = m->pc + imm;
     machine_state.gpr_prf[m->prf_idx] = y;
+    m->complete_cycle = get_curr_cycle() + get_latency();
   }
 };
 
