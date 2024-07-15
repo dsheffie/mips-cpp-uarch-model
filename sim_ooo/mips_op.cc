@@ -346,6 +346,110 @@ public:
   }
 };
 
+class jal_op : public riscv_op {
+public:
+  jal_op(sim_op op) : riscv_op(op) {
+    this->op_class = oper_type::jmp;
+    op->could_cause_exception = true;
+  };
+  int get_dest() const override {
+    return di.jj.rd;    
+  }
+  bool allocate(sim_state &machine_state) override {
+    if(get_dest() > 0) {
+      m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
+      int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
+      if(prf_id == -1) {
+	return false;
+      }
+      machine_state.gpr_freevec.set_bit(prf_id);
+      machine_state.gpr_rat[get_dest()] = prf_id;
+      m->prf_idx = prf_id;
+      machine_state.gpr_valid.clear_bit(prf_id);
+    }
+    return true;
+  }
+  bool ready(sim_state &machine_state) const override  {
+    return true;
+  }
+ void complete(sim_state &machine_state) override {
+    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+      m->is_complete = true;
+      if(m->prf_idx != -1) {
+	machine_state.gpr_valid.set_bit(m->prf_idx);
+      }
+    }
+  }
+  void execute(sim_state &machine_state) override {
+    int32_t jaddr32 =
+      (di.j.imm10_1 << 1)   |
+      (di.j.imm11 << 11)    |
+      (di.j.imm19_12 << 12) |
+      (di.j.imm20 << 20);
+    jaddr32 |= ((m->inst>>31)&1) ? 0xffe00000 : 0x0;
+    int64_t jaddr = jaddr32;
+    jaddr = (jaddr << 32) >> 32;
+    m->correct_pc = m->pc + jaddr;
+    
+    if(m->fetch_npc != m->correct_pc) {
+      m->exception = exception_type::branch;
+    }
+    if(get_dest() != -1) {
+      machine_state.gpr_prf[m->prf_idx] = m->pc + 4;
+    }
+    m->complete_cycle = get_curr_cycle() + get_latency();
+  }
+  bool retire(sim_state &machine_state) override {
+    if(m->prev_prf_idx != -1) {
+      machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+      machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+      machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+      machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+      machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+      machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+      machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
+    }
+    retired = true;
+    machine_state.icnt++;
+    machine_state.n_jumps++;
+    
+    machine_state.branch_pred->update(m->pc, m->pht_idx, true);
+
+
+    uint32_t bht_idx = (m->pc>>2) & (machine_state.bht.size()-1);
+    machine_state.bht.at(bht_idx).shift_left(1);
+    machine_state.bht.at(bht_idx).set_bit(0);
+    
+    machine_state.bhr.shift_left(1);
+    machine_state.bhr.set_bit(0);
+
+    if(m->exception==exception_type::branch) {
+      machine_state.mispredicted_jumps++;
+      machine_state.alloc_blocked = true;
+    }
+    m->retire_cycle = get_curr_cycle();
+    //std::cout << "jalr retire..\n";
+    log_retire(machine_state);
+    return true;
+  }
+  void rollback(sim_state &machine_state) override {
+    if(get_dest() != -1) {
+      if(m->prev_prf_idx != -1) {
+	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+      }
+      if(m->prf_idx != -1) {
+	machine_state.gpr_freevec.clear_bit(m->prf_idx);
+	machine_state.gpr_valid.clear_bit(m->prf_idx);
+      }
+    }
+    //if( ((jt == jump_type::jal) or (jt == jump_type::jr)) and
+    //(m->return_stack_idx != -1)) {
+    //machine_state.return_stack.set_tos_idx(m->return_stack_idx);
+    //}
+    log_rollback(machine_state);
+  }
+};
+
 class auipc_op : public gpr_dst_op {
 public:
   auipc_op(sim_op op) : gpr_dst_op(op) {
@@ -396,6 +500,8 @@ riscv_op* decode_insn(sim_op m_op) {
       break;
     case 0x67: /* jalr */
       return new jalr_op(m_op);
+    case 0x6f: /* jal */
+      return new jal_op(m_op);
     case 0x73: { /* system */
       return new nop_op(m_op, false);      
       break;
