@@ -202,7 +202,22 @@ public:
     return true;
   }
   void execute(sim_state &machine_state) override {
-    assert(false);
+    assert(di.i.rd);
+    int32_t simm32 = (m->inst >> 20);
+    simm32 |= ((m->inst>>31)&1) ? 0xfffff000 : 0x0;
+    int64_t simm64 = simm32;
+    simm64 = (simm64 <<32) >> 32;
+    uint32_t subop =(m->inst>>12)&7;
+    uint32_t shamt = (m->inst>>20) & 63;
+    switch(di.i.sel)
+      {
+      case 0: {/* addi */
+	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] + simm64;
+	break;
+      }
+      default:
+	die();
+      }
     m->complete_cycle = get_curr_cycle() + get_latency();
   }
   bool ready(sim_state &machine_state) const override  {
