@@ -222,28 +222,6 @@ void retire(sim_state &machine_state) {
 	break;
       }
 
-      if(false) {
-	while(rob.peek_next_pop() == nullptr) {
-	  stuck_cnt++;
-	  gthread_yield();
-	}
-	sim_op uu = rob.peek_next_pop();
-	while(not(uu->is_complete)) {
-	  stuck_cnt++;
-	  gthread_yield();
-	}
-	if(u->exception==exception_type::branch or uu->load_exception) {
-	  machine_state.nukes++;
-	  if(uu->exception == exception_type::branch) {
-	    machine_state.branch_nukes++;
-	  }
-	  else {
-	    machine_state.load_nukes++;
-	  }
-	  exception = true;
-	  break;
-	}
-      }
 
       if(global::use_interp_check and (s->pc == u->pc)) {
 	assert(not(exception));
@@ -280,14 +258,6 @@ void retire(sim_state &machine_state) {
 
 
       num_retired_insns++;
-#if 0
-      if(true) {	
-	std::cerr << num_retired_insns
-		  << " : "
-		  << *(u->op)
-		  << "\n";
-      }
-#endif
       stuck_cnt = 0;
       int64_t insn_lifetime = static_cast<int64_t>(u->retire_cycle) - static_cast<int64_t>(u->fetch_cycle);
       insn_lifetime_map[insn_lifetime]++;
@@ -302,7 +272,6 @@ void retire(sim_state &machine_state) {
       if(stop_sim) {
 	break;
       }
-
     }
 
 
@@ -316,107 +285,38 @@ void retire(sim_state &machine_state) {
 	
       bool is_load_exception = u->load_exception;
       uint32_t exc_pc = u->pc;
-      bool delay_slot_exception = false;
       
       if(u->exception==exception_type::branch) {
-	if(false) {
-	  /* wait for branch delay instr to allocate */
-	  machine_state.alloc_blocked = false;
-	  while(rob.peek_next_pop() == nullptr) {
-	    gthread_yield();
-	    retire_amt = 0;
-	  }
-	  sim_op uu = rob.peek_next_pop();
-	  while(not(uu->is_complete) or (uu->complete_cycle == get_curr_cycle())) {
-	    gthread_yield();
-	    retire_amt = 0;
-	  }
-	  if(uu->exception==exception_type::branch or uu->load_exception) {
-	    delay_slot_exception = true;
-	  }
-	  else {
-	    //std::cerr << "retire for " << *(u->op) << "\n";
-	    u->op->retire(machine_state);
-	    num_retired_insns++;
-	    int64_t lifetime_cycles = static_cast<int64_t>(u->retire_cycle)-static_cast<int64_t>(u->fetch_cycle);
-	    //if(lifetime_cycles > 1000) {
-	    //std::cerr << "@ cycle " << get_curr_cycle() << ":" << *(u->op) << " has a huge lifetime!\n";
-	    // die();
-	    //}
-	    insn_lifetime_map[lifetime_cycles]++;
-	    machine_state.last_retire_cycle = get_curr_cycle();
-	    machine_state.last_retire_pc = u->pc;
-	    //std::cout << std::hex << u->pc << ":" << std::hex
-	    //<< getAsmString(u->inst, u->pc) << "\n";
-
-	    //std::cerr << "retire for " << *(uu->op) << "\n";
-	    uu->op->retire(machine_state);
-	    num_retired_insns++;
-	    machine_state.last_retire_cycle = get_curr_cycle();
-	    machine_state.last_retire_pc = uu->pc;
-	    lifetime_cycles = static_cast<int64_t>(uu->retire_cycle)-static_cast<int64_t>(uu->fetch_cycle);
-	    //if(lifetime_cycles > 1000) {
-	    //std::cerr << "@ cycle " << get_curr_cycle() << ":" << *(uu->op) << " has a huge lifetime!\n";
-	    //die();
-	    //}
-	    insn_lifetime_map[lifetime_cycles]++;
-	    //std::cout << std::hex << uu->pc << ":" << std::hex
-	    //<< getAsmString(uu->inst, uu->pc) << "\n";
-	    if(global::use_interp_check and (s->pc == u->pc)) {
-	      execRiscv(s);
-	    }
-	    rob.pop();
-	    rob.pop();
-	    retire_amt+=2;
-	    delete uu;
-	  }
+	u->op->retire(machine_state);
+	num_retired_insns++;
+	int64_t lifetime_cycles = static_cast<int64_t>(u->retire_cycle)-static_cast<int64_t>(u->fetch_cycle);
+	insn_lifetime_map[lifetime_cycles]++;
+	machine_state.last_retire_cycle = get_curr_cycle();
+	machine_state.last_retire_pc = u->pc;
+	if(global::use_interp_check and (s->pc == u->pc)) {
+	  execRiscv(s);
 	}
-	else {
-	  //std::cerr << "retire for " << *(u->op) << "\n";
-	  u->op->retire(machine_state);
-	  num_retired_insns++;
-	  int64_t lifetime_cycles = static_cast<int64_t>(u->retire_cycle)-static_cast<int64_t>(u->fetch_cycle);
-	  //if(lifetime_cycles > 1000) {
-	  //std::cerr << "@ cycle " << get_curr_cycle() << ":" << *(u->op) << " has a huge lifetime!\n";
-	  //die();
-	  //}
-	  insn_lifetime_map[lifetime_cycles]++;
-	  machine_state.last_retire_cycle = get_curr_cycle();
-	  machine_state.last_retire_pc = u->pc;
-	  if(global::use_interp_check and (s->pc == u->pc)) {
-	    execRiscv(s);
-	  }
-	  rob.pop();
-	  retire_amt++;
-	}
+	rob.pop();
+	retire_amt++;
       }
       machine_state.nuke = true;
       stuck_cnt = 0;
-      if(delay_slot_exception) {
-	assert(not(enable_oracle));
-	machine_state.fetch_pc = u->pc;
+      if(u->exception == exception_type::branch) {
+	machine_state.fetch_pc = u->correct_pc;
+	if(enable_oracle) {
+	  assert((u->fetch_icnt+1)==machine_state.fetched_insns);
+	}
+	delete u;
       }
       else {
-	if(u->exception == exception_type::branch) {
-	  machine_state.fetch_pc = u->correct_pc;
-	  if(enable_oracle) {
-	    assert((u->fetch_icnt+1)==machine_state.fetched_insns);
-	  }
-	  delete u;
-	}
-	else {
-	  machine_state.fetch_pc = u->pc;
-	  if(enable_oracle) {
-	    machine_state.fetched_insns = u->fetch_icnt;
-	  }
+	machine_state.fetch_pc = u->pc;
+	if(enable_oracle) {
+	  machine_state.fetched_insns = u->fetch_icnt;
 	}
       }
-
       if(machine_state.l1d) {
 	machine_state.l1d->nuke_inflight();
       }
-
-
       /* quick way to reset rob with flash copied tables */
       int64_t c = 0;
       for(size_t i = 0, len = rob.capacity(); i < len; i++) {
