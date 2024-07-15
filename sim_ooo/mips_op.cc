@@ -121,7 +121,9 @@ public:
       m->is_complete = true;
     }
    }
-  void execute(sim_state &machine_state) override {}
+  void execute(sim_state &machine_state) override {
+    m->complete_cycle = get_curr_cycle() + get_latency();
+  }
   bool retire(sim_state &machine_state) override {
     assert(not(bad_spec));
     m->retire_cycle = get_curr_cycle();
@@ -234,6 +236,7 @@ class jalr_op : public riscv_op {
 public:
   jalr_op(sim_op op) : riscv_op(op) {
     this->op_class = oper_type::jmp;
+    op->could_cause_exception = true;
   };
   int get_src0() const override {
     return di.jj.rs1;
@@ -281,6 +284,8 @@ public:
     tgt64 += machine_state.gpr_prf[m->src0_prf];
     tgt64 &= ~(1UL);
     m->correct_pc = tgt64;
+    //std::cout << "executing jalr, predicted target = " << std::hex << m->fetch_npc
+    //<< ", actual target = " <<  m->correct_pc << std::dec << "\n";
     
     if(m->fetch_npc != m->correct_pc) {
       m->exception = exception_type::branch;
@@ -319,6 +324,7 @@ public:
       machine_state.alloc_blocked = true;
     }
     m->retire_cycle = get_curr_cycle();
+    //std::cout << "jalr retire..\n";
     log_retire(machine_state);
     return true;
   }
@@ -385,6 +391,9 @@ riscv_op* decode_insn(sim_op m_op) {
       return new itype_op(m_op);
     case 0x17: /* auipc */
       return new auipc_op(m_op);
+    case 0x50:
+      return new nop_op(m_op, true);
+      break;
     case 0x67: /* jalr */
       return new jalr_op(m_op);
     case 0x73: { /* system */

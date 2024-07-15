@@ -193,13 +193,8 @@ void retire(sim_state &machine_state) {
     while(not(rob.empty()) and (retire_amt < sim_param::retire_bw) and (machine_state.icnt < machine_state.maxicnt)) {
       u = rob.peek();
       empty_cnt = 0;
+      std::cout << "head of rob pc " << std::hex << u->pc << std::dec << ", complete " << u->is_complete << "\n";
       if(not(u->is_complete)) {
-	//if(stuck_cnt > 32) {
-	//std::cerr << "STUCK:" << *(u->op)
-	//	    << "," << u
-	//	    << "\n";
-	//}
-	stuck_cnt++;
 	u = nullptr;
 	break;
       }
@@ -212,6 +207,7 @@ void retire(sim_state &machine_state) {
       if(u->exception==exception_type::branch) {
 	machine_state.nukes++;
 	machine_state.branch_nukes++;
+	std::cout << "got branch exception..\n";
 	exception = true;
 	break;
       }
