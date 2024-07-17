@@ -160,7 +160,7 @@ void retire(sim_state &machine_state) {
     while(not(rob.empty()) and (retire_amt < sim_param::retire_bw) and (machine_state.icnt < machine_state.maxicnt)) {
       u = rob.peek();
       empty_cnt = 0;
-      std::cout << "head of rob pc " << std::hex << u->pc << std::dec << ", complete " << u->is_complete << "\n";
+      //std::cout << "head of rob pc " << std::hex << u->pc << std::dec << ", complete " << u->is_complete << "\n";
       if(not(u->is_complete)) {
 	u = nullptr;
 	break;

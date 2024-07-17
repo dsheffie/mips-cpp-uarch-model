@@ -30,7 +30,7 @@ const std::string &getGPRName(uint32_t r) {
 
 
 
-void disassemble(std::ostream &out, uint32_t inst, uint32_t addr) {
+void disassemble(std::ostream &out, uint32_t inst, uint64_t addr) {
   out << getAsmString(inst,addr);
 }
 
@@ -55,7 +55,7 @@ static const std::map<cs_err, std::string> cs_error_map =
 static csh handle;
 
 void initCapstone() {
-  cs_err C = cs_open(CS_ARCH_MIPS, CS_MODE_MIPS32, &handle);
+  cs_err C = cs_open(CS_ARCH_RISCV, CS_MODE_RISCV64, &handle);  
   if(C != CS_ERR_OK) {
     std::cerr << "capstone error : " << cs_error_map.at(C) << "\n";
     exit(-1);
@@ -66,7 +66,7 @@ void stopCapstone() {
   cs_close(&handle);
 }
 
-std::string getAsmString(uint32_t inst, uint32_t addr) {
+std::string getAsmString(uint32_t inst, uint64_t addr) {
   std::stringstream ss;
 
   cs_insn *insn = nullptr;

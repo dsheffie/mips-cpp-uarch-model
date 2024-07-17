@@ -74,7 +74,10 @@ void riscv_op::log_retire(sim_state &machine_state) const {
 				      false
 				      );
   }
-  std::cout << "RETIRED INSTRUCTION for PC " << std::hex << m->pc << std::dec << "\n";
+  std::cout << "RETIRED INSTRUCTION for PC " << std::hex << m->pc << std::dec;
+  std::cout<< " : ";
+  disassemble(std::cout, m->inst, m->pc);
+  std::cout << "\n";
 }
 
 void riscv_op::log_rollback(sim_state &machine_state) const {}
