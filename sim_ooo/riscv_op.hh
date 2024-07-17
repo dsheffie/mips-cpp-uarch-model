@@ -203,6 +203,7 @@ public:
   oper_type get_op_class() const {
     return op_class;
   }
+ 
 };
 
 class riscv_store : public riscv_op {

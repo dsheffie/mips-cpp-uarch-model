@@ -13,6 +13,12 @@
 #include "sim_cache.hh"
 #include "machine_state.hh"
 
+static constexpr int xlen() {
+  return 64;
+}  
+static void sext_xlen(sim_state &machine_state, int64_t x, int i) {
+  machine_state.gpr_prf[i] = (x << (64-xlen())) >> (64-xlen());
+}
 
 std::ostream &operator<<(std::ostream &out, const riscv_op &op) {
   out << std::hex << op.m->pc << std::dec
@@ -205,6 +211,75 @@ public:
     return true;
   }
 
+};
+
+
+class rtype_op : public gpr_dst_op {
+public:
+  rtype_op(sim_op op) : gpr_dst_op(op) {
+    this->op_class = oper_type::alu;
+  };
+  int get_src0() const override {
+    return di.r.rs1;
+  }
+  int get_src1() const override {
+    return di.r.rs2;
+  }  
+  bool allocate(sim_state &machine_state) override {
+    m->src0_prf = machine_state.gpr_rat[get_src0()];
+    m->src1_prf = machine_state.gpr_rat[get_src1()];
+    if(get_dest() > 0) {
+      m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
+      int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
+      if(prf_id == -1) {
+	return false;
+      }
+      machine_state.gpr_freevec.set_bit(prf_id);
+      machine_state.gpr_rat[get_dest()] = prf_id;
+      m->prf_idx = prf_id;
+      machine_state.gpr_valid.clear_bit(prf_id);
+    }
+    return true;
+  }
+  void execute(sim_state &machine_state) override {
+    switch(di.r.sel)      
+      {
+      case 0x0:
+	switch(di.r.special)
+	  {
+	  case 0x0: /* add */
+	    sext_xlen(machine_state,
+		      machine_state.gpr_prf[m->src0_prf] + machine_state.gpr_prf[m->src1_prf],
+		      m->prf_idx);
+	    break;
+	  case 0x1: /* mul */
+	    machine_state.gpr_prf[m->prf_idx] =
+	      machine_state.gpr_prf[m->src0_prf] * machine_state.gpr_prf[m->src1_prf];
+	    break;
+	  case 0x20: /* sub */
+	    sext_xlen(machine_state,
+		      machine_state.gpr_prf[m->src0_prf] - machine_state.gpr_prf[m->src1_prf],
+		      m->prf_idx);	    
+	    break;
+	  default:
+	    std::cout << "sel = " << di.r.sel << ", special = " << di.r.special << "\n";
+	    assert(0);
+	  }
+	break;
+      default:
+	die();
+      }
+    m->complete_cycle = get_curr_cycle() + get_latency();
+  }
+  bool ready(sim_state &machine_state) const override  {
+    if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
+      return false;
+    }
+    if(not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+      return false;
+    }    
+    return true;
+  }
 };
 
 
@@ -481,6 +556,7 @@ public:
     m->correct_pc = takeBranch ? disp + m->pc : m->pc + 4;
     if(m->fetch_npc != m->correct_pc) {
       m->exception = exception_type::branch;
+      printf("exception, need to restart to pc %lx!\n", m->correct_pc);
     }
     m->complete_cycle = get_curr_cycle() + get_latency();
   }
@@ -572,6 +648,8 @@ riscv_op* decode_insn(sim_op m_op) {
       return new auipc_op(m_op);
     case 0x23: 
       return new riscv_store(m_op, riscv_store::stypes[m.s.sel]);
+    case 0x33:
+      return new rtype_op(m_op);
     case 0x50:
       return new nop_op(m_op, true);
       break;
