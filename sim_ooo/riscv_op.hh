@@ -208,11 +208,17 @@ public:
 };
 
 class riscv_store : public riscv_op {
+public:
+  enum class store_type {sb,sh,sw,sd,bogus};
+  static constexpr store_type stypes[] = {store_type::sb,store_type::sh,store_type::sw,store_type::sd};
 protected:
+  store_type st;
+  int64_t store_data;
   int64_t imm = -1;
   uint64_t effective_address = ~0;
+
 public:
-  riscv_store(sim_op op) : riscv_op(op) {
+  riscv_store(sim_op op, store_type st) : riscv_op(op), st(st), store_data(0) {
     this->op_class = oper_type::store;
     int32_t disp = di.s.imm4_0 | (di.s.imm11_5 << 5);
     disp |= ((m->inst>>31)&1) ? 0xfffff000 : 0x0;
@@ -220,18 +226,30 @@ public:
     op->is_store = true;
     op->could_cause_exception = true;
   }
+  int get_src0() const override {
+    return di.s.rs1;
+  }
+  int get_src1() const override {
+    return di.s.rs2;
+  }
+  bool allocate(sim_state &machine_state) override;
+  bool ready(sim_state &machine_state) const override;
+  void execute(sim_state &machine_state) override;
+  bool retire(sim_state &machine_state) override;
+  int64_t get_latency() const override;
+  
 };
 
 class riscv_load : public riscv_op {
 public:
-  enum class load_type {lb,lbu,lh,lhu,lw,ldc1,lwc1,lwxc1,ldxc1,lwl,lwr,bogus};
+  enum class load_type {lb,lbu,lh,lhu,lw,ld,bogus};
 protected:
   load_type lt;
   int64_t imm = -1;
   uint64_t effective_address = ~0;
   bool stall_for_load(sim_state &machine_state) const;
 public:
-  riscv_load(sim_op op) : riscv_op(op),lt(load_type::bogus) {
+  riscv_load(sim_op op, load_type lt) : riscv_op(op), lt(lt) {
     this->op_class = oper_type::load;
     op->could_cause_exception = true;
     int32_t disp = di.l.imm11_0;

@@ -36,7 +36,12 @@ void riscv_op::execute(sim_state &machine_state) {
 }
 
 void riscv_op::complete(sim_state &machine_state) {
-  die();
+  if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+    m->is_complete = true;
+    if(m->prf_idx != -1) {
+      machine_state.gpr_valid.set_bit(m->prf_idx);
+    }
+  }
 }
 
 bool riscv_op::retire(sim_state &machine_state) {
@@ -70,16 +75,6 @@ void riscv_op::log_retire(sim_state &machine_state) const {
 				      );
   }
   std::cout << "RETIRED INSTRUCTION for PC " << std::hex << m->pc << std::dec << "\n";
-  //*global::sim_log  << *this << "\n";
-  //std::cout << machine_state.rob.size() << "\n";
-
-  //std::cout << *this << " : retirement freevec = "
-  //<< machine_state.gpr_freevec_retire.popcount()
-  //<< "\n";
-  
-  //assert(machine_state.gpr_freevec_retire.popcount()==sim_state::num_gpr_regs);
-  //assert(machine_state.cpr1_freevec_retire.popcount()==sim_state::num_cpr1_regs);
-  
 }
 
 void riscv_op::log_rollback(sim_state &machine_state) const {}
@@ -101,11 +96,6 @@ public:
   bool ready(sim_state &machine_state) const override  {
     return true;
   }
-   void complete(sim_state &machine_state) override {
-    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
-      m->is_complete = true;
-    }
-   }
   void execute(sim_state &machine_state) override {
     m->complete_cycle = get_curr_cycle() + get_latency();
   }
@@ -125,12 +115,6 @@ public:
   gpr_dst_op(sim_op op) : riscv_op(op) {}
   int get_dest() const override {
     return (m->inst>>7) & 31;    
-  }
-   void complete(sim_state &machine_state) override {
-    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
-      m->is_complete = true;
-      machine_state.gpr_valid.set_bit(m->prf_idx);
-    }
   }
   bool retire(sim_state &machine_state) override {
     if(m->is_complete == false) {
@@ -252,14 +236,6 @@ public:
     }
     return true;
   }
- void complete(sim_state &machine_state) override {
-    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
-      m->is_complete = true;
-      if(m->prf_idx != -1) {
-	machine_state.gpr_valid.set_bit(m->prf_idx);
-      }
-    }
-  }
   void execute(sim_state &machine_state) override {
     int32_t tgt = di.jj.imm11_0;
     tgt |= ((m->inst>>31)&1) ? 0xfffff000 : 0x0;
@@ -357,14 +333,7 @@ public:
   bool ready(sim_state &machine_state) const override  {
     return true;
   }
- void complete(sim_state &machine_state) override {
-    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
-      m->is_complete = true;
-      if(m->prf_idx != -1) {
-	machine_state.gpr_valid.set_bit(m->prf_idx);
-      }
-    }
-  }
+
   void execute(sim_state &machine_state) override {
     int32_t jaddr32 =
       (di.j.imm10_1 << 1)   |
@@ -465,14 +434,6 @@ public:
       return false;
     }    
     return true;
-  }
- void complete(sim_state &machine_state) override {
-    if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
-      m->is_complete = true;
-      if(m->prf_idx != -1) {
-	machine_state.gpr_valid.set_bit(m->prf_idx);
-      }
-    }
   }
   void execute(sim_state &machine_state) override {
     int32_t disp32 =
@@ -592,6 +553,8 @@ public:
 riscv_op* decode_insn(sim_op m_op) {
   uint32_t opcode = (m_op->inst)&127;
   uint32_t rd = (m_op->inst>>7) & 31;
+  riscv::riscv_t m(m_op->inst);
+
   switch(opcode)
     {
     case 0x0:
@@ -600,6 +563,8 @@ riscv_op* decode_insn(sim_op m_op) {
       return new itype_op(m_op);
     case 0x17: /* auipc */
       return new auipc_op(m_op);
+    case 0x23: 
+      return new riscv_store(m_op, riscv_store::stypes[m.s.sel]);
     case 0x50:
       return new nop_op(m_op, true);
       break;
@@ -631,4 +596,95 @@ void meta_op::release() {
 
 meta_op::~meta_op() {
   release();
+}
+
+
+bool riscv_store::allocate(sim_state &machine_state)  {
+  m->src0_prf = machine_state.gpr_rat[get_src0()];
+  m->src1_prf = machine_state.gpr_rat[get_src1()];
+  m->store_tbl_idx = machine_state.store_tbl_freevec.find_first_unset();
+  if(m->store_tbl_idx==-1) {
+    return false;
+  }
+  machine_state.store_tbl[m->store_tbl_idx] = m;
+  machine_state.store_tbl_freevec.set_bit(m->store_tbl_idx);
+  return true;
+}
+
+bool riscv_store::ready(sim_state &machine_state) const  {
+  if(not(machine_state.gpr_valid.get_bit(m->src0_prf)) or
+     not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+    return false;
+  }
+  return true;
+}
+
+void riscv_store::execute(sim_state &machine_state){
+  effective_address = machine_state.gpr_prf[m->src1_prf] + imm;
+  store_data = machine_state.gpr_prf[m->src0_prf];
+  //if(machine_state.l1d) {
+  //machine_state.l1d->write(m,effective_address & (~3U), 4);
+  //}
+  //else {
+  m->complete_cycle = get_curr_cycle() + 1;/*sim_param::l1d_latency;*/
+}
+
+bool riscv_store::retire(sim_state &machine_state) {
+  uint8_t *mem = machine_state.mem;
+  switch(st)
+    {
+    case store_type::sb:
+      *reinterpret_cast<int8_t*>(mem) = static_cast<int8_t>(store_data);
+      break;
+    case store_type::sh:
+      *reinterpret_cast<int16_t*>(mem) = static_cast<int16_t>(store_data);      
+      break;
+    case store_type::sw:
+      *reinterpret_cast<int32_t*>(mem) = static_cast<int32_t>(store_data);            
+      break;
+    case store_type::sd:
+      *reinterpret_cast<int64_t*>(mem) = store_data;
+      break;
+    default:
+      die();
+    }
+  retired = true;
+ bool load_violation = false;
+
+ for(size_t i = 0; i < machine_state.load_tbl_freevec.size(); i++ ){
+   if(machine_state.load_tbl[i]==nullptr) {
+     continue;
+   }
+   meta_op *mmo = machine_state.load_tbl[i];
+   if(mmo->alloc_cycle < m->alloc_cycle) {
+     continue;
+   }
+   
+   auto ld = reinterpret_cast<riscv_load*>(mmo->op);
+   if(ld == nullptr) {
+     die();
+   }
+   if(mmo->is_complete and (effective_address>>3) == (ld->getEA()>>3)) {
+     load_violation = true;
+     std::cout << "load / store exception, store pc = " << std::hex << m->pc
+	       << ", load pc = " << mmo->pc << std::dec << "\n";
+   }
+ }
+ 
+ for(size_t i = 0; load_violation and (i < machine_state.load_tbl_freevec.size()); i++ ){
+   if(machine_state.load_tbl[i]!=nullptr) {
+     machine_state.load_tbl[i]->load_exception = true;
+   }
+ }
+ 
+ machine_state.store_tbl_freevec.clear_bit(m->store_tbl_idx);
+ machine_state.store_tbl[m->store_tbl_idx] = nullptr;
+ m->retire_cycle = get_curr_cycle();
+ 
+ log_retire(machine_state);
+ return true;
+}
+
+int64_t riscv_store::get_latency() const {
+  return sim_param::l1d_latency;
 }
