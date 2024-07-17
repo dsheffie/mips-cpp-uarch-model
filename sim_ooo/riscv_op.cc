@@ -182,11 +182,15 @@ public:
     uint32_t shamt = (m->inst>>20) & 63;
     switch(di.i.sel)
       {
-      case 0: {/* addi */
+      case 0:/* addi */
 	machine_state.gpr_prf[m->prf_idx] = machine_state.gpr_prf[m->src0_prf] + simm64;
 	break;
-      }
+      case 1: /* slli */
+	machine_state.gpr_prf[m->prf_idx] = ((*reinterpret_cast<uint64_t*>(&machine_state.gpr_prf[m->src0_prf]))
+					     << shamt);
+	break;
       default:
+	std::cout << "implemented itype case " << std::hex << di.i.sel << std::dec << "\n";
 	die();
       }
     m->complete_cycle = get_curr_cycle() + get_latency();
