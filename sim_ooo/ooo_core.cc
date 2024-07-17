@@ -24,7 +24,7 @@
 #include "interpret.hh"
 #include "globals.hh"
 #include "gthread.hh"
-#include "mips_op.hh"
+#include "riscv_op.hh"
 #include "sim_parameters.hh"
 #include "sim_cache.hh"
 #include "machine_state.hh"
@@ -32,39 +32,6 @@
 extern std::map<uint32_t, uint32_t> branch_target_map;
 extern std::map<uint32_t, int32_t> branch_prediction_map;
 static std::map<int64_t, int64_t> insn_lifetime_map;
-
-
-static inline bool is_likely_branch(uint32_t inst) {
-  uint32_t opcode = inst>>26;
-  switch(opcode)
-    {
-    case 0x14:
-    case 0x16:
-    case 0x15:
-    case 0x17:
-      return true;
-    default:
-      break;
-    }
-  return false;
-}
-
-static inline bool is_nonlikely_branch(uint32_t inst) {
-  uint32_t opcode = inst>>26;
-  switch(opcode)
-    {
-    case 0x01:
-    case 0x04:
-    case 0x05:
-    case 0x06:
-    case 0x07:
-      return true;
-    default:
-      break;
-    }
-  return false;
-}
-
 
 class rollback_rob_entry : public sim_queue<sim_op>::funcobj {
 protected:
@@ -98,7 +65,7 @@ void fetch(sim_state &machine_state) {
 
       bool used_return_addr_stack = false;
       
-      mips_meta_op *f = new mips_meta_op(machine_state.fetched_insns,
+      meta_op *f = new meta_op(machine_state.fetched_insns,
 					 machine_state.fetch_pc,
 					 inst,
 					 global::curr_cycle);
@@ -207,7 +174,6 @@ void retire(sim_state &machine_state) {
       if(u->exception==exception_type::branch) {
 	machine_state.nukes++;
 	machine_state.branch_nukes++;
-	std::cout << "got branch exception..\n";
 	exception = true;
 	break;
       }
@@ -889,10 +855,10 @@ void sim_state::initialize() {
   gpr_freevec_retire.clear_and_resize(sim_param::num_gpr_prf);
   
   load_tbl_freevec.clear_and_resize(sim_param::load_tbl_size);
-  load_tbl = new mips_meta_op*[sim_param::load_tbl_size];
+  load_tbl = new meta_op*[sim_param::load_tbl_size];
 
   store_tbl_freevec.clear_and_resize(sim_param::store_tbl_size);
-  store_tbl = new mips_meta_op*[sim_param::store_tbl_size];
+  store_tbl = new meta_op*[sim_param::store_tbl_size];
   
   for(size_t i = 0; i < load_tbl_freevec.size(); i++) {
     load_tbl[i] = nullptr;

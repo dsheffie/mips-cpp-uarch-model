@@ -3,7 +3,7 @@
 #include "sim_cache.hh"
 #include "sim_parameters.hh"
 #include "helper.hh"
-#include "mips_op.hh"
+#include "riscv_op.hh"
 
 uint64_t get_curr_cycle();
 

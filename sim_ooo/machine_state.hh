@@ -17,7 +17,7 @@
 
 struct state_t;
 class simCache;
-class mips_meta_op;
+class meta_op;
 
 class sim_state {
 public:
@@ -67,8 +67,8 @@ public:
   int64_t *gpr_prf = nullptr;
 
 
-  mips_meta_op **load_tbl = nullptr;
-  mips_meta_op **store_tbl = nullptr;
+  meta_op **load_tbl = nullptr;
+  meta_op **store_tbl = nullptr;
   
   sim_bitvec gpr_freevec;
   sim_bitvec gpr_freevec_retire;
@@ -77,9 +77,9 @@ public:
   
   sim_bitvec gpr_valid;
 
-  sim_queue<mips_meta_op*> fetch_queue;
-  sim_queue<mips_meta_op*> decode_queue;
-  sim_queue<mips_meta_op*> rob;
+  sim_queue<meta_op*> fetch_queue;
+  sim_queue<meta_op*> decode_queue;
+  sim_queue<meta_op*> rob;
 
   sim_bitvec alu_alloc;
   sim_bitvec fpu_alloc;
@@ -91,7 +91,7 @@ public:
   int num_load_rs = -1;
   int num_store_rs = -1;
   
-  typedef sim_list<mips_meta_op*> rs_type;
+  typedef sim_list<meta_op*> rs_type;
   std::vector<rs_type> alu_rs;
   std::vector<rs_type> fpu_rs;
   rs_type jmp_rs;

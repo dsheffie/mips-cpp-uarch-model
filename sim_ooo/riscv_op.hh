@@ -30,12 +30,9 @@ class sim_state;
 class simCache;
 
 
-
-
-
 class riscv_op;
 
-class mips_meta_op {
+class meta_op {
 public:
   uint64_t fetch_icnt = 0;
   uint64_t pc = 0, fetch_npc = 0;
@@ -133,10 +130,10 @@ public:
     push_return_stack = false;
   }
 
-  mips_meta_op(uint64_t fetch_icnt,
-	       uint64_t pc,
-	       uint32_t inst,
-	       uint64_t fetch_cycle) :
+  meta_op(uint64_t fetch_icnt,
+	  uint64_t pc,
+	  uint32_t inst,
+	  uint64_t fetch_cycle) :
     fetch_icnt(fetch_icnt),
     pc(pc),
     inst(inst),
@@ -145,7 +142,7 @@ public:
     predict_taken(false),
     pop_return_stack(false)  {}
   
-  mips_meta_op(uint64_t fetch_icnt,
+  meta_op(uint64_t fetch_icnt,
 	       uint64_t pc,
 	       uint32_t inst,
 	       uint64_t fetch_npc,
@@ -161,10 +158,11 @@ public:
     pop_return_stack(pop_return_stack)  {}
   
   void release();
-  ~mips_meta_op();
+  ~meta_op();
+
 };
 
-typedef mips_meta_op* sim_op;
+typedef meta_op* sim_op;
 
 class riscv_op {
 public:
@@ -206,6 +204,44 @@ public:
   }
   oper_type get_op_class() const {
     return op_class;
+  }
+};
+
+class riscv_store : public riscv_op {
+protected:
+  int64_t imm = -1;
+  uint64_t effective_address = ~0;
+public:
+  riscv_store(sim_op op) : riscv_op(op) {
+    this->op_class = oper_type::store;
+    int32_t disp = di.s.imm4_0 | (di.s.imm11_5 << 5);
+    disp |= ((m->inst>>31)&1) ? 0xfffff000 : 0x0;
+    imm =  ((static_cast<int64_t>(disp) << 32) >> 32);
+    op->is_store = true;
+    op->could_cause_exception = true;
+  }
+};
+
+class riscv_load : public riscv_op {
+public:
+  enum class load_type {lb,lbu,lh,lhu,lw,ldc1,lwc1,lwxc1,ldxc1,lwl,lwr,bogus};
+protected:
+  load_type lt;
+  int64_t imm = -1;
+  uint64_t effective_address = ~0;
+  bool stall_for_load(sim_state &machine_state) const;
+public:
+  riscv_load(sim_op op) : riscv_op(op),lt(load_type::bogus) {
+    this->op_class = oper_type::load;
+    op->could_cause_exception = true;
+    int32_t disp = di.l.imm11_0;
+    if((m->inst>>31)&1) {
+      disp |= 0xfffff000;
+    }
+    imm= ((static_cast<int64_t>(disp) << 32) >> 32);
+  }
+  uint64_t getEA() const {
+    return effective_address;
   }
 };
 

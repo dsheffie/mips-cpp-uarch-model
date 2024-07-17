@@ -6,7 +6,7 @@
 #include <fcntl.h>
 
 #include "globals.hh"
-#include "mips_op.hh"
+#include "riscv_op.hh"
 #include "helper.hh"
 #include "disassemble.hh"
 #include "sim_parameters.hh"
@@ -24,21 +24,6 @@ std::ostream &operator<<(std::ostream &out, const riscv_op &op) {
       << op.m->dispatch_cycle << ","
       << op.m->complete_cycle;
   return out;
-}
-
-
-
-mips_meta_op::~mips_meta_op() {
-  if(op) {
-    delete op;
-  }
-}
-
-void mips_meta_op::release() {
-  if(op) {
-    delete op;
-    op = nullptr;
-  }
 }
 
 bool riscv_op::allocate(sim_state &machine_state) {
@@ -525,9 +510,7 @@ public:
 	std::cout << "implement case " << di.b.sel << "\n";
 	assert(0);
       }
-    //assert(not(takeBranch));
     m->correct_pc = takeBranch ? disp + m->pc : m->pc + 4;
-    
     if(m->fetch_npc != m->correct_pc) {
       m->exception = exception_type::branch;
     }
@@ -635,4 +618,17 @@ riscv_op* decode_insn(sim_op m_op) {
     }
   std::cout << "implement opcode " << std::hex << opcode << std::dec << "\n";
   return nullptr;
+}
+
+
+void meta_op::release() {
+  if(op) {
+    delete op;
+    op = nullptr;    
+  }
+}
+
+
+meta_op::~meta_op() {
+  release();
 }
