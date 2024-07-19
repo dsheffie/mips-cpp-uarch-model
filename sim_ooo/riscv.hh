@@ -1,6 +1,8 @@
 #ifndef __riscvhh__
 #define __riscvhh__
 
+#include <ostream>
+
 namespace riscv {
   enum riscv_priv {
     priv_user = 0,

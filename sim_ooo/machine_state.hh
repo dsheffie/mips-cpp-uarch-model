@@ -1,6 +1,7 @@
- #ifndef __machinestatehh__
+#ifndef __machinestatehh__
 #define __machinestatehh__
 
+#include "riscv.hh"
 #include "globals.hh"
 #include "sparse_mem.hh"
 #include "sim_queue.hh"
@@ -43,11 +44,38 @@ public:
   int num_gpr_prf_ = -1;
   int64_t arch_grf[num_gpr_regs] = {0};
   uint64_t arch_grf_last_pc[num_gpr_regs] = {0};
-  
+
+  riscv::riscv_priv priv;
+  int64_t mstatus;
+  int64_t misa;
+  int64_t mideleg;
+  int64_t medeleg;
+  int64_t mscratch;
+  int64_t mhartid;
+  int64_t mtvec;
+  int64_t mcounteren;
+  int64_t mie;
+  int64_t mip;
+  int64_t mcause;
+  int64_t mepc;
+  int64_t mtval;
+  int64_t sscratch;
+  int64_t scause;
+  int64_t stvec;
+  int64_t sepc;
+  int64_t sie;
+  int64_t sip;
+  int64_t stval;
+  int64_t satp;
+  int64_t scounteren;
+  int64_t pmpaddr0;
+  int64_t pmpaddr1;
+  int64_t pmpaddr2;
+  int64_t pmpaddr3;
+  int64_t pmpcfg0;
+  int64_t mtimecmp;  
   
   int64_t *gpr_prf = nullptr;
-
-
   meta_op **load_tbl = nullptr;
   meta_op **store_tbl = nullptr;
   

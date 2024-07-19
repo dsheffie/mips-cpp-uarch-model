@@ -13,12 +13,17 @@
 #include "sim_cache.hh"
 #include "machine_state.hh"
 
+#include "system_insns.hh"
+
 static constexpr int xlen() {
   return 64;
 }  
 static void sext_xlen(sim_state &machine_state, int64_t x, int i) {
   machine_state.gpr_prf[i] = (x << (64-xlen())) >> (64-xlen());
 }
+
+
+
 
 std::ostream &operator<<(std::ostream &out, const riscv_op &op) {
   out << std::hex << op.m->pc << std::dec
@@ -80,7 +85,9 @@ void riscv_op::log_retire(sim_state &machine_state) const {
 				      false
 				      );
   }
-  std::cout << "RETIRED INSTRUCTION for PC " << std::hex << m->pc << std::dec;
+  std::cout << "RETIRED INSTRUCTION for PC " << std::hex << m->pc
+	    << std::dec << " at cycle "
+	    << get_curr_cycle();
   std::cout<< " : ";
   disassemble(std::cout, m->inst, m->pc);
   std::cout << "\n";
@@ -585,80 +592,6 @@ public:
 };
 
 
-class csrrx_op : public riscv_op {
-public:
-  csrrx_op(sim_op op) : riscv_op(op) {
-    this->op_class = oper_type::system;
-    op->could_cause_exception = true;
-  }
-  int get_dest() const override {
-    int d = (m->inst>>7) & 31;
-    return d==0 ? -1 : d;
-  }
-  int get_src0() const override {
-    int s = (m->inst >> 15) & 31;
-    return s==0 ? -1 : s;
-  }
-  bool allocate(sim_state &machine_state) override {
-    if(get_src0() != -1) {
-      m->src0_prf = machine_state.gpr_rat[get_src0()];
-    }
-    if(get_dest() > 0) {
-      m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
-      int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
-      if(prf_id == -1) {
-	return false;
-      }
-      machine_state.gpr_freevec.set_bit(prf_id);
-      machine_state.gpr_rat[get_dest()] = prf_id;
-      m->prf_idx = prf_id;
-      machine_state.gpr_valid.clear_bit(prf_id);
-    }
-    machine_state.alloc_blocked = true;
-    return true;
-  }
-  bool ready(sim_state &machine_state) const override  {
-    if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
-      return false;
-    }    
-    return true;
-  }
-  void execute(sim_state &machine_state) override {
-    m->exception = exception_type::serializing;
-    
-    m->complete_cycle = get_curr_cycle() + get_latency();
-  }
-  bool retire(sim_state &machine_state) override {
-    if(m->prev_prf_idx != -1) {
-      machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
-      machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
-      machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
-      machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-      machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
-      machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
-      machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
-    }
-    retired = true;
-
-    m->retire_cycle = get_curr_cycle();
-    //std::cout << "jalr retire..\n";
-    log_retire(machine_state);
-    return true;
-  }
-  
-  void rollback(sim_state &machine_state) override {
-    if(get_dest() != -1) {
-      if(m->prev_prf_idx != -1) {
-	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
-      }
-      if(m->prf_idx != -1) {
-	machine_state.gpr_freevec.clear_bit(m->prf_idx);
-	machine_state.gpr_valid.clear_bit(m->prf_idx);
-      }
-    }
-    log_rollback(machine_state);
-  }
-};
 
 
 
