@@ -617,7 +617,7 @@ static inline riscv_op *decode_system_insn(sim_op m_op) {
     die();
   }
   else if(bits19to7z and (csr_id == 0x105)) {  /* wfi */
-    die();
+    return new nop_op(m_op);
   }
   else if(bits19to7z and (csr_id == 0x202)) {  /* hret */
     die();    
