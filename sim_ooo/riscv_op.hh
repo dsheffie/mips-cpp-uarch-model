@@ -23,7 +23,7 @@
 
 enum class oper_type { unknown, alu, fp, jmp, load, store, system };
 
-enum class exception_type {none, load, branch};
+enum class exception_type {none, load, branch, serializing};
 
 struct state_t;
 class sim_state;
@@ -60,7 +60,7 @@ public:
   bool is_jal = false, is_jr = false;
   uint64_t correct_pc = 0;
   bool is_store = false, is_fp_store = false;
-
+  
   int32_t rob_idx = -1;
   /* result will get written to prf idx */
   int32_t prf_idx = -1, aux_prf_idx=-1;
@@ -180,6 +180,9 @@ public:
   virtual void log_rollback(sim_state &machine_state) const;
   virtual int64_t get_latency() const;
   virtual bool stop_sim() const {
+    return false;
+  }
+  virtual bool serialize_and_flush() const {
     return false;
   }
   virtual int get_dest() const {

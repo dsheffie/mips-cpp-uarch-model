@@ -174,7 +174,6 @@ public:
     }
     return true;
   }
-
 };
 
 
@@ -345,10 +344,6 @@ public:
 	machine_state.gpr_valid.clear_bit(m->prf_idx);
       }
     }
-    //if( ((jt == jump_type::jal) or (jt == jump_type::jr)) and
-    //(m->return_stack_idx != -1)) {
-    //machine_state.return_stack.set_tos_idx(m->return_stack_idx);
-    //}
     log_rollback(machine_state);
   }
 };
@@ -442,10 +437,6 @@ public:
 	machine_state.gpr_valid.clear_bit(m->prf_idx);
       }
     }
-    //if( ((jt == jump_type::jal) or (jt == jump_type::jr)) and
-    //(m->return_stack_idx != -1)) {
-    //machine_state.return_stack.set_tos_idx(m->return_stack_idx);
-    //}
     log_rollback(machine_state);
   }
 };
@@ -555,10 +546,6 @@ public:
 	machine_state.gpr_valid.clear_bit(m->prf_idx);
       }
     }
-    //if( ((jt == jump_type::jal) or (jt == jump_type::jr)) and
-    //(m->return_stack_idx != -1)) {
-    //machine_state.return_stack.set_tos_idx(m->return_stack_idx);
-    //}
     log_rollback(machine_state);
   }
 };
@@ -597,6 +584,129 @@ public:
   }
 };
 
+
+class csrrx_op : public riscv_op {
+public:
+  csrrx_op(sim_op op) : riscv_op(op) {
+    this->op_class = oper_type::system;
+    op->could_cause_exception = true;
+  }
+  int get_dest() const override {
+    int d = (m->inst>>7) & 31;
+    return d==0 ? -1 : d;
+  }
+  int get_src0() const override {
+    int s = (m->inst >> 15) & 31;
+    return s==0 ? -1 : s;
+  }
+  bool allocate(sim_state &machine_state) override {
+    if(get_src0() != -1) {
+      m->src0_prf = machine_state.gpr_rat[get_src0()];
+    }
+    if(get_dest() > 0) {
+      m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
+      int64_t prf_id = machine_state.gpr_freevec.find_first_unset();
+      if(prf_id == -1) {
+	return false;
+      }
+      machine_state.gpr_freevec.set_bit(prf_id);
+      machine_state.gpr_rat[get_dest()] = prf_id;
+      m->prf_idx = prf_id;
+      machine_state.gpr_valid.clear_bit(prf_id);
+    }
+    machine_state.alloc_blocked = true;
+    return true;
+  }
+  bool ready(sim_state &machine_state) const override  {
+    if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+      return false;
+    }    
+    return true;
+  }
+  void execute(sim_state &machine_state) override {
+    m->exception = exception_type::serializing;
+    
+    m->complete_cycle = get_curr_cycle() + get_latency();
+  }
+  bool retire(sim_state &machine_state) override {
+    if(m->prev_prf_idx != -1) {
+      machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+      machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+      machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+      machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+      machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+      machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+      machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
+    }
+    retired = true;
+
+    m->retire_cycle = get_curr_cycle();
+    //std::cout << "jalr retire..\n";
+    log_retire(machine_state);
+    return true;
+  }
+  
+  void rollback(sim_state &machine_state) override {
+    if(get_dest() != -1) {
+      if(m->prev_prf_idx != -1) {
+	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+      }
+      if(m->prf_idx != -1) {
+	machine_state.gpr_freevec.clear_bit(m->prf_idx);
+	machine_state.gpr_valid.clear_bit(m->prf_idx);
+      }
+    }
+    log_rollback(machine_state);
+  }
+};
+
+
+
+static inline riscv_op *decode_system_insn(sim_op m_op) {
+  uint32_t inst = m_op->inst;
+  riscv::riscv_t m(inst);
+  uint32_t csr_id = (inst>>20);
+  bool is_ecall = ((inst >> 7) == 0);
+  bool is_ebreak = ((inst>>7) == 0x2000);
+  bool bits19to7z = (((inst >> 7) & 8191) == 0);
+  uint64_t upper7 = (inst>>25);
+  if(is_ecall) {
+    die();
+  }
+  else if(upper7 == 9 && ((inst & (16384-1)) == 0x73 )) {
+    /* clear tlbs */
+    die();
+  }
+  else if(bits19to7z and (csr_id == 0x002)) { /* uret */
+    die();
+  }
+  else if(bits19to7z and (csr_id == 0x102)) { /* sret */
+    die();
+  }
+  else if(bits19to7z and (csr_id == 0x105)) {  /* wfi */
+    die();
+  }
+  else if(bits19to7z and (csr_id == 0x202)) {  /* hret */
+    die();    
+  }            
+  else if(bits19to7z and (csr_id == 0x302)) {  /* mret */
+    die();    
+  }
+  else if(is_ebreak) {
+    die();
+  }
+  else {
+    return new csrrx_op(m_op);
+  }
+  return nullptr;
+}
+
+
+
+
+
+
+
 riscv_op* decode_insn(sim_op m_op) {
   uint32_t opcode = (m_op->inst)&127;
   uint32_t rd = (m_op->inst>>7) & 31;
@@ -626,8 +736,7 @@ riscv_op* decode_insn(sim_op m_op) {
     case 0x6f: /* jal */
       return new jal_op(m_op);
     case 0x73: { /* system */
-      return new nop_op(m_op, false);      
-      break;
+      return decode_system_insn(m_op);      
     }
     default:
       break;

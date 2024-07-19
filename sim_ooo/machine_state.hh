@@ -34,35 +34,16 @@ public:
   uint32_t last_compare_pc = 0;
   uint64_t last_compare_icnt = 0;
 
-  static const int num_gpr_regs = 34;
-  static const int num_cpr0_regs = 32;
-  static const int num_cpr1_regs = 32;
-  static const int num_fcr1_regs = 5;
+  static const int num_gpr_regs = 32;
   
   /* hi and lo in grf too */
   int32_t gpr_rat[num_gpr_regs];
-  int32_t cpr0_rat[num_cpr0_regs];
-  int32_t cpr1_rat[num_cpr1_regs];
-  int32_t fcr1_rat[num_fcr1_regs];
-
   int32_t gpr_rat_retire[num_gpr_regs];
-  int32_t cpr0_rat_retire[num_cpr0_regs];
-  int32_t cpr1_rat_retire[num_cpr1_regs];
-  int32_t fcr1_rat_retire[num_fcr1_regs];
 
   int num_gpr_prf_ = -1;
-  int num_cpr0_prf_ = -1;
-  int num_cpr1_prf_ = -1;
-  int num_fcr1_prf_ = -1;
+  int64_t arch_grf[num_gpr_regs] = {0};
+  uint64_t arch_grf_last_pc[num_gpr_regs] = {0};
   
-  int32_t arch_grf[num_gpr_regs] = {0};
-  uint32_t arch_grf_last_pc[num_gpr_regs] = {0};
-
-  uint32_t arch_cpr1[num_cpr1_regs] = {0};
-  uint32_t arch_cpr1_last_pc[num_cpr1_regs] = {0};
-
-  uint32_t arch_fcr1[num_fcr1_regs] = {0};
-  uint32_t arch_fcr1_last_pc[num_fcr1_regs] = {0};
   
   int64_t *gpr_prf = nullptr;
 

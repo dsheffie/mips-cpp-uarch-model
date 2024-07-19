@@ -125,6 +125,10 @@ void retire(sim_state &machine_state) {
 	exception = true;
 	break;
       }
+      else if(u->exception==exception_type::serializing) {
+	exception = true;
+	break;
+      }
       else if(u->load_exception) {
 	machine_state.nukes++;
 	machine_state.load_nukes++;
@@ -209,20 +213,27 @@ void retire(sim_state &machine_state) {
 	rob.pop();
 	retire_amt++;
       }
+      else if(u->exception==exception_type::serializing) {
+	u->op->retire(machine_state);
+	num_retired_insns++;
+	if(global::use_interp_check and (s->pc == u->pc)) {
+	  execRiscv(s);
+	}
+	rob.pop();
+	retire_amt++;
+      }
       machine_state.nuke = true;
       stuck_cnt = 0;
       if(u->exception == exception_type::branch) {
 	machine_state.fetch_pc = u->correct_pc;
-	if(enable_oracle) {
-	  assert((u->fetch_icnt+1)==machine_state.fetched_insns);
-	}
+	delete u;
+      }
+      else if(u->exception==exception_type::serializing) {
+	machine_state.fetch_pc = u->pc + 4;
 	delete u;
       }
       else {
 	machine_state.fetch_pc = u->pc;
-	if(enable_oracle) {
-	  machine_state.fetched_insns = u->fetch_icnt;
-	}
       }
       if(machine_state.l1d) {
 	machine_state.l1d->nuke_inflight();
