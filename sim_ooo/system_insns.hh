@@ -187,6 +187,9 @@ public:
     this->op_class = oper_type::system;
     op->could_cause_exception = true;
   }
+  bool serialize_and_flush() const override {
+    return true;
+  }
   int get_dest() const override {
     int d = (m->inst>>7) & 31;
     return d==0 ? -1 : d;
@@ -233,6 +236,8 @@ public:
 	    die();
 	  }
 	}
+	printf("writing csr %d with value %llx for pc %llx (case 1)\n", csr_id, machine_state.gpr_prf[m->src0_prf], m->pc);
+  	printf("case 1 : pc %llx src0 = %d, rs = %d\n", m->pc, get_src0(), ((m->inst >> 15) & 31));
 	write_csr(csr_id, &machine_state, machine_state.gpr_prf[m->src0_prf], undef);
 	if(undef) {
 	  die();
@@ -247,10 +252,14 @@ public:
 	if(undef) {
 	  die();
 	}
+	printf("case 2 : pc %llx src0 = %d, rs = %d\n", m->pc, get_src0(), ((m->inst >> 15) & 31));
+	
 	if(get_src0()) {
+	  printf("writing csr %d with value %llx for pc %llx (case 2)\n", csr_id, t|machine_state.gpr_prf[m->src0_prf], m->pc);
 	  write_csr(csr_id, &machine_state, t | machine_state.gpr_prf[m->src0_prf], undef);
 	  if(undef) die();
 	}
+	
 	if(m->prf_idx != -1) {
 	  machine_state.gpr_prf[m->prf_idx] = t;
 	}
@@ -276,7 +285,6 @@ public:
     retired = true;
 
     m->retire_cycle = get_curr_cycle();
-    //std::cout << "jalr retire..\n";
     log_retire(machine_state);
     return true;
   }

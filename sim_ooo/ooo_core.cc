@@ -531,6 +531,9 @@ extern "C" {
 	else if(u->decode_cycle == global::curr_cycle) {
 	  break;
 	}
+	if(u->op->serialize_and_flush() and not(rob.empty())) {
+	  break;
+	}
 
 	switch(u->op->get_op_class())
 	  {
@@ -779,7 +782,34 @@ void sim_state::copy_state(const state_t *s) {
     gpr_prf[gpr_rat[i]] = s->gpr[i];
     arch_grf[i] = s->gpr[i];
   }
-
+  priv = s->priv;
+  mstatus = s->mstatus;
+  misa = s->misa;
+  mideleg = s->mideleg;
+  medeleg = s->medeleg;
+  mscratch = s->mscratch;
+  mhartid = s->mhartid;
+  mtvec = s->mtvec;
+  mcounteren = s->mcounteren;
+  mie = s->mie;
+  mip = s->mip;
+  mcause = s->mcause;
+  mepc = s->mepc;
+  mtval = s->mtval;
+  sscratch = s->sscratch;
+  scause = s->scause;
+  stvec = s->stvec;
+  sepc = s->sepc;
+  sip = s->sip;
+  stval = s->stval;
+  satp = s->satp;
+  scounteren = s->scounteren; 
+  pmpaddr0 = s->pmpaddr0;
+  pmpaddr1 = s->pmpaddr1;
+  pmpaddr2 = s->pmpaddr2;
+  pmpaddr3 = s->pmpaddr3;
+  pmpcfg0 = s->pmpcfg0;
+  mtimecmp = s->mtimecmp;
   icnt = s->icnt;
 }
 
