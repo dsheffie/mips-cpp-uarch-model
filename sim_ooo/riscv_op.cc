@@ -557,9 +557,9 @@ public:
   }
 };
 
-class auipc_op : public gpr_dst_op {
+class auipc_lui_op : public gpr_dst_op {
 public:
-  auipc_op(sim_op op) : gpr_dst_op(op) {
+  auipc_lui_op(sim_op op) : gpr_dst_op(op) {
     this->op_class = oper_type::alu;
   }
   int get_dest() const override {
@@ -582,6 +582,13 @@ public:
   bool ready(sim_state &machine_state) const override  {
     return true;
   }
+};
+
+class auipc_op : public auipc_lui_op {
+public:
+  auipc_op(sim_op op) : auipc_lui_op(op) {
+    this->op_class = oper_type::alu;
+  }
   void execute(sim_state &machine_state) override {
     int64_t imm = m->inst & (~4095);
     imm = (imm << 32) >> 32;
@@ -591,6 +598,17 @@ public:
   }
 };
 
+class lui_op : public auipc_lui_op {
+public:
+  lui_op(sim_op op) : auipc_lui_op(op) {
+    this->op_class = oper_type::alu;
+  }
+  void execute(sim_state &machine_state) override {
+    int32_t imm32 = m->inst & 0xfffff000;
+    sext_xlen(machine_state, imm32, m->prf_idx);	    
+    m->complete_cycle = get_curr_cycle() + get_latency();
+  }
+};
 
 
 
@@ -659,6 +677,8 @@ riscv_op* decode_insn(sim_op m_op) {
       return new riscv_store(m_op, riscv_store::stypes[m.s.sel]);
     case 0x33:
       return new rtype_op(m_op);
+    case 0x37:
+      return new lui_op(m_op);
     case 0x50:
       return new nop_op(m_op, true);
       break;
