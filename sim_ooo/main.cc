@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
   std::string filename, sysArgs, logfile, pipelog;
   bool use_l2 = true, use_l3 = true;
   uint64_t maxicnt = ~(0UL), skipicnt = 0;
-  bool use_checkpoint = false, use_oracle = false, hash=false;
+  bool use_checkpoint = false, use_oracle = false;
   bool use_syscall_skip = false, use_mem_model = false;
   bool clear_checkpoint_icnt = false;
   bool warmstart = true;
@@ -93,9 +93,8 @@ int main(int argc, char *argv[]) {
     ("args,a", po::value<std::string>(&sysArgs), "arguments to mips binary")
     ("clock,c", po::value<bool>(&global::enClockFuncts)->default_value(false), "enable wall-clock")
     ("file,f", po::value<std::string>(&filename), "mips binary")
-    ("hash,h", po::value<bool>(&hash)->default_value(false), "take crc32 at end of execution")
     ("skipicnt,k", po::value<uint64_t>(&skipicnt)->default_value(0), "instruction skip count")
-    ("maxicnt,m", po::value<uint64_t>(&maxicnt)->default_value(~0UL), "maximum instruction count")
+    ("maxicnt,m", po::value<uint64_t>(&maxicnt)->default_value(1000), "maximum instruction count")
     ("oracle,o", po::value<bool>(&use_oracle)->default_value(false), "use branch oracle")
     ("checkpoint,p", po::value<bool>(&use_checkpoint)->default_value(false), "use a machine checkpoint")
     ("clricnt", po::value<bool>(&clear_checkpoint_icnt)->default_value(true), "clear icnt after loading checkpoint")

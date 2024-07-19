@@ -69,58 +69,6 @@ void fetch(sim_state &machine_state) {
 					 machine_state.fetch_pc,
 					 inst,
 					 global::curr_cycle);
-      //bool backwards_br = (get_branch_target(machine_state.fetch_pc, inst) < machine_state.fetch_pc);
-      
-      // if(false) {
-
-      // }
-      // else {
-      // 	f->prediction = machine_state.branch_pred->predict(f->pht_idx);
-	
-      // 	if(is_jr(inst)) {
-      // 	  f->return_stack_idx = return_stack.get_tos_idx();
-      // 	  npc = return_stack.pop();
-      // 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-      // 	  used_return_addr_stack = true;
-      // 	}
-      // 	else if(is_jal(inst)) {
-      // 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-      // 	  npc = get_jump_target(machine_state.fetch_pc, inst);
-      // 	  predict_taken = true;
-      // 	  f->return_stack_idx = return_stack.get_tos_idx();
-      // 	  return_stack.push(machine_state.fetch_pc + 8);
-      // 	  fetch_amt++;
-      // 	}
-      // 	else if(is_j(inst)) {
-      // 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-      // 	  npc = get_jump_target(machine_state.fetch_pc, inst);
-      // 	  predict_taken = true;
-      // 	}
-      // 	else if(it != branch_prediction_map.end()) {
-      // 	  predict_taken = (f->prediction > 1);
-
-      // 	  /* check if backwards branch with valid loop predictor entry */	  
-      // 	  if(backwards_br and (machine_state.loop_pred !=nullptr) ) {
-      // 	    if(machine_state.loop_pred->valid_loop_branch(machine_state.fetch_pc)) {
-      // 	      predict_taken = machine_state.loop_pred->predict(machine_state.fetch_pc, f->prediction);
-      // 	    }
-      // 	  }
-
-	  
-      // 	  if(predict_taken) {
-      // 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-      // 	    npc = branch_target_map.at(machine_state.fetch_pc);
-      // 	  }
-      // 	}
-      // 	else if(is_nonlikely_branch(inst)) {
-      // 	  uint32_t target = get_branch_target(machine_state.fetch_pc, inst);
-      // 	  if(target < machine_state.fetch_pc) {
-      // 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
-      // 	    npc = get_branch_target(machine_state.fetch_pc, inst);
-      // 	    predict_taken = true;
-      // 	  }
-      // 	}
-      // }
       f->fetch_npc = npc;
       f->predict_taken = predict_taken;
       f->pop_return_stack = used_return_addr_stack;
@@ -550,7 +498,6 @@ extern "C" {
       fpu_alloc.clear();
       load_alloc.clear();
       store_alloc.clear();
-
       
       while(not(decode_queue.empty())
 	    and not(rob.full())

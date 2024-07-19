@@ -119,42 +119,6 @@ public:
   }
 };
 
-class gpr_dst_op : public riscv_op {
-public:
-  gpr_dst_op(sim_op op) : riscv_op(op) {}
-  int get_dest() const override {
-    return (m->inst>>7) & 31;    
-  }
-  bool retire(sim_state &machine_state) override {
-    if(m->is_complete == false) {
-      die();
-    }
-    machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
-    machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
-    retired = true;
-    machine_state.icnt++;
-    machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
-    machine_state.arch_grf_last_pc[get_dest()] = m->pc;
-    machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
-    machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
-    machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
-    m->retire_cycle = get_curr_cycle();
-    log_retire(machine_state);
-    return true;
-  }
-  void rollback(sim_state &machine_state) override {
-    if(get_dest() > 0) {
-      if(m->prev_prf_idx != -1) {
-	machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
-      }
-      if(m->prf_idx != -1) {
-	machine_state.gpr_freevec.clear_bit(m->prf_idx);
-	machine_state.gpr_valid.clear_bit(m->prf_idx);
-      }
-    }
-    log_rollback(machine_state);
-  }  
-};
 
 class itype_op : public gpr_dst_op {
 public:
@@ -642,6 +606,8 @@ riscv_op* decode_insn(sim_op m_op) {
     {
     case 0x0:
       return new nop_op(m_op, true);
+    case 0x3:
+      return new riscv_load(m_op, riscv_load::ltypes[m.s.sel]);
     case 0x13: 
       return new itype_op(m_op);
     case 0x17: /* auipc */
@@ -773,3 +739,140 @@ bool riscv_store::retire(sim_state &machine_state) {
 int64_t riscv_store::get_latency() const {
   return sim_param::l1d_latency;
 }
+
+
+bool riscv_load::stall_for_load(sim_state &machine_state) const {
+  for(size_t i = 0, s = machine_state.store_tbl_freevec.size(); i < s; i++) {
+    if(machine_state.store_tbl[i] != nullptr) {
+      auto st = machine_state.store_tbl[i];
+      if(st->alloc_id < m->alloc_id) {
+	return true;
+      }
+    }
+  }
+  return false;
+}
+
+
+bool riscv_load::allocate(sim_state &machine_state)  {
+  m->src0_prf = machine_state.gpr_rat[get_src0()];
+  if(get_src1() != -1) {
+    m->src1_prf = machine_state.gpr_rat[get_src1()];
+  }
+    m->prev_prf_idx = machine_state.gpr_rat[get_dest()];
+    m->prf_idx = machine_state.gpr_freevec.find_first_unset();
+    m->load_tbl_idx = machine_state.load_tbl_freevec.find_first_unset();
+    
+    if(m->prf_idx == -1 or m->load_tbl_idx == -1) {
+      return false;
+    }
+    machine_state.load_tbl[m->load_tbl_idx] = m;
+    machine_state.gpr_freevec.set_bit(m->prf_idx);
+    machine_state.load_tbl_freevec.set_bit(m->load_tbl_idx);
+    machine_state.gpr_rat[get_dest()] = m->prf_idx;
+    machine_state.gpr_valid.clear_bit(m->prf_idx);
+    return true;
+}
+
+bool riscv_load::ready(sim_state &machine_state) const {
+  if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
+    return false;
+  }
+  if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
+    return false;
+  }
+  if(stall_for_load(machine_state)) {
+    return false;
+  }
+  return true;
+}
+
+void riscv_load::execute(sim_state &machine_state) {
+  effective_address = machine_state.gpr_prf[m->src0_prf] + imm;
+  m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
+}
+
+int64_t riscv_load::get_latency() const {
+  return sim_param::l1d_latency;
+}
+
+void riscv_load::complete(sim_state &machine_state) {
+  if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
+    m->is_complete = true;
+    uint8_t *mem = machine_state.mem;
+    if(m->load_exception) {
+      return;
+    }
+    switch(lt)
+      {
+      case load_type::lb:
+	machine_state.gpr_prf[m->prf_idx] = *reinterpret_cast<int8_t*>(mem + effective_address);
+	break;
+      default:
+	std::cerr << *this << "\n";
+	die();
+      }
+    machine_state.gpr_valid.set_bit(m->prf_idx);
+  }
+}
+ 
+bool riscv_load::retire(sim_state &machine_state) {
+  if(m->load_exception) {
+    die();
+  }
+  machine_state.load_tbl[m->load_tbl_idx] = nullptr;
+  machine_state.load_tbl_freevec.clear_bit(m->load_tbl_idx);
+  machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+  machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+  retired = true;
+  machine_state.icnt++;
+  machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+  machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+  machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+  machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+  machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
+  
+  m->retire_cycle = get_curr_cycle();
+  log_retire(machine_state);
+  return true;
+}
+
+void riscv_load::rollback(sim_state &machine_state) {
+  machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+  machine_state.gpr_freevec.clear_bit(m->prf_idx);
+  machine_state.gpr_valid.clear_bit(m->prf_idx);
+  machine_state.load_tbl_freevec.clear_bit(m->load_tbl_idx);
+  machine_state.load_tbl[m->load_tbl_idx] = nullptr;
+  log_rollback(machine_state);
+}
+
+bool gpr_dst_op::retire(sim_state &machine_state)  {
+  if(m->is_complete == false) {
+    die();
+  }
+  machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+  machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+  retired = true;
+  machine_state.icnt++;
+  machine_state.arch_grf[get_dest()] = machine_state.gpr_prf[m->prf_idx];
+  machine_state.arch_grf_last_pc[get_dest()] = m->pc;
+  machine_state.gpr_rat_retire[get_dest()] = m->prf_idx;
+  machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+  machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);
+  m->retire_cycle = get_curr_cycle();
+  log_retire(machine_state);
+  return true;
+}
+
+void gpr_dst_op::rollback(sim_state &machine_state)  {
+  if(get_dest() > 0) {
+    if(m->prev_prf_idx != -1) {
+      machine_state.gpr_rat[get_dest()] = m->prev_prf_idx;
+    }
+    if(m->prf_idx != -1) {
+      machine_state.gpr_freevec.clear_bit(m->prf_idx);
+      machine_state.gpr_valid.clear_bit(m->prf_idx);
+      }
+  }
+  log_rollback(machine_state);
+}  

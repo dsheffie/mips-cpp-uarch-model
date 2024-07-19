@@ -206,6 +206,19 @@ public:
  
 };
 
+
+class gpr_dst_op : public riscv_op {
+public:
+  gpr_dst_op(sim_op op) : riscv_op(op) {}
+  int get_dest() const override {
+    return (m->inst>>7) & 31;    
+  }
+  bool retire(sim_state &machine_state) override;
+  void rollback(sim_state &machine_state) override;
+};
+
+
+
 class riscv_store : public riscv_op {
 public:
   enum class store_type {sb,sh,sw,sd,bogus};
@@ -239,16 +252,25 @@ public:
   
 };
 
-class riscv_load : public riscv_op {
+class riscv_load : public gpr_dst_op {
 public:
-  enum class load_type {lb,lbu,lh,lhu,lw,ld,bogus};
+  enum class load_type {lb,lh,lw,ld,lbu,lhu,lwu,bogus};
+  static constexpr load_type ltypes[] = {load_type::lb,
+					 load_type::lh,
+					 load_type::lw,
+					 load_type::ld,
+					 load_type::lbu,
+					 load_type::lhu,
+					 load_type::lwu,
+					 load_type::bogus};
+  
 protected:
   load_type lt;
   int64_t imm = -1;
   uint64_t effective_address = ~0;
   bool stall_for_load(sim_state &machine_state) const;
 public:
-  riscv_load(sim_op op, load_type lt) : riscv_op(op), lt(lt) {
+  riscv_load(sim_op op, load_type lt) : gpr_dst_op(op), lt(lt) {
     this->op_class = oper_type::load;
     op->could_cause_exception = true;
     int32_t disp = di.l.imm11_0;
@@ -257,9 +279,19 @@ public:
     }
     imm= ((static_cast<int64_t>(disp) << 32) >> 32);
   }
+  int get_src0() const override {
+    return di.l.rs1;
+  }
   uint64_t getEA() const {
     return effective_address;
   }
+  bool allocate(sim_state &machine_state) override;
+  bool ready(sim_state &machine_state) const override;
+  void execute(sim_state &machine_state) override;
+  void complete(sim_state &machine_state) override;  
+  bool retire(sim_state &machine_state) override;
+  void rollback(sim_state &machine_state) override;  
+  int64_t get_latency() const override;  
 };
 
 std::ostream &operator<<(std::ostream &out, const riscv_op &op);
