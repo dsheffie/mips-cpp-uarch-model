@@ -988,6 +988,17 @@ public:
     return i_.ii.rt;
   }
   bool allocate(sim_state &machine_state) override {
+    if(is_likely_branch()) {
+      int prf_id = machine_state.gpr_freevec.find_first_unset();
+      if(prf_id == -1) {
+	return false;
+      }
+      machine_state.gpr_freevec.set_bit(prf_id);
+      m->prev_prf_idx = machine_state.gpr_rat[sim_state::num_gpr_regs-1];      
+      machine_state.gpr_rat[sim_state::num_gpr_regs-1] = prf_id;
+      m->prf_idx = prf_id;
+      machine_state.gpr_valid.clear_bit(prf_id);      
+    }
     if(is_fp_branch()) {
       m->src0_prf = machine_state.fcr1_rat[CP1_CR25];
     }
@@ -1091,6 +1102,10 @@ public:
     }
     else {
       m->correct_pc = m->pc + 8;
+      if(is_likely_branch()) {	
+	assert(m->prf_idx != -1);
+	machine_state.gpr_prf[m->prf_idx] = (m->fetch_npc == (m->pc+8));
+      }
       if(is_likely_branch() and (m->fetch_npc != (m->pc+8))) {
 	//printf("mispredicted likely branch at pc %x..\n", m->pc);
 	m->exception = exception_type::branch;
@@ -1128,7 +1143,16 @@ public:
       std::cout << machine_state.bht.at(bht_idx) << "\n";
     }
 #endif
-
+    if(m->prf_idx != -1) {
+      assert(m->prev_prf_idx != -1);      
+      machine_state.gpr_freevec.clear_bit(m->prev_prf_idx);
+      machine_state.gpr_valid.clear_bit(m->prev_prf_idx);
+      machine_state.arch_grf[sim_state::num_gpr_regs-1] = machine_state.gpr_prf[m->prf_idx];
+      machine_state.arch_grf_last_pc[sim_state::num_gpr_regs-1] = m->pc;
+      machine_state.gpr_rat_retire[sim_state::num_gpr_regs-1] = m->prf_idx;
+      machine_state.gpr_freevec_retire.set_bit(m->prf_idx);
+      machine_state.gpr_freevec_retire.clear_bit(m->prev_prf_idx);      
+    }
 
     //printf("fetch token = %u\n", m->fetch_token);
     machine_state.branch_pred->update(m->pc, m->fetch_token, branch_target, take_br);

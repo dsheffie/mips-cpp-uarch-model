@@ -35,7 +35,7 @@ public:
   uint32_t last_compare_pc = 0;
   uint64_t last_compare_icnt = 0;
 
-  static const int num_gpr_regs = 34;
+  static const int num_gpr_regs = 35;
   static const int num_cpr0_regs = 32;
   static const int num_cpr1_regs = 32;
   static const int num_fcr1_regs = 5;
@@ -46,6 +46,7 @@ public:
   int32_t cpr1_rat[num_cpr1_regs];
   int32_t fcr1_rat[num_fcr1_regs];
 
+  
   int32_t gpr_rat_retire[num_gpr_regs];
   int32_t cpr0_rat_retire[num_cpr0_regs];
   int32_t cpr1_rat_retire[num_cpr1_regs];

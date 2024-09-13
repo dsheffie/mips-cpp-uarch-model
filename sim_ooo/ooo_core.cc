@@ -1177,7 +1177,7 @@ void sim_state::initialize_rat_mappings() {
     cpr1_valid.set_bit(i);
   }
   /* lo and hi regs */
-  for(int i = 32; i < 34; i++) {
+  for(int i = 32; i < num_gpr_regs; i++) {
     gpr_rat[i] = i;
     gpr_rat_retire[i] = i;
     gpr_freevec.set_bit(i);
