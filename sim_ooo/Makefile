@@ -4,9 +4,9 @@ OBJ = githash.o saveState.o main.o loadelf.o helper.o interpret.o gthread.o spar
 
 
 ifeq ($(UNAME_S),Linux)
-	CXX = clang++-12 -march=native -flto
+	CXX = g++ -march=native -flto
 	OBJ += gthread_asm.o
-	EXTRA_LD = -lunwind -lboost_program_options -lboost_serialization -ltcmalloc_minimal -lcapstone
+	EXTRA_LD = -lunwind -lboost_program_options -lboost_serialization -ljemalloc -lcapstone
 endif
 
 ifeq ($(UNAME_S),FreeBSD)
