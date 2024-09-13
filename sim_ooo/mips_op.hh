@@ -81,7 +81,8 @@ public:
   uint64_t fetch_icnt = 0;
   uint32_t pc = 0;
   uint32_t inst = 0;
-  uint32_t fetch_npc = 0;  
+  uint32_t fetch_npc = 0;
+  uint32_t fetch_token = 0;
   bool predict_taken = false;
   int32_t prediction = 0;
   uint64_t pht_idx = 0;
@@ -130,7 +131,8 @@ public:
     this->inst = inst;
     this->fetch_cycle = fetch_cycle;
 
-    fetch_npc = 0;  
+    fetch_npc = 0;
+    fetch_token = 0;
     predict_taken = false;
     prediction = 0;
     pht_idx = 0;
@@ -182,10 +184,12 @@ public:
   mips_meta_op(uint64_t fetch_icnt,
 	       uint32_t pc,
 	       uint32_t inst,
+	       uint32_t fetch_token,
 	       uint64_t fetch_cycle) :
     fetch_icnt(fetch_icnt),
     pc(pc),
     inst(inst),
+    fetch_token(fetch_token),
     fetch_npc(0),
     fetch_cycle(fetch_cycle),
     predict_taken(false),
@@ -194,6 +198,7 @@ public:
   mips_meta_op(uint64_t fetch_icnt,
 	       uint32_t pc,
 	       uint32_t inst,
+	       uint32_t fetch_token,
 	       uint32_t fetch_npc,
 	       uint64_t fetch_cycle,
 	       bool predict_taken,
@@ -201,6 +206,7 @@ public:
     fetch_icnt(fetch_icnt),
     pc(pc),
     inst(inst),
+    fetch_token(fetch_token),    
     fetch_npc(fetch_npc),
     fetch_cycle(fetch_cycle),
     predict_taken(predict_taken),

@@ -845,8 +845,8 @@ public:
     branch_target_map[m->pc] = m->correct_pc;
     branch_prediction_map[m->pc] = 3;
 
-
-    machine_state.branch_pred->update(m->pc, m->pht_idx, true);
+    //printf("fetch token = %u\n", m->fetch_token);
+    machine_state.branch_pred->update(m->pc, m->fetch_token, m->correct_pc, true);
 
 
     uint32_t bht_idx = (m->pc>>2) & (machine_state.bht.size()-1);
@@ -1092,11 +1092,13 @@ public:
     else {
       m->correct_pc = m->pc + 8;
       if(is_likely_branch() and (m->fetch_npc != (m->pc+8))) {
+	//printf("mispredicted likely branch at pc %x..\n", m->pc);
 	m->exception = exception_type::branch;
       }
     }
 
     if(m->predict_taken != take_br) {
+      //printf("mispredicted branch at pc %x..\n", m->pc);
       m->exception = exception_type::branch;
     }
     if(m->exception == exception_type::branch) {
@@ -1114,6 +1116,8 @@ public:
     machine_state.icnt++;
     machine_state.n_branches++;
     if(m->exception == exception_type::branch) {
+      //printf("mispredicted branch at pc %x, prediction was %u, take_br = %u\n",
+      //m->pc, m->prediction, take_br);
       machine_state.mispredicted_branches++;
     }
     uint32_t bht_idx = (m->pc>>2) & (machine_state.bht.size()-1);
@@ -1125,12 +1129,9 @@ public:
     }
 #endif
 
-    /* backwards branch */
-    if((branch_target < m->pc) and (machine_state.loop_pred != nullptr)) {
-      machine_state.loop_pred->update(m->pc, take_br, m->predict_taken, m->prediction);
-    }
-    
-    machine_state.branch_pred->update(m->pc, m->pht_idx, take_br);
+
+    //printf("fetch token = %u\n", m->fetch_token);
+    machine_state.branch_pred->update(m->pc, m->fetch_token, branch_target, take_br);
     
     machine_state.bht.at(bht_idx).shift_left(1);
     machine_state.bhr.shift_left(1);

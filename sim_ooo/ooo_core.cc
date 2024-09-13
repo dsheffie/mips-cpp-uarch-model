@@ -102,6 +102,7 @@ void fetch(sim_state &machine_state) {
 	auto f = new mips_meta_op(machine_state.fetched_insns,
 				  machine_state.delay_slot_npc,
 				  inst,
+				  machine_state.fe_branch_cnt,
 				  machine_state.delay_slot_npc+4,
 				  global::curr_cycle,
 				  false,
@@ -185,6 +186,7 @@ void fetch(sim_state &machine_state) {
       mips_meta_op *f = new mips_meta_op(machine_state.fetched_insns,
 					 machine_state.fetch_pc,
 					 inst,
+					 machine_state.fe_branch_cnt,
 					 global::curr_cycle);
       bool backwards_br = (get_branch_target(machine_state.fetch_pc, inst) < machine_state.fetch_pc);
 
@@ -206,7 +208,12 @@ void fetch(sim_state &machine_state) {
 	}
       }
       else {
-	f->prediction = machine_state.branch_pred->predict(f->pht_idx);
+
+	f->prediction = machine_state.branch_pred->predict(machine_state.fetch_pc, machine_state.fe_branch_cnt);
+	machine_state.fe_branch_cnt++;
+	if(machine_state.fe_branch_cnt >= branch_predictor::fetch_state_sz) {
+	  machine_state.fe_branch_cnt = 0;
+	}
 	
 	if(is_jr(inst)) {
 	  f->return_stack_idx = return_stack.get_tos_idx();
@@ -228,16 +235,8 @@ void fetch(sim_state &machine_state) {
 	  predict_taken = true;
 	}
 	else if(it != branch_prediction_map.end()) {
-	  predict_taken = (f->prediction > 1);
-
+	  predict_taken = f->prediction;
 	  /* check if backwards branch with valid loop predictor entry */	  
-	  if(backwards_br and (machine_state.loop_pred !=nullptr) ) {
-	    if(machine_state.loop_pred->valid_loop_branch(machine_state.fetch_pc)) {
-	      predict_taken = machine_state.loop_pred->predict(machine_state.fetch_pc, f->prediction);
-	    }
-	  }
-
-	  
 	  if(predict_taken) {
 	    machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	    npc = branch_target_map.at(machine_state.fetch_pc);
@@ -560,7 +559,7 @@ void retire(sim_state &machine_state) {
 	  c++;
 	}
       }
-      
+      machine_state.fe_branch_cnt = 0;
       memcpy(&machine_state.gpr_rat, &machine_state.gpr_rat_retire,
 	     sizeof(int32_t)*sim_state::num_gpr_regs);
       memcpy(&machine_state.cpr0_rat, &machine_state.cpr0_rat_retire,
@@ -710,7 +709,7 @@ void initialize_ooo_core(sim_state &machine_state,
   machine_state.maxicnt = maxicnt;
   machine_state.skipicnt = s->icnt;
   machine_state.copy_state(s);
-
+  machine_state.fe_branch_cnt = 0;
   //u_arch_mem->mark_pages_as_no_write();
 }
 
@@ -742,9 +741,6 @@ void destroy_ooo_core(sim_state &machine_state) {
   }
   delete machine_state.mem;
   delete machine_state.branch_pred;
-  if(machine_state.loop_pred != nullptr) {
-    delete machine_state.loop_pred;
-  }
   
   gthread::free_threads();
 }
@@ -1202,7 +1198,7 @@ void sim_state::initialize() {
   num_cpr0_prf_ = sim_param::num_cpr0_prf;
   num_cpr1_prf_ = sim_param::num_cpr1_prf;
   num_fcr1_prf_ = sim_param::num_fcr1_prf;
-  
+
   gpr_prf = new int32_t[num_gpr_prf_];
   memset(gpr_prf, 0, sizeof(int32_t)*num_gpr_prf_);
   cpr0_prf = new uint32_t[num_cpr0_prf_];
@@ -1272,10 +1268,7 @@ void sim_state::initialize() {
 
   branch_pred = branch_predictor::get_predictor(sim_param::branch_predictor, *this);
     
-  if(sim_param::num_loop_entries) {
-    loop_pred = new loop_predictor(sim_param::num_loop_entries);
-  }
-  
+
   bhr.clear_and_resize(sim_param::bhr_length);
   spec_bhr.clear_and_resize(sim_param::bhr_length);
 

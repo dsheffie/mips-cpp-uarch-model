@@ -3,6 +3,7 @@
 .type saved_sp,@object
 .comm saved_sp,8,8
 
+	
 #ifdef __aarch64__
 .globl start_gthread_asm
 .type start_gthread_asm,@function

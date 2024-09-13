@@ -9,7 +9,6 @@
 #include "sim_stack.hh"
 #include "mips.hh"
 #include "branch_predictor.hh"
-#include "loop_predictor.hh"
 #include "counter2b.hh"
 #include "perceptron.hh"
 #include "pipeline_record.hh"
@@ -114,8 +113,8 @@ public:
   
   sparse_mem *mem = nullptr;
 
+  uint32_t fe_branch_cnt;
   branch_predictor *branch_pred = nullptr;
-  loop_predictor *loop_pred = nullptr;
   /* use smaller data-type */
   sim_bitvec_template<uint8_t> bhr, spec_bhr;
   std::vector<sim_bitvec> bht;
