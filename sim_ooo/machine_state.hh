@@ -135,7 +135,8 @@ public:
   uint64_t total_dispatched_insns = 0;
   uint64_t total_sched_insns = 0;
   
-  sim_stack_template<uint32_t> return_stack;
+  sim_stack_template<uint32_t> arch_return_stack;
+  sim_stack_template<uint32_t> spec_return_stack;  
 
   state_t *ref_state = nullptr;
   
@@ -147,6 +148,11 @@ public:
   
   bool log_execution = false;
   pipeline_logger *sim_records = nullptr;
+
+  uint32_t last_retired_pc = 0;
+  std::map<uint32_t, double> tip_map;
+  std::map<uint32_t, uint64_t> icnt_map;
+  std::map<uint32_t, uint64_t> mispredict_map;  
   
   void initialize_rat_mappings();
   void initialize();

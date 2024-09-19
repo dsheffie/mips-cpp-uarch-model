@@ -39,31 +39,68 @@ bool mips_load::stall_for_load(sim_state &machine_state) const {
   auto it = load_alias_map.find(m->pc);
   if(it != load_alias_map.end()) {
     for(size_t i = 0, s = machine_state.store_tbl_freevec.size(); i < s; i++) {
-      if(machine_state.store_tbl[i] != nullptr) {
-	//std::cout << std::hex << machine_state.store_tbl[i]->pc
-	//<< std::dec << "\n";
-	auto st = machine_state.store_tbl[i];
-	assert(machine_state.rob.at(st->rob_idx)==st);
-	auto st_it = it->second.find(st->pc);
-	bool st_found = st_it != it->second.end();
-	//if(st_found and (st->alloc_cycle <= m->alloc_cycle)) {
-	if(st_found and (st->alloc_id < m->alloc_id)) {
+      if(machine_state.store_tbl[i] == nullptr) {
+	continue;
+      }
+      //std::cout << std::hex << machine_state.store_tbl[i]->pc
+      //<< std::dec << "\n";
+      auto st = machine_state.store_tbl[i];
+      assert(machine_state.rob.at(st->rob_idx)==st);
+      auto st_it = it->second.find(st->pc);
+      bool st_found = st_it != it->second.end();
+      //if(st_found and (st->alloc_cycle <= m->alloc_cycle)) {
+      if(st_found and (st->alloc_id < m->alloc_id)) {
 #if 0
-	  std::cout << *(st->op) << " blocks issse\n";
-	  std::cout << "store alloc'd @ "<< st->alloc_cycle << "\n";
-	  std::cout << "store ready @ "<< st->ready_cycle << "\n";
-	  std::cout << "store rob idx " << st->rob_idx << "\n";
-	  std::cout << "store retired @ "<< st->retire_cycle << "\n";
-	  std::cout << "load  alloc'd @ "<< m->alloc_cycle << "\n";
-	  std::cout << "now @  "<< get_curr_cycle() << "\n";
+	std::cout << *(st->op) << " blocks issse of " << std::hex << m->pc << std::dec << "\n";
+	std::cout << "store alloc'd @ "<< st->alloc_cycle << "\n";
+	std::cout << "store ready @ "<< st->ready_cycle << "\n";
+	std::cout << "store rob idx " << st->rob_idx << "\n";
+	std::cout << "store retired @ "<< st->retire_cycle << "\n";
+	std::cout << "load  alloc'd @ "<< m->alloc_cycle << "\n";
+	std::cout << "now @  "<< get_curr_cycle() << "\n";
 #endif
-	  return true;
-	}
+	return true;
       }
     }
   }
   return false;
 }
+
+bool mips_load::can_forward_store(sim_state &machine_state) {
+  switch(lt)
+    {
+    case load_type::lw:
+      break;
+    default:
+      return false;
+    }
+  auto it = load_alias_map.find(m->pc);
+  if(it != load_alias_map.end()) {
+    for(size_t i = 0, s = machine_state.store_tbl_freevec.size(); i < s; i++) {
+      if(machine_state.store_tbl[i] == nullptr) {
+	continue;
+      }
+      auto st = machine_state.store_tbl[i];
+      assert(machine_state.rob.at(st->rob_idx)==st);
+      auto st_it = it->second.find(st->pc);
+      bool st_found = st_it != it->second.end();
+      mips_store *istore = dynamic_cast<mips_store*>(st->op);
+      if(istore) {
+	st_found &= istore->is_int();
+      }
+      else {
+	st_found = false;
+      }
+      if(st_found and (st->alloc_id < m->alloc_id) and (st->ready_cycle != -1)) {
+	fwd_data = istore->get_data();
+	fwd_data_valid = true;
+	return true;
+      }
+    }
+  }
+  return false;
+}
+
 
 class mtc0 : public mips_op {
 public:
@@ -89,7 +126,7 @@ public:
     machine_state.cpr0_valid.clear_bit(prf_id);
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
@@ -157,7 +194,7 @@ public:
     machine_state.cpr1_valid.clear_bit(prf_id);
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
@@ -219,7 +256,7 @@ public:
     machine_state.gpr_valid.clear_bit(prf_id);
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(m->src0_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src0_prf))) {
       return false;
     }
@@ -317,7 +354,7 @@ public:
     machine_state.gpr_valid.clear_bit(prf_id);
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
@@ -445,7 +482,7 @@ public:
     }
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
@@ -617,7 +654,7 @@ public:
     }
     return true;
   }
-  bool ready(sim_state &machine_state) const override  {
+  bool ready(sim_state &machine_state) override  {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
@@ -761,7 +798,7 @@ public:
     }
     return true;
   }
-  bool ready(sim_state &machine_state) const override  {
+  bool ready(sim_state &machine_state) override  {
     if(m->src0_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
@@ -871,6 +908,9 @@ public:
 	}
       machine_state.alloc_blocked = true;
     }
+    else if((jt == jump_type::jal) or (jt == jump_type::jr)){
+      //machine_state.arch_return_stack
+    }
     m->retire_cycle = get_curr_cycle();
     log_retire(machine_state);
     return true;
@@ -884,10 +924,6 @@ public:
 	machine_state.gpr_freevec.clear_bit(m->prf_idx);
 	machine_state.gpr_valid.clear_bit(m->prf_idx);
       }
-    }
-    if( ((jt == jump_type::jal) or (jt == jump_type::jr)) and
-	(m->return_stack_idx != -1)) {
-      machine_state.return_stack.set_tos_idx(m->return_stack_idx);
     }
     log_rollback(machine_state);
   }
@@ -1012,7 +1048,7 @@ public:
     }
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(is_fp_branch()) {
       return fp_ready(machine_state);
     }
@@ -1229,12 +1265,15 @@ public:
     machine_state.gpr_valid.clear_bit(m->prf_idx);
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
     if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
       return false;
+    }
+    if(can_forward_store(machine_state)) {
+      return true;
     }
     if(stall_for_load(machine_state)) {
       return false;
@@ -1274,6 +1313,20 @@ public:
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
+
+      if(fwd_data_valid and not(m->load_exception)) {
+	switch(lt)
+	  {
+	  case load_type::lw:
+	    machine_state.gpr_prf[m->prf_idx] = fwd_data;
+	    break;
+	  default:
+	    die();
+	  }
+	machine_state.gpr_valid.set_bit(m->prf_idx);
+	return;
+      }
+      
       sparse_mem & mem = *(machine_state.mem);
       if(not(m->load_exception)) {
 	switch(lt)
@@ -1410,7 +1463,7 @@ public:
     machine_state.store_tbl_freevec.set_bit(m->store_tbl_idx);
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf)) or
        not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
       return false;
@@ -1539,6 +1592,12 @@ public:
     machine_state.store_tbl[m->store_tbl_idx] = nullptr;
     log_rollback(machine_state);
   }
+  int32_t get_data() const override {
+    return store_data;
+  }
+  bool is_int() const override {
+    return true;
+  }  
 };
 
 
@@ -1598,7 +1657,7 @@ public:
     }    
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf)))
       return false;
 
@@ -1742,7 +1801,7 @@ public:
     }
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.cpr1_valid.get_bit(m->src0_prf))) {
       return false;
     }
@@ -1892,7 +1951,7 @@ public:
     machine_state.gpr_valid.clear_bit(prf_id);
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
@@ -1963,7 +2022,7 @@ public:
     machine_state.gpr_valid.clear_bit(prf_id);
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
@@ -2083,7 +2142,7 @@ public:
     machine_state.gpr_valid.clear_bit(m->hi_prf_idx);
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf)) or
        not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
       return false;
@@ -2143,7 +2202,7 @@ public:
 	  *reinterpret_cast<int32_t*>(lo) = machine_state.gpr_prf[m->src0_prf] / machine_state.gpr_prf[m->src1_prf];
 	  *reinterpret_cast<int32_t*>(hi) = machine_state.gpr_prf[m->src0_prf] % machine_state.gpr_prf[m->src1_prf];
 	}
-	latency = 32;
+	latency = 3 + std::max(0, __builtin_clz(machine_state.gpr_prf[m->src0_prf]) - __builtin_clz(machine_state.gpr_prf[m->src1_prf]));
 	break;
       }
 
@@ -2154,7 +2213,7 @@ public:
 	  *hi = (uint32_t)machine_state.gpr_prf[m->src0_prf] %
 	    (uint32_t)machine_state.gpr_prf[m->src1_prf];
 	}
-	latency = 32;
+	latency = 3 + std::max(0, __builtin_clz(machine_state.gpr_prf[m->src0_prf]) - __builtin_clz(machine_state.gpr_prf[m->src1_prf]));	
 	break;
       }
 	
@@ -2249,7 +2308,7 @@ public:
     machine_state.gpr_valid.clear_bit(m->prf_idx);
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     return machine_state.gpr_valid.get_bit(m->src0_prf);
   }
   void execute(sim_state &machine_state) override {
@@ -2317,7 +2376,7 @@ public:
     machine_state.gpr_valid.clear_bit(m->prf_idx);
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     return machine_state.gpr_valid.get_bit(m->src0_prf);
   }
   void execute(sim_state &machine_state) override {
@@ -2381,7 +2440,7 @@ public:
     machine_state.gpr_valid.clear_bit(m->prf_idx);
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf)))
       return false;
     if(not(machine_state.gpr_valid.get_bit(m->src1_prf)))
@@ -2454,7 +2513,7 @@ public:
     machine_state.gpr_valid.clear_bit(m->prf_idx);
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf)))
       return false;
     if(not(machine_state.gpr_valid.get_bit(m->src1_prf)))
@@ -2579,7 +2638,7 @@ public:
     
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.cpr1_valid[m->src0_prf])) {
       return false;
     }
@@ -2710,7 +2769,7 @@ public:
     
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.cpr1_valid[m->src0_prf])) {
       return false;
     }
@@ -2905,7 +2964,7 @@ public:
 
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.cpr1_valid[m->src0_prf])) {
       return false;
     }
@@ -3148,7 +3207,7 @@ public:
     return 0;
   }
 					
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(m->src0_prf != -1 and not(machine_state.cpr1_valid[m->src0_prf])) {
       return false;
     }
@@ -3319,7 +3378,7 @@ public:
       allocated = allocate_float(machine_state);
     return allocated;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(m->src0_prf != -1 and not(machine_state.cpr1_valid[m->src0_prf])) {
       return false;
     }
@@ -3454,7 +3513,7 @@ public:
     machine_state.cpr1_valid.clear_bit(m->prf_idx);
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.cpr1_valid.get_bit(m->src0_prf)))
       return false;
     if(m->src1_prf != -1 and not(machine_state.cpr1_valid.get_bit(m->src1_prf)))
@@ -3536,7 +3595,7 @@ public:
     machine_state.cpr1_rat[get_dest()+1] = m->aux_prf_idx;
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     return machine_state.cpr1_valid.get_bit(m->src0_prf);
   }
   void execute(sim_state &machine_state) override {
@@ -3614,7 +3673,7 @@ public:
   bool allocate(sim_state &machine_state) override {
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     return true;
   }
   void execute(sim_state &machine_state) override {
@@ -3650,7 +3709,7 @@ public:
     machine_state.alloc_blocked = true;
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     return true;
   }
   void execute(sim_state &machine_state) override {
@@ -3717,7 +3776,7 @@ public:
     machine_state.alloc_blocked = true;
     return true;
   }
-  bool ready(sim_state &machine_state) const override {
+  bool ready(sim_state &machine_state) override {
     if(not(machine_state.gpr_valid.get_bit(m->src0_prf))) {
       return false;
     }
@@ -4344,7 +4403,7 @@ bool mips_op::retire(sim_state &machine_state) {
   return false;
 }
 
-bool mips_op::ready(sim_state &machine_state) const {
+bool mips_op::ready(sim_state &machine_state) {
   return false;
 }
 

@@ -233,7 +233,7 @@ public:
   virtual void execute(sim_state &machine_state);
   virtual void complete(sim_state &machine_state);
   virtual bool retire(sim_state &machine_state);
-  virtual bool ready(sim_state &machine_state) const;
+  virtual bool ready(sim_state &machine_state);
   virtual void rollback(sim_state &machine_state);
   virtual void log_retire(sim_state &machine_state) const;
   virtual void log_rollback(sim_state &machine_state) const;
@@ -264,6 +264,7 @@ public:
   }
 };
 
+
 class mips_store : public mips_op {
 protected:
   itype i_;
@@ -276,6 +277,12 @@ public:
     imm = static_cast<int32_t>(himm);
     op->is_store = true;
   }
+  virtual bool is_int() const {
+    return false;
+  }
+  virtual int32_t get_data() const {
+    return 0;
+  }
 };
 
 class mips_load : public mips_op {
@@ -285,8 +292,12 @@ protected:
   itype i_;
   load_type lt;
   int32_t imm = -1;
+  int32_t fwd_data = -1;
+  bool fwd_data_valid = false;
+  
   uint32_t effective_address = ~0;
   bool stall_for_load(sim_state &machine_state) const;
+  bool can_forward_store(sim_state &machine_state);
 public:
   mips_load(sim_op op) : mips_op(op), i_(op->inst), lt(load_type::bogus) {
     this->op_class = oper_type::load;

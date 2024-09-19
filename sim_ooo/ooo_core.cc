@@ -85,7 +85,8 @@ public:
 template <bool enable_oracle>
 void fetch(sim_state &machine_state) {
   auto &fetch_queue = machine_state.fetch_queue;
-  auto &return_stack = machine_state.return_stack;
+  auto &spec_return_stack = machine_state.spec_return_stack;
+  auto &arch_return_stack = machine_state.arch_return_stack;  
   sparse_mem &mem = *(machine_state.mem);
   
   while(not(machine_state.terminate_sim)) {
@@ -131,24 +132,7 @@ void fetch(sim_state &machine_state) {
 	  }
 
 	  auto &hh = machine_state.oracle_state->hbuf[machine_state.fetched_insns%HWINDOW];
-#if 0
-	  std::cout << std::hex
-		    << "oracle pc = " << hh.fetch_pc
-	    	    << " oracle npc = " << hh.next_pc
-		    << " fetch pc = " << machine_state.fetch_pc
-		    << " was_branch_or_jump = "
-		    << hh.was_branch_or_jump
-		    << ", was_likely_branch = "
-		    << hh.was_likely_branch
-		    << ", took_branch_or_jump = "
-		    << hh.took_branch_or_jump
-		    << std::dec
-		    << " uarch sim fetched "
-		    << machine_state.fetched_insns
-		    << " oracle fetched "
-		    << hh.icnt
-		    << "\n";
-#endif	  
+	  
 	  if(hh.icnt != machine_state.fetched_insns or
 	     hh.fetch_pc != machine_state.fetch_pc) {
 	    std::cerr << "hh.fetch_pc = "
@@ -209,15 +193,16 @@ void fetch(sim_state &machine_state) {
       }
       else {
 
-	f->prediction = machine_state.branch_pred->predict(machine_state.fetch_pc, machine_state.fe_branch_cnt);
+	f->prediction = machine_state.branch_pred->predict(machine_state.fetch_pc,
+							   machine_state.fe_branch_cnt);
 	machine_state.fe_branch_cnt++;
 	if(machine_state.fe_branch_cnt >= branch_predictor::fetch_state_sz) {
 	  machine_state.fe_branch_cnt = 0;
 	}
 	
-	if(is_jr(inst)) {
-	  f->return_stack_idx = return_stack.get_tos_idx();
-	  npc = return_stack.pop();
+	if(is_ret(inst)) {
+	  f->return_stack_idx = spec_return_stack.get_tos_idx();
+	  npc = spec_return_stack.pop();
 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	  used_return_addr_stack = true;
 	}
@@ -225,8 +210,8 @@ void fetch(sim_state &machine_state) {
 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	  npc = get_jump_target(machine_state.fetch_pc, inst);
 	  predict_taken = true;
-	  f->return_stack_idx = return_stack.get_tos_idx();
-	  return_stack.push(machine_state.fetch_pc + 8);
+	  f->return_stack_idx = spec_return_stack.get_tos_idx();
+	  spec_return_stack.push(machine_state.fetch_pc + 8);
 	  fetch_amt++;
 	}
 	else if(is_j(inst)) {
@@ -279,16 +264,27 @@ void retire(sim_state &machine_state) {
   auto &rob = machine_state.rob;
   int stuck_cnt = 0, empty_cnt = 0;
   uint64_t num_retired_insns = 0;
+  std::map<uint32_t, double> &tip_map = machine_state.tip_map;
+  std::map<uint32_t, uint64_t> &icnt_map = machine_state.icnt_map;  
+  std::vector<uint32_t> pcs(sim_param::retire_bw*2);
+  size_t pc_idx = 0;
   while(not(machine_state.terminate_sim)) {
     int retire_amt = 0;
     sim_op u = nullptr;
     bool stop_sim = false;
     bool exception = false;
-      
+    pc_idx = 0;
     if(rob.empty()) {
       empty_cnt++;
+      tip_map[machine_state.last_retired_pc] += 1.0;
       if(empty_cnt > 64) {
 	std::cerr << "empty ROB for 64 cycles at " << get_curr_cycle() << "\n";
+      }
+    }
+    else {
+      u = rob.peek();
+      if(not(u->is_complete)) {
+	tip_map[u->pc] += 1.0;
       }
     }
       
@@ -315,6 +311,7 @@ void retire(sim_state &machine_state) {
 	machine_state.nukes++;
 	machine_state.branch_nukes++;
 	exception = true;
+	machine_state.mispredict_map[u->pc]++;
 	break;
       }
       else if(u->load_exception) {
@@ -408,8 +405,9 @@ void retire(sim_state &machine_state) {
       }
 
       u->op->retire(machine_state);
-
-
+      machine_state.last_retired_pc = u->pc;
+      pcs.at(pc_idx++) = u->pc;
+      
       num_retired_insns++;
 #if 0
       if(true) {	
@@ -468,6 +466,9 @@ void retire(sim_state &machine_state) {
 	  else {
 	    //std::cerr << "retire for " << *(u->op) << "\n";
 	    u->op->retire(machine_state);
+	    pcs.at(pc_idx++) = u->pc;
+	    machine_state.last_retired_pc = u->pc;
+	    
 	    num_retired_insns++;
 	    int64_t lifetime_cycles = static_cast<int64_t>(u->retire_cycle)-static_cast<int64_t>(u->fetch_cycle);
 	    //if(lifetime_cycles > 1000) {
@@ -482,6 +483,8 @@ void retire(sim_state &machine_state) {
 
 	    //std::cerr << "retire for " << *(uu->op) << "\n";
 	    uu->op->retire(machine_state);
+	    pcs.at(pc_idx++) = uu->pc;
+	    
 	    num_retired_insns++;
 	    machine_state.last_retire_cycle = get_curr_cycle();
 	    machine_state.last_retire_pc = uu->pc;
@@ -506,6 +509,8 @@ void retire(sim_state &machine_state) {
 	else {
 	  //std::cerr << "retire for " << *(u->op) << "\n";
 	  u->op->retire(machine_state);
+	  pcs.at(pc_idx++) = u->pc;
+	  machine_state.last_retired_pc = u->pc;	  
 	  num_retired_insns++;
 	  int64_t lifetime_cycles = static_cast<int64_t>(u->retire_cycle)-static_cast<int64_t>(u->fetch_cycle);
 	  //if(lifetime_cycles > 1000) {
@@ -532,6 +537,8 @@ void retire(sim_state &machine_state) {
       else {
 	if(u->exception == exception_type::branch) {
 	  machine_state.fetch_pc = u->correct_pc;
+	  machine_state.spec_return_stack.copy(machine_state.arch_return_stack);
+	  
 	  if(enable_oracle) {
 	    assert((u->fetch_icnt+1)==machine_state.fetched_insns);
 	  }
@@ -658,13 +665,15 @@ void retire(sim_state &machine_state) {
       // 	machine_state.oracle_state->copy(machine_state.ref_state);
       // 	machine_state.oracle_mem->copy(machine_state.ref_state->mem);
       // }
-	
-      gthread_yield();
-      //std::cout << "rolling back complete @ cycle " << get_curr_cycle() << "\n";
     }
-    else {
-      gthread_yield();
+    for(size_t i = 0; i < pc_idx; i++) {
+      tip_map[pcs.at(i)] += (1.0 / static_cast<double>(pc_idx));
+      icnt_map[pcs.at(i)]++;
     }
+    gthread_yield();
+
+
+    
     if(machine_state.icnt >= machine_state.maxicnt or stop_sim) {
       machine_state.terminate_sim = true;
     }
@@ -834,7 +843,6 @@ extern "C" {
     sim_state &machine_state = *reinterpret_cast<sim_state*>(arg);
     auto &fetch_queue = machine_state.fetch_queue;
     auto &decode_queue = machine_state.decode_queue;
-    auto &return_stack = machine_state.return_stack;
     while(not(machine_state.terminate_sim)) {
       int decode_amt = 0;
       while(not(fetch_queue.empty()) and not(decode_queue.full()) and (decode_amt < sim_param::decode_bw) and not(machine_state.nuke)) {
@@ -1290,6 +1298,9 @@ void sim_state::initialize() {
   store_alloc.clear_and_resize(sim_param::num_store_ports * sim_param::num_store_sched_per_cycle);
   
   initialize_rat_mappings();
+  tip_map.clear();
+  icnt_map.clear();
+  mispredict_map.clear();
 }
 
 

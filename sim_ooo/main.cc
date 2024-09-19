@@ -86,6 +86,64 @@ void initialize_ooo_core(sim_state & machine_state,
 void run_ooo_core(sim_state &machine_state);
 void destroy_ooo_core(sim_state &machine_state);
 
+template<typename X, typename Y>
+static inline void dump_histo(const std::string &fname,
+			      const std::map<X,Y> &histo,
+			      const state_t *s) {
+  std::vector<std::pair<Y,X>> sorted_by_cnt;
+  for(auto &p : histo) {
+    sorted_by_cnt.emplace_back(p.second, p.first);
+  }
+  sparse_mem &mem = s->mem;        
+  std::ofstream out(fname);
+  std::sort(sorted_by_cnt.begin(), sorted_by_cnt.end());
+  for(auto it = sorted_by_cnt.rbegin(), E = sorted_by_cnt.rend(); it != E; ++it) {
+    auto pc = it->second;
+    uint32_t r_inst = bswap(mem.get32(pc));        
+    auto s = getAsmString(r_inst, it->second);
+    out << std::hex << it->second << ":"
+  	      << s << ","
+  	      << std::dec << it->first << "\n";
+  }
+  out.close();
+}
+
+
+static inline void dump_tip(const std::string &fname,
+			    const std::map<uint32_t, double> &tip,
+			    const std::map<uint32_t, uint64_t> &icnt,
+			    const state_t *s) {
+  std::vector<std::pair<double,uint32_t>> sorted_by_cnt;
+  for(auto &p : tip) {
+    sorted_by_cnt.emplace_back(p.second, p.first);
+  }
+  std::cout << "tip.size() = " << tip.size() << "\n";
+  std::cout << "icnt.size() = " << icnt.size() << "\n";
+  std::ofstream out(fname);
+  sparse_mem &mem = s->mem;      
+  std::sort(sorted_by_cnt.begin(), sorted_by_cnt.end());
+  for(auto it = sorted_by_cnt.rbegin(), E = sorted_by_cnt.rend(); it != E; ++it) {
+    auto pc = it->second;
+    uint32_t r_inst = bswap(mem.get32(pc));    
+    auto ss = getAsmString(r_inst, pc);
+    double avg = 0.0;
+    if(icnt.find(it->second) != icnt.end()) {
+      avg = (it->first) / icnt.at(it->second);
+    }
+    out << std::hex << it->second << ":"
+	<< ss
+	<< ","
+	<< std::dec 
+	<< (it->first) << ","
+	<< avg
+	<< "\n";
+  }
+  out.close();
+}
+
+
+
+
 int main(int argc, char *argv[]) {
   namespace po = boost::program_options;
   
@@ -269,6 +327,15 @@ int main(int argc, char *argv[]) {
   if(not(machine_state.terminate_sim)) {
     run_ooo_core(machine_state);
   }
+
+  double tip_cycles = 0.0;
+  for(auto &p : machine_state.tip_map) {
+    tip_cycles += p.second;
+  }
+  std::cout << "tip cycles  = " << tip_cycles << "\n";
+  dump_tip("tip.txt", machine_state.tip_map,
+	   machine_state.icnt_map, s);    
+  dump_histo("mispredicts.txt", machine_state.mispredict_map, s);
   
   //*global::sim_log << "sparse mem bytes allocated = "
   //		   << machine_state.mem->bytes_allocated()

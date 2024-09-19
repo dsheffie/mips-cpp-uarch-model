@@ -22,12 +22,8 @@ public:
     this->idx = idx;
   }
   void copy(const sim_stack_template &other) {
-    if(stack) {
-      delete [] stack;
-    }
-    stack = new T[other.stack_sz];
+    assert(other.stack_sz == stack_sz);
     memcpy(stack, other.stack, sizeof(T)*other.stack_sz);
-    stack_sz = other.stack_sz;
     idx = other.idx;
   }
   ~sim_stack_template() {

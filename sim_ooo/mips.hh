@@ -241,6 +241,15 @@ static inline bool is_jr(uint32_t inst) {
   return (opcode==0) and (funct == 0x08);
 }
 
+static inline bool is_ret(uint32_t inst) {
+  uint32_t rs = (inst >> 21) & 31;  
+  if(is_jr(inst)) {
+    return rs == 31;
+  }
+  return false;
+}
+
+
 static inline bool is_jal(uint32_t inst) {
   uint32_t opcode = inst>>26;
   return (opcode == 3);
