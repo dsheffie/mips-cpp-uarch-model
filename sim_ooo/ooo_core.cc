@@ -200,7 +200,6 @@ void fetch(sim_state &machine_state) {
 	}
 
 	if(is_ret(inst)) {
-	  f->return_stack_idx = spec_return_stack.get_tos_idx();
 	  npc = spec_return_stack.pop();
 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	  used_return_addr_stack = true;
@@ -208,7 +207,6 @@ void fetch(sim_state &machine_state) {
 #if 0
 	  std::cout << "popping prediction " << std::hex << npc
 		    << std::dec
-		    << " from stack pos " << f->return_stack_idx
 		    << " for "
 		    << std::hex
 		    << machine_state.fetch_pc
@@ -221,12 +219,10 @@ void fetch(sim_state &machine_state) {
 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	  npc = get_jump_target(machine_state.fetch_pc, inst);
 	  predict_taken = true;
-	  f->return_stack_idx = spec_return_stack.get_tos_idx();
 	  spec_return_stack.push(machine_state.fetch_pc + 8);
 #if 0
 	  std::cout << "pushing prediction " << std::hex << machine_state.fetch_pc + 8
 		    << std::dec
-		    << " to stack pos " << f->return_stack_idx
 		    << " for "
 		    << std::hex
 		    << machine_state.fetch_pc
@@ -265,7 +261,6 @@ void fetch(sim_state &machine_state) {
       }
       f->fetch_npc = npc;
       f->predict_taken = predict_taken;
-      f->pop_return_stack = used_return_addr_stack;
       
       fetch_queue.push(f);
       fetch_amt++;
@@ -559,9 +554,9 @@ void retire(sim_state &machine_state) {
       else {
 	if(u->exception == exception_type::branch) {
 	  machine_state.fetch_pc = u->correct_pc;
-	  std::cout << "...REPAIR RETURN ADDRESS STACK at cycle "
-		    << get_curr_cycle()
-		    <<"\n";
+	  //std::cout << "...REPAIR RETURN ADDRESS STACK at cycle "
+	  //<< get_curr_cycle()
+	  //<<"\n";
 	  machine_state.spec_return_stack.copy(machine_state.arch_return_stack);
 	  
 	  if(enable_oracle) {

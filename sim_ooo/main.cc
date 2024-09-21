@@ -230,8 +230,8 @@ int main(int argc, char *argv[]) {
 
   sim_param::rob_size *= uarch_scale;
 
-  //sim_param::fetchq_size *= uarch_scale;  
-  //sim_param::decodeq_size *= uarch_scale;
+  sim_param::fetchq_size *= uarch_scale;  
+  sim_param::decodeq_size *= uarch_scale;
   
   sim_param::fetch_bw *= uarch_scale;
   sim_param::decode_bw *= uarch_scale;

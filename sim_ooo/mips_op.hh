@@ -121,7 +121,6 @@ public:
   
   mips_op* op = nullptr;
   bool push_return_stack = false;
-  int64_t return_stack_idx = -1;
 
   void reinit(uint32_t pc,
 	      uint32_t inst,
@@ -177,7 +176,6 @@ public:
     prev_lo_prf_idx = -1;
 
     op = nullptr;
-    return_stack_idx = -1;
     push_return_stack = false;
   }
 
