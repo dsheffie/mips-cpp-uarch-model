@@ -1317,6 +1317,9 @@ void sim_state::initialize() {
   fpu_alloc.clear_and_resize(sim_param::num_fpu_ports * sim_param::num_fpu_sched_per_cycle);
   load_alloc.clear_and_resize(sim_param::num_load_ports * sim_param::num_load_sched_per_cycle);
   store_alloc.clear_and_resize(sim_param::num_store_ports * sim_param::num_store_sched_per_cycle);
+
+  arch_return_stack.resize(sim_param::rsb_entries);
+  spec_return_stack.resize(sim_param::rsb_entries);  
   
   initialize_rat_mappings();
   tip_map.clear();

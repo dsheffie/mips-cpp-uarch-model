@@ -831,26 +831,14 @@ public:
     }
 
 #if 1
-    bool return_mispredict = false;
-    if((jt == jump_type::jr) and m->pop_return_stack) {
-      if(m->exception == exception_type::branch) {
-	return_mispredict = true;
-	std::cerr << "RETURN MISPREDICT " << std::hex << m->pc << " : predict "
-		  << m->fetch_npc << " , correct " << m->correct_pc
-		  << std::dec
-		  << " @ fetch cycle " << m->fetch_cycle
-		  << "\n";
-      }
-      // else {
-      // 	std::cerr << "RETURN CORRECT " << std::hex << m->pc << " : predict "
-      // 		  << m->fetch_npc << " , correct " << m->correct_pc
-      // 		  << std::dec
-      // 		  << " @ fetch cycle " << m->fetch_cycle
-      // 		  << "\n";
-      // }
+    if((jt == jump_type::jr) and is_ret(m->inst) and m->exception == exception_type::branch) {
+      std::cerr << "RETURN MISPREDICT " << std::hex << m->pc << " : predict "
+		<< m->fetch_npc << " , correct " << m->correct_pc
+		<< std::dec
+		<< " @ fetch cycle " << m->fetch_cycle
+		<< "\n";
     }
-    if(not(return_mispredict) and jt == jump_type::jr
-       and m->exception == exception_type::branch) {
+    if(not(is_ret(m->inst)) and jt == jump_type::jr and m->exception == exception_type::branch) {
       std::cerr << "JR MISPREDICT " << std::hex << m->pc << " : predict "
 		<< m->fetch_npc << " , correct " << m->correct_pc
 		<< std::dec
@@ -913,7 +901,10 @@ public:
       machine_state.arch_return_stack.push(m->pc + 8);
     }
     else if (jt == jump_type::jr and is_ret(m->inst)) {
-      machine_state.arch_return_stack.pop();
+      uint32_t stack_tgt = machine_state.arch_return_stack.pop();
+      if(m->correct_pc != stack_tgt) {
+	printf("return addres stack incorrect, stack %x, correct %x\n", stack_tgt, m->correct_pc);
+      }
     }
     
     m->retire_cycle = get_curr_cycle();

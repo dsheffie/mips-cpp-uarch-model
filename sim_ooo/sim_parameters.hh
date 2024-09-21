@@ -11,6 +11,7 @@
   SIM_PARAM(decode_bw,4,1,false)			\
   SIM_PARAM(alloc_bw,4,1,false)			\
   SIM_PARAM(retire_bw,4,1,false)			\
+  SIM_PARAM(rsb_entries,32,1,true)			\
   SIM_PARAM(num_gpr_prf,128,64,true)		\
   SIM_PARAM(num_cpr0_prf,64,32,true)		\
   SIM_PARAM(num_cpr1_prf,64,32,true)		\
