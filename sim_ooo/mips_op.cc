@@ -830,7 +830,7 @@ public:
       m->exception = exception_type::branch;
     }
 
-#if 0
+#if 1
     bool return_mispredict = false;
     if((jt == jump_type::jr) and m->pop_return_stack) {
       if(m->exception == exception_type::branch) {
@@ -841,13 +841,13 @@ public:
 		  << " @ fetch cycle " << m->fetch_cycle
 		  << "\n";
       }
-      else {
-	std::cerr << "RETURN CORRECT " << std::hex << m->pc << " : predict "
-		  << m->fetch_npc << " , correct " << m->correct_pc
-		  << std::dec
-		  << " @ fetch cycle " << m->fetch_cycle
-		  << "\n";
-      }
+      // else {
+      // 	std::cerr << "RETURN CORRECT " << std::hex << m->pc << " : predict "
+      // 		  << m->fetch_npc << " , correct " << m->correct_pc
+      // 		  << std::dec
+      // 		  << " @ fetch cycle " << m->fetch_cycle
+      // 		  << "\n";
+      // }
     }
     if(not(return_mispredict) and jt == jump_type::jr
        and m->exception == exception_type::branch) {
@@ -908,9 +908,14 @@ public:
 	}
       machine_state.alloc_blocked = true;
     }
-    else if((jt == jump_type::jal) or (jt == jump_type::jr)){
-      //machine_state.arch_return_stack
+
+    if(jt == jump_type::jal) {
+      machine_state.arch_return_stack.push(m->pc + 8);
     }
+    else if (jt == jump_type::jr and is_ret(m->inst)) {
+      machine_state.arch_return_stack.pop();
+    }
+    
     m->retire_cycle = get_curr_cycle();
     log_retire(machine_state);
     return true;

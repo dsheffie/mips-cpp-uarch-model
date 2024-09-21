@@ -86,7 +86,6 @@ template <bool enable_oracle>
 void fetch(sim_state &machine_state) {
   auto &fetch_queue = machine_state.fetch_queue;
   auto &spec_return_stack = machine_state.spec_return_stack;
-  auto &arch_return_stack = machine_state.arch_return_stack;  
   sparse_mem &mem = *(machine_state.mem);
   
   while(not(machine_state.terminate_sim)) {
@@ -199,19 +198,42 @@ void fetch(sim_state &machine_state) {
 	if(machine_state.fe_branch_cnt >= branch_predictor::fetch_state_sz) {
 	  machine_state.fe_branch_cnt = 0;
 	}
-	
+
 	if(is_ret(inst)) {
 	  f->return_stack_idx = spec_return_stack.get_tos_idx();
 	  npc = spec_return_stack.pop();
 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	  used_return_addr_stack = true;
-	}
+	  predict_taken = true;
+#if 0
+	  std::cout << "popping prediction " << std::hex << npc
+		    << std::dec
+		    << " from stack pos " << f->return_stack_idx
+		    << " for "
+		    << std::hex
+		    << machine_state.fetch_pc
+		    << std::dec
+		    << " cycle " << get_curr_cycle()	    
+		    << "\n";
+#endif
+	}	
 	else if(is_jal(inst)) {
 	  machine_state.delay_slot_npc = machine_state.fetch_pc + 4;
 	  npc = get_jump_target(machine_state.fetch_pc, inst);
 	  predict_taken = true;
 	  f->return_stack_idx = spec_return_stack.get_tos_idx();
 	  spec_return_stack.push(machine_state.fetch_pc + 8);
+#if 0
+	  std::cout << "pushing prediction " << std::hex << machine_state.fetch_pc + 8
+		    << std::dec
+		    << " to stack pos " << f->return_stack_idx
+		    << " for "
+		    << std::hex
+		    << machine_state.fetch_pc
+		    << std::dec
+		    << " cycle " << get_curr_cycle()
+		    << "\n";
+#endif
 	  fetch_amt++;
 	}
 	else if(is_j(inst)) {
@@ -537,6 +559,9 @@ void retire(sim_state &machine_state) {
       else {
 	if(u->exception == exception_type::branch) {
 	  machine_state.fetch_pc = u->correct_pc;
+	  std::cout << "...REPAIR RETURN ADDRESS STACK at cycle "
+		    << get_curr_cycle()
+		    <<"\n";
 	  machine_state.spec_return_stack.copy(machine_state.arch_return_stack);
 	  
 	  if(enable_oracle) {
@@ -1094,7 +1119,8 @@ extern "C" {
 	  OOO_SCHED(fpu_rs.at(i),sim_param::num_fpu_sched_per_cycle,avail_fp_ports);
 	}
 
-	OOO_SCHED(jmp_rs,1,avail_int_ports);
+	//OOO_SCHED(jmp_rs,1,avail_int_ports);
+	INORDER_SCHED(jmp_rs);	
 	INORDER_SCHED(system_rs);
 #undef OOO_SCHED
 #undef INORDER_SCHED
