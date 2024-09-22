@@ -317,11 +317,11 @@ static void hashed_perceptron_update(uint32_t key, uint32_t pc, uint32_t target,
     bool correct = taken == (::yout[key] >= 1);
 
 
-    if(pcs[key] != pc) {
-      std::cout << "perceptron update with key " << key << ", pc mismatch\n";
-      std::cout << "retirement pc " << std::hex << pc << std::dec << "\n";
-      std::cout << "table pc      " << std::hex << pcs[key] << std::dec << "\n"; 
-    }
+    // if(pcs[key] != pc) {
+    //   std::cout << "perceptron update with key " << key << ", pc mismatch\n";
+    //   std::cout << "retirement pc " << std::hex << pc << std::dec << "\n";
+    //   std::cout << "table pc      " << std::hex << pcs[key] << std::dec << "\n"; 
+    // }
     // insert this branch outcome into the global history
 
     bool b = taken;

@@ -902,9 +902,9 @@ public:
     }
     else if (jt == jump_type::jr and is_ret(m->inst)) {
       uint32_t stack_tgt = machine_state.arch_return_stack.pop();
-      if(m->correct_pc != stack_tgt) {
-	printf("return addres stack incorrect, stack %x, correct %x\n", stack_tgt, m->correct_pc);
-      }
+      //if(m->correct_pc != stack_tgt) {
+      //printf("return addres stack incorrect, stack %x, correct %x\n", stack_tgt, m->correct_pc);
+      //}
     }
     
     m->retire_cycle = get_curr_cycle();
@@ -1267,9 +1267,6 @@ public:
     }
     if(m->src1_prf != -1 and not(machine_state.gpr_valid.get_bit(m->src1_prf))) {
       return false;
-    }
-    if(can_forward_store(machine_state)) {
-      return true;
     }
     if(stall_for_load(machine_state)) {
       return false;
