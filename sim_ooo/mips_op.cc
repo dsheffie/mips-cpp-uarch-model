@@ -1269,6 +1269,7 @@ public:
       return false;
     }
     if(stall_for_load(machine_state)) {
+      fwd_data_valid = true;
       return false;
     }
     return true;
@@ -1292,11 +1293,16 @@ public:
 	break;
       }
 
-    if(machine_state.l1d) {
-      machine_state.l1d->read(m, effective_address & (~3U), 4);
+    if(fwd_data_valid) {
+      m->complete_cycle = get_curr_cycle() + 1;
     }
     else {
-      m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
+      if(machine_state.l1d) {
+	machine_state.l1d->read(m, effective_address & (~3U), 4);
+      }
+      else {
+	m->complete_cycle = get_curr_cycle() + sim_param::l1d_latency;
+      }
     }
   }
   int64_t get_latency() const override {
@@ -1306,19 +1312,6 @@ public:
   void complete(sim_state &machine_state) override {
     if(not(m->is_complete) and (get_curr_cycle() == m->complete_cycle)) {
       m->is_complete = true;
-
-      if(fwd_data_valid and not(m->load_exception)) {
-	switch(lt)
-	  {
-	  case load_type::lw:
-	    machine_state.gpr_prf[m->prf_idx] = fwd_data;
-	    break;
-	  default:
-	    die();
-	  }
-	machine_state.gpr_valid.set_bit(m->prf_idx);
-	return;
-      }
       
       sparse_mem & mem = *(machine_state.mem);
       if(not(m->load_exception)) {
