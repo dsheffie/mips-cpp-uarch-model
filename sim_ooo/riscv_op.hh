@@ -225,7 +225,7 @@ public:
 class riscv_store : public riscv_op {
 public:
   enum class store_type {sb,sh,sw,sd,bogus};
-  static constexpr store_type stypes[] = {store_type::sb,store_type::sh,store_type::sw,store_type::sd};
+
 protected:
   store_type st;
   int64_t store_data;
@@ -258,14 +258,6 @@ public:
 class riscv_load : public gpr_dst_op {
 public:
   enum class load_type {lb,lh,lw,ld,lbu,lhu,lwu,bogus};
-  static constexpr load_type ltypes[] = {load_type::lb,
-					 load_type::lh,
-					 load_type::lw,
-					 load_type::ld,
-					 load_type::lbu,
-					 load_type::lhu,
-					 load_type::lwu,
-					 load_type::bogus};
   
 protected:
   load_type lt;

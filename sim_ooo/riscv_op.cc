@@ -659,6 +659,24 @@ static inline riscv_op *decode_system_insn(sim_op m_op) {
 
 
 riscv_op* decode_insn(sim_op m_op) {
+  static constexpr riscv_load::load_type ltypes[] = {
+    riscv_load::load_type::lb,
+    riscv_load::load_type::lh,
+    riscv_load::load_type::lw,
+    riscv_load::load_type::ld,
+    riscv_load::load_type::lbu,
+    riscv_load::load_type::lhu,
+    riscv_load::load_type::lwu,
+    riscv_load::load_type::bogus
+  };
+
+  static constexpr riscv_store::store_type stypes[] = {
+    riscv_store::store_type::sb,
+    riscv_store::store_type::sh,
+    riscv_store::store_type::sw,
+    riscv_store::store_type::sd
+  };
+  
   uint32_t opcode = (m_op->inst)&127;
   uint32_t rd = (m_op->inst>>7) & 31;
   riscv::riscv_t m(m_op->inst);
@@ -668,13 +686,13 @@ riscv_op* decode_insn(sim_op m_op) {
     case 0x0:
       return new nop_op(m_op, true);
     case 0x3:
-      return new riscv_load(m_op, riscv_load::ltypes[m.s.sel]);
+      return new riscv_load(m_op, ltypes[m.s.sel]);
     case 0x13: 
       return new itype_op(m_op);
     case 0x17: /* auipc */
       return new auipc_op(m_op);
     case 0x23: 
-      return new riscv_store(m_op, riscv_store::stypes[m.s.sel]);
+      return new riscv_store(m_op, stypes[m.s.sel]);
     case 0x33:
       return new rtype_op(m_op);
     case 0x37:

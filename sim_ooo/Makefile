@@ -3,16 +3,11 @@ UNAME_S = $(shell uname -s)
 OBJ = githash.o saveState.o main.o elf.o helper.o interpret.o gthread.o sparse_mem.o ooo_core.o riscv_op.o sim_cache.o perceptron.o loop_predictor.o branch_predictor.o disassemble.o temu_code.o
 
 ifeq ($(UNAME_S),Linux)
-	CXX = clang++-12 -march=native -flto
+	CXX = g++ -march=native -flto
 	OBJ += gthread_asm.o
-	EXTRA_LD = -lunwind -lboost_program_options -lboost_serialization -ltcmalloc_minimal -lcapstone
+	EXTRA_LD = -lunwind -lboost_program_options -lboost_serialization -lcapstone #-ltcmalloc_minimal 
 endif
 
-ifeq ($(UNAME_S),FreeBSD)
-	CXX = CC -march=native -flto
-	OBJ += gthread_asm.o
-	EXTRA_LD = -L/usr/local/lib -lunwind -lboost_program_options -ltcmalloc_minimal
-endif
 
 ifeq ($(UNAME_S),Darwin)
 	CXX = clang++ -I/opt/local/include -flto
