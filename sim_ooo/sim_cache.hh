@@ -12,8 +12,6 @@
 #include <list>
 #include <unordered_set>
 #include <iterator>
-#include <boost/pool/object_pool.hpp>
-#include <boost/dynamic_bitset.hpp>
 #include "sim_list.hh"
 #include "helper.hh"
 
@@ -61,15 +59,14 @@ protected:
 	prev = next = nullptr;
       }
     };
-    boost::object_pool<entry> pool;
     size_t cnt;
     entry *head, *tail;
   
     entry* alloc(T v) {
-      return pool.construct(v);
+      return new entry(v);
     }
     void free(entry* e) {
-      pool.free(e);
+      delete e;
     }
   
   public:
@@ -319,7 +316,7 @@ private:
 class directMappedCache : public simCache {
 private:
   std::vector<uint32_t> tags;
-  boost::dynamic_bitset<> valid;
+  std::vector<bool> valid;
 public:
   directMappedCache(size_t bytes_per_line, size_t assoc, size_t num_sets,
 		    std::string name, int latency, simCache *next_level) : 

@@ -760,6 +760,7 @@ extern "C" {
     
     simCache *l1d = machine_state.l1d;
     uint64_t last_hits = 0, last_misses = 0;
+    double now = timestamp();
     while(not(machine_state.terminate_sim)) {
       global::curr_cycle++;
       uint64_t delta = global::curr_cycle - machine_state.last_retire_cycle;
@@ -773,8 +774,11 @@ extern "C" {
 		  << "\n";
 	machine_state.terminate_sim = true;
       }
+      
       if((global::curr_cycle & (sim_param::heartbeat-1)) == 0) {
 	uint64_t curr_icnt = (machine_state.icnt-machine_state.skipicnt);
+	double now_ = timestamp();
+	double ips = (curr_icnt-prev_icnt)/ (now_ - now);
 	double ipc = static_cast<double>(curr_icnt) / global::curr_cycle;
 	double wipc = static_cast<double>(curr_icnt-prev_icnt) / sim_param::heartbeat;
 
@@ -789,11 +793,12 @@ extern "C" {
 
 	
 	*global::sim_log << "c " << global::curr_cycle 
-			      << ", i " << curr_icnt
-			      << ", a ipc "<< ipc
-			      << ", w ipc " << wipc
-			      << ", a mpki " << pr
-			      << ", w mpki " << w_pr;
+			 << ", i " << curr_icnt
+			 << ", a ipc "<< ipc
+			 << ", w ipc " << wipc
+			 << ", a mpki " << pr
+			 << ", w mpki " << w_pr
+			 << ", w ips " << ips;
 	
 	if(l1d) {
 	  uint64_t hits = l1d->getHits()-last_hits;
@@ -810,6 +815,7 @@ extern "C" {
 	prev_icnt = curr_icnt;
 	prev_br_and_jmps = br_and_jmps;
 	prev_mispredicts = mispredicts;
+	now = now_;
       }
       gthread_yield();
     }
@@ -1203,13 +1209,16 @@ void sim_state::initialize() {
   num_cpr1_prf_ = sim_param::num_cpr1_prf;
   num_fcr1_prf_ = sim_param::num_fcr1_prf;
   
-  gpr_prf = new int32_t[num_gpr_prf_];
+  posix_memalign(reinterpret_cast<void**>(&gpr_prf), 64, sizeof(int32_t)*num_gpr_prf_);
   memset(gpr_prf, 0, sizeof(int32_t)*num_gpr_prf_);
-  cpr0_prf = new uint32_t[num_cpr0_prf_];
-  memset(cpr0_prf, 0, sizeof(uint32_t)*num_cpr0_prf_);  
-  cpr1_prf = new uint32_t[num_cpr1_prf_];
-  memset(cpr1_prf, 0, sizeof(uint32_t)*num_cpr1_prf_);
-  fcr1_prf = new uint32_t[num_fcr1_prf_];
+  
+  posix_memalign(reinterpret_cast<void**>(&cpr0_prf), 64, sizeof(uint32_t)*num_cpr0_prf_);
+  memset(cpr0_prf, 0, sizeof(uint32_t)*num_cpr0_prf_);
+
+  posix_memalign(reinterpret_cast<void**>(&cpr1_prf), 64, sizeof(uint32_t)*num_cpr1_prf_);
+  memset(cpr0_prf, 0, sizeof(uint32_t)*num_cpr1_prf_);
+
+  posix_memalign(reinterpret_cast<void**>(&fcr1_prf), 64, sizeof(uint32_t)*num_fcr1_prf_);
   memset(fcr1_prf, 0, sizeof(uint32_t)*num_fcr1_prf_);
   
   gpr_freevec.clear_and_resize(sim_param::num_gpr_prf);

@@ -4,9 +4,14 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include <boost/functional/hash.hpp>
-
 #include "helper.hh"
+
+template <class T>
+inline void hash_combine(std::size_t& seed, const T& v)
+{
+    std::hash<T> hasher;
+    seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+}
 
 template <typename E>
 class sim_bitvec_template {
@@ -43,14 +48,14 @@ public:
 	E m = (static_cast<E>(1) << l)-1;
 	w &= m;
       }
-      boost::hash_combine(h, w);
+      hash_combine(h, w);
     }
     return h;
   }
   uint64_t hash() const {
     size_t h = 0;
     for(size_t i = 0; i < n_words; i++) {
-      boost::hash_combine(h, arr[i]);
+      hash_combine(h, arr[i]);
     }
     return h;
   }

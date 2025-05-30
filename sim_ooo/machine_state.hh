@@ -1,4 +1,4 @@
- #ifndef __machinestatehh__
+#ifndef __machinestatehh__
 #define __machinestatehh__
 
 #include "globals.hh"
@@ -42,29 +42,29 @@ public:
   static const int num_fcr1_regs = 5;
   
   /* hi and lo in grf too */
-  int32_t gpr_rat[num_gpr_regs];
-  int32_t cpr0_rat[num_cpr0_regs];
-  int32_t cpr1_rat[num_cpr1_regs];
-  int32_t fcr1_rat[num_fcr1_regs];
+  int32_t gpr_rat[num_gpr_regs] __attribute__((aligned (64)));
+  int32_t cpr0_rat[num_cpr0_regs] __attribute__((aligned (64)));
+  int32_t cpr1_rat[num_cpr1_regs]  __attribute__((aligned (64)));
+  int32_t fcr1_rat[num_fcr1_regs]  __attribute__((aligned (64)));
 
-  int32_t gpr_rat_retire[num_gpr_regs];
-  int32_t cpr0_rat_retire[num_cpr0_regs];
-  int32_t cpr1_rat_retire[num_cpr1_regs];
-  int32_t fcr1_rat_retire[num_fcr1_regs];
+  int32_t gpr_rat_retire[num_gpr_regs]  __attribute__((aligned (64)));
+  int32_t cpr0_rat_retire[num_cpr0_regs]  __attribute__((aligned (64)));
+  int32_t cpr1_rat_retire[num_cpr1_regs]  __attribute__((aligned (64)));
+  int32_t fcr1_rat_retire[num_fcr1_regs]  __attribute__((aligned (64)));
 
   int num_gpr_prf_ = -1;
   int num_cpr0_prf_ = -1;
   int num_cpr1_prf_ = -1;
   int num_fcr1_prf_ = -1;
   
-  int32_t arch_grf[num_gpr_regs] = {0};
-  uint32_t arch_grf_last_pc[num_gpr_regs] = {0};
+  int32_t arch_grf[num_gpr_regs]  __attribute__((aligned (64))) = {0};
+  uint32_t arch_grf_last_pc[num_gpr_regs]  __attribute__((aligned(64)))= {0};
 
-  uint32_t arch_cpr1[num_cpr1_regs] = {0};
-  uint32_t arch_cpr1_last_pc[num_cpr1_regs] = {0};
+  uint32_t arch_cpr1[num_cpr1_regs]  __attribute__((aligned (64))) = {0};
+  uint32_t arch_cpr1_last_pc[num_cpr1_regs]  __attribute__((aligned (64))) = {0};
 
-  uint32_t arch_fcr1[num_fcr1_regs] = {0};
-  uint32_t arch_fcr1_last_pc[num_fcr1_regs] = {0};
+  uint32_t arch_fcr1[num_fcr1_regs]  __attribute__((aligned (64))) = {0};
+  uint32_t arch_fcr1_last_pc[num_fcr1_regs]  __attribute__((aligned (64))) = {0};
   
   int32_t *gpr_prf = nullptr;
   uint32_t *cpr0_prf = nullptr;

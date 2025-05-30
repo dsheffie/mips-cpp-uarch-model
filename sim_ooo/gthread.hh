@@ -17,12 +17,7 @@ class gthread {
  public:
   typedef gthread* gthread_ptr;
 private:
-#ifdef __aarch64__
   static const int num_saved_regs = 13;
-#endif
-#ifdef __amd64__
-  static const int num_saved_regs = 7;
-#endif
   typedef void (*callback_t)(void*);
   static const size_t stack_sz = 1<<21;
   enum class thread_status {uninitialized,ready,run};

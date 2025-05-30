@@ -1734,11 +1734,15 @@ public:
     int b = 4;
     switch(st)
       {
-      case store_type::sdc1:
-	store_data[0] = *reinterpret_cast<uint64_t*>(&machine_state.cpr1_prf[m->src0_prf]);
-	store_data[1] = *reinterpret_cast<uint64_t*>(&machine_state.cpr1_prf[m->src2_prf]);
+      case store_type::sdc1: {
+	uint32_t *sd = reinterpret_cast<uint32_t*>(store_data);
+	sd[0] = machine_state.cpr1_prf[m->src0_prf];
+	sd[1] = machine_state.cpr1_prf[m->src0_prf+1];	
+	sd[2] = machine_state.cpr1_prf[m->src2_prf];
+	sd[3] = machine_state.cpr1_prf[m->src2_prf+1];	
 	b = 8;
 	break;
+      }
       case store_type::swc1:
 	store_data[0] = *reinterpret_cast<uint32_t*>(&machine_state.cpr1_prf[m->src0_prf]);
 	break;

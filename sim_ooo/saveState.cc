@@ -1,4 +1,3 @@
-#include <boost/dynamic_bitset.hpp>
 #include <iostream>
 #include <cstdint>
 #include <cassert>

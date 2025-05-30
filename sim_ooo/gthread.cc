@@ -3,6 +3,7 @@
 #include "gthread.hh"
 
 extern "C" {
+  uint64_t saved_sp;
   void start_gthread_asm(uint8_t*,void*,void*);
   void stop_gthread_asm();
   void switch_gthread_asm(uint64_t*,uint64_t*);
@@ -20,10 +21,7 @@ void start_gthreads()  {
   assert(gthread::valid_head());
   curr_thread = gthread::head;
   curr_thread->status = gthread::thread_status::run;
-  uint8_t *nstack = curr_thread->stack_ptr;
-  gthread::callback_t fptr = curr_thread->fptr;
-  void *arg = curr_thread->arg;
-  start_gthread_asm(nstack,reinterpret_cast<void*>(fptr),arg);
+  start_gthread_asm(curr_thread->stack_ptr,reinterpret_cast<void*>(curr_thread->fptr),curr_thread->arg);
 }
 
 void gthread_yield() {

@@ -241,7 +241,9 @@ bool directMappedCache::access(uint32_t addr, uint32_t num_bytes, opType o, uint
 }
 
 void directMappedCache::flush() {
-  valid.reset();
+  for(size_t i = 0, l = valid.size(); i < l; i++) {
+    valid.at(i) = false;
+  }
   if(next_level) {
     next_level->flush();
   }

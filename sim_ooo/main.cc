@@ -16,8 +16,8 @@
 #include <string>
 #include <cstring>
 #include <cassert>
-#include <boost/program_options.hpp>
 
+#include "cxxopts.hpp"
 
 #include "sim_cache.hh"
 #include "loadelf.hh"
@@ -87,7 +87,6 @@ void run_ooo_core(sim_state &machine_state);
 void destroy_ooo_core(sim_state &machine_state);
 
 int main(int argc, char *argv[]) {
-  namespace po = boost::program_options;
   
   std::cerr << KGRN
 	    << "MIPS UARCH SIM: built "
@@ -104,14 +103,36 @@ int main(int argc, char *argv[]) {
   bool clear_checkpoint_icnt = false;
   bool warmstart = true;
   int uarch_scale = 1;
-  po::options_description desc("Options");
-  po::variables_map vm;
+
+  cxxopts::Options opts("interp_rv64", "rv64 instruction set simulator");
+
+  opts.add_options()
+    ("f,file", "filename", cxxopts::value<std::string>()) 
+    ("a,args", "arguments", cxxopts::value<std::string>())
+    ;
+
+  auto results = opts.parse(argc, argv);
+  if(results.count("args")) {
+    sysArgs = results["args"].as<std::string>();
+  }
   
+  if(results.count("file")) {
+    filename = results["file"].as<std::string>();
+  }
+  else {
+    std::cout << "no input\n";
+    return -1;
+  }
+
+#define SIM_PARAM(A,B,C,D) sim_param::A = B;
+    SIM_PARAM_LIST;
+#undef SIM_PARAM
+    global::use_interp_check = false;
+  
+#if 0
   desc.add_options() 
     ("help", "Print help messages")
-    ("args,a", po::value<std::string>(&sysArgs), "arguments to mips binary")
     ("clock,c", po::value<bool>(&global::enClockFuncts)->default_value(false), "enable wall-clock")
-    ("file,f", po::value<std::string>(&filename), "mips binary")
     ("hash,h", po::value<bool>(&hash)->default_value(false), "take crc32 at end of execution")
     ("skipicnt,k", po::value<uint64_t>(&skipicnt)->default_value(0), "instruction skip count")
     ("maxicnt,m", po::value<uint64_t>(&maxicnt)->default_value(~0UL), "maximum instruction count")
@@ -133,20 +154,7 @@ int main(int argc, char *argv[]) {
     SIM_PARAM_LIST;
 #undef SIM_PARAM
   ; 
-  
-  try {
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm); 
-  }
-  catch(po::error &e) {
-    std::cerr << KRED << "command-line error : " << e.what() << KNRM << "\n";
-    return -1;
-  }
-
-  if(vm.count("help")) {
-    std::cout << desc << "\n";
-    return 0;
-  }
+#endif
   
   if(filename.size()==0) {
     std::cerr << "UARCH SIM : no file\n";
