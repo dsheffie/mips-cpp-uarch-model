@@ -38,7 +38,7 @@ char **global::sysArgv = nullptr;
 int global::sysArgc = 0;
 bool global::enClockFuncts = false;
 std::ostream *global::sim_log = &(std::cout);
-bool global::use_interp_check = true;
+
 uint64_t global::curr_cycle = 0;
 uint64_t global::pipestart = 0;
 uint64_t global::pipeend = 0;
@@ -69,10 +69,10 @@ static void catchUnixSignal(int sig) {
 
 }
 
-/* linkage */
-#define SIM_PARAM(A,B,C,D) int sim_param::A = C;
-SIM_PARAM_LIST;
-#undef SIM_PARAM
+// /* linkage */
+// #define SIM_PARAM(A,B,C,D) int sim_param::A = C;
+// SIM_PARAM_LIST;
+// #undef SIM_PARAM
 
 int buildArgcArgv(const char *filename, const char *sysArgs, char ***argv);
 
@@ -109,13 +109,16 @@ int main(int argc, char *argv[]) {
   opts.add_options()
     ("f,file", "filename", cxxopts::value<std::string>()) 
     ("a,args", "arguments", cxxopts::value<std::string>())
+    ("m,maxicnt", "max icnt", cxxopts::value<uint64_t>())
     ;
 
   auto results = opts.parse(argc, argv);
   if(results.count("args")) {
     sysArgs = results["args"].as<std::string>();
   }
-  
+  if(results.count("maxicnt")) {
+    maxicnt = results["maxicnt"].as<uint64_t>();
+  }
   if(results.count("file")) {
     filename = results["file"].as<std::string>();
   }
@@ -124,10 +127,10 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-#define SIM_PARAM(A,B,C,D) sim_param::A = B;
-    SIM_PARAM_LIST;
-#undef SIM_PARAM
-    global::use_interp_check = false;
+  //#define SIM_PARAM(A,B,C,D) sim_param::A = B;
+  //    SIM_PARAM_LIST;
+  //#undef SIM_PARAM
+ 
   
 #if 0
   desc.add_options() 
@@ -161,44 +164,6 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
-#define SIM_PARAM(A,B,C,D) if(sim_param::A < C) {	\
-    std::cout << #A << " has out of range value "	\
-	      << sim_param::A				\
-	      <<" -> reset to default value "		\
-	      << B << "\n";				\
-    sim_param::A = B;					\
-  }
-  SIM_PARAM_LIST;
-#undef SIM_PARAM
-
-#define SIM_PARAM(A,B,C,D) if(D and not(isPow2(sim_param::A))) {	\
-    std::cerr << KRED << #A << " must be a power of 2" << KNRM <<"\n";	\
-    return -1;								\
-  }
-  SIM_PARAM_LIST;
-#undef SIM_PARAM
-
-  sim_param::rob_size *= uarch_scale;
-  sim_param::fetchq_size *= uarch_scale;
-  sim_param::decodeq_size *= uarch_scale;
-  sim_param::fetch_bw *= uarch_scale;
-  sim_param::decode_bw *= uarch_scale;
-  sim_param::alloc_bw *= uarch_scale;
-  sim_param::retire_bw *= uarch_scale;
-  
-  sim_param::num_gpr_prf *= uarch_scale;
-  sim_param::num_cpr0_prf *= uarch_scale;
-  sim_param::num_cpr1_prf *= uarch_scale;
-  sim_param::num_fcr1_prf *= uarch_scale;
-  sim_param::num_fpu_ports *= uarch_scale;
-  sim_param::num_alu_ports *= uarch_scale;
-  sim_param::num_load_ports *= uarch_scale;
-  sim_param::num_store_ports *= uarch_scale;
-  sim_param::num_alu_sched_entries *= uarch_scale;
-  sim_param::num_fpu_sched_entries *= uarch_scale;
-  sim_param::num_jmp_sched_entries *= uarch_scale;
-  sim_param::num_load_sched_entries *= uarch_scale;
-  sim_param::num_store_sched_entries *= uarch_scale;
 
   /* Build argc and argv */
   global::sysArgc = buildArgcArgv(filename.c_str(),sysArgs.c_str(),&global::sysArgv);

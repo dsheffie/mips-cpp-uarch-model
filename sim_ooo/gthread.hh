@@ -11,15 +11,14 @@ void gthread_yield();
 void gthread_terminate();
 
 
-
-
 class gthread {
  public:
   typedef gthread* gthread_ptr;
-private:
   static const int num_saved_regs = 13;
   typedef void (*callback_t)(void*);
-  static const size_t stack_sz = 1<<21;
+
+  static const size_t stack_sz = 1<<12;
+  
   enum class thread_status {uninitialized,ready,run};
   static gthread_ptr head;
   static std::list<gthread_ptr> threads;
@@ -29,10 +28,10 @@ private:
   void *arg = nullptr;
   uint8_t *stack_ptr = nullptr;
   thread_status status = thread_status::uninitialized;
-  gthread_ptr next = nullptr;
-  gthread_ptr prev = nullptr;
+  gthread_ptr next = nullptr, prev = nullptr;
   uint64_t state[num_saved_regs] = {0};
-  uint8_t stack_alloc[stack_sz] __attribute__((aligned(16))) = {0};
+  uint8_t stack_alloc[stack_sz] /*__attribute__((aligned(16))) */ = {0};
+  
   int64_t get_id() const {
     return id;
   }
@@ -72,11 +71,12 @@ private:
   gthread(callback_t fptr, void *arg) : id(uuidcnt++), fptr(fptr),
 					arg(arg), stack_ptr(stack_alloc + stack_sz - 16) {}
 public:
-  static void make_gthread(callback_t fptr, void *arg) {
+  static gthread* make_gthread(callback_t fptr, void *arg) {
     /* delegate ctor to helper class */
     auto t = new gthread(fptr, arg);
     gthread::threads.push_back(t);
     t->insert_into_list();
+    return t;
   }
   static void free_threads() {
     for(gthread_ptr thr : gthread::threads) {

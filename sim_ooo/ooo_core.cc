@@ -348,7 +348,7 @@ void retire(sim_state &machine_state) {
 	}
       }
 
-      if(global::use_interp_check and (s->pc == u->pc)) {
+      if(false and (s->pc == u->pc)) {
 	assert(not(exception));
 	bool error = false;
 	for(int i = 0; i < 32; i++) {
@@ -494,7 +494,7 @@ void retire(sim_state &machine_state) {
 	    insn_lifetime_map[lifetime_cycles]++;
 	    //std::cout << std::hex << uu->pc << ":" << std::hex
 	    //<< getAsmString(uu->inst, uu->pc) << "\n";
-	    if(global::use_interp_check and (s->pc == u->pc)) {
+	    if(false and (s->pc == u->pc)) {
 	      s->call_site = __LINE__;
 	      execMips(s);
 	    }
@@ -516,7 +516,7 @@ void retire(sim_state &machine_state) {
 	  insn_lifetime_map[lifetime_cycles]++;
 	  machine_state.last_retire_cycle = get_curr_cycle();
 	  machine_state.last_retire_pc = u->pc;
-	  if(global::use_interp_check and (s->pc == u->pc)) {
+	  if(false and (s->pc == u->pc)) {
 	    s->call_site = __LINE__;
 	    execMips(s);
 	  }
@@ -1310,14 +1310,25 @@ void sim_state::initialize() {
 
 
 void run_ooo_core(sim_state &machine_state) {
-  gthread::make_gthread(&retire, reinterpret_cast<void*>(&machine_state));
-  gthread::make_gthread(&complete,reinterpret_cast<void*>(&machine_state));
-  gthread::make_gthread(&execute, reinterpret_cast<void*>(&machine_state));
-  gthread::make_gthread(&allocate, reinterpret_cast<void*>(&machine_state));
-  gthread::make_gthread(&decode, reinterpret_cast<void*>(&machine_state));
-  gthread::make_gthread(&fetch, reinterpret_cast<void*>(&machine_state));
-  gthread::make_gthread(&cache, reinterpret_cast<void*>(&machine_state));
-  gthread::make_gthread(&cycle_count, reinterpret_cast<void*>(&machine_state));
+  auto t0 = gthread::make_gthread(&retire, reinterpret_cast<void*>(&machine_state));
+  auto t1 = gthread::make_gthread(&complete,reinterpret_cast<void*>(&machine_state));
+  auto t2 = gthread::make_gthread(&execute, reinterpret_cast<void*>(&machine_state));
+  auto t3 = gthread::make_gthread(&allocate, reinterpret_cast<void*>(&machine_state));
+  auto t4 = gthread::make_gthread(&decode, reinterpret_cast<void*>(&machine_state));
+  auto t5 = gthread::make_gthread(&fetch, reinterpret_cast<void*>(&machine_state));
+  auto t6 = gthread::make_gthread(&cache, reinterpret_cast<void*>(&machine_state));
+  auto t7 = gthread::make_gthread(&cycle_count, reinterpret_cast<void*>(&machine_state));
+
+  printf("sizeof(gthread) = %zu\n", sizeof(gthread));
+  printf("stack_alloc = %p\n", reinterpret_cast<uintptr_t>(t0->stack_alloc) & ((1<<16)-1));
+  printf("stack_alloc = %p\n", reinterpret_cast<uintptr_t>(t1->stack_alloc) & ((1<<16)-1));
+  printf("stack_alloc = %p\n", reinterpret_cast<uintptr_t>(t2->stack_alloc) & ((1<<16)-1));
+  printf("stack_alloc = %p\n", reinterpret_cast<uintptr_t>(t3->stack_alloc) & ((1<<16)-1));
+  printf("stack_alloc = %p\n", reinterpret_cast<uintptr_t>(t4->stack_alloc) & ((1<<16)-1));
+  printf("stack_alloc = %p\n", reinterpret_cast<uintptr_t>(t5->stack_alloc) & ((1<<16)-1));
+  printf("stack_alloc = %p\n", reinterpret_cast<uintptr_t>(t6->stack_alloc) & ((1<<16)-1));
+  printf("stack_alloc = %p\n", reinterpret_cast<uintptr_t>(t7->stack_alloc) & ((1<<16)-1));  
+  
   double now = timestamp();
   start_gthreads();
   now = timestamp() - now;

@@ -9,7 +9,6 @@ namespace global {
   extern int sysArgc;
   extern char **sysArgv;
   extern std::ostream *sim_log;
-  extern bool use_interp_check;
   extern uint64_t curr_cycle;
   extern uint64_t pipestart;
   extern uint64_t pipeend;

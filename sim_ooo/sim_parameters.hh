@@ -60,7 +60,7 @@
 
 
 namespace sim_param {
-#define SIM_PARAM(A,B,C,D) extern int A;
+#define SIM_PARAM(A,B,C,D) static const int A = B;
   SIM_PARAM_LIST;
 #undef SIM_PARAM
 }

@@ -3739,7 +3739,7 @@ public:
       {
 	/* int open(char *path, int flags) */
       case 6: {
-	if(not(global::use_interp_check)) {
+	if(not(false)) {
 	  char *path = get_open_string(mem, src_regs[0]);
 	  int32_t flags = remapIOFlags(src_regs[1]);
 	  machine_state.gpr_prf[m->prf_idx] = open(path, flags, S_IRUSR|S_IWUSR);
@@ -3753,7 +3753,7 @@ public:
       }
 	/* int read(int file,char *ptr,int len) */
       case 7: { 
-	if(not(global::use_interp_check)) {
+	if(not(false)) {
 	  machine_state.gpr_prf[m->prf_idx] = per_page_rdwr<false>(mem, src_regs[0], src_regs[1],
 								   src_regs[2]);
 	}
@@ -3764,7 +3764,7 @@ public:
       }
 	/* int write(int file, char *ptr, int len) */
       case 8: {
-	if(not(global::use_interp_check)) {
+	if(not(false)) {
 	  machine_state.gpr_prf[m->prf_idx] = per_page_rdwr<true>(mem, src_regs[0], src_regs[1],
 								  src_regs[2]);
 	}
@@ -3780,7 +3780,7 @@ public:
 	break;
       }
       case 9:
-	if(not(global::use_interp_check)) {
+	if(not(false)) {
 	  machine_state.gpr_prf[m->prf_idx] = lseek(src_regs[0], src_regs[1], src_regs[2]);
 	}
 	else {
@@ -3788,7 +3788,7 @@ public:
 	}
 	break;
       case 10: /* close */
-	if(not(global::use_interp_check)) {
+	if(not(false)) {
 	  if(src_regs[0] > 2) {
 	    machine_state.gpr_prf[m->prf_idx] = close(src_regs[0]);
 	  }
